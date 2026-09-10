@@ -329,5 +329,117 @@ Ranked. The first is first because it is the thing most likely to eat a night.
 `web_search` is the lowest priority in this domain: the Resource Finder that uses
 it is first on the project's cut list. Do it after the seed.
 
+
 ---
-WAITING ON: CONNECTORS — read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn
+
+## CTO - brief addendum · 2026-09-10T10:14Z
+**verdict:** brief amended before you start - the Phase 0 research landed and corrected several things
+**phase:** not yet started
+
+Fifteen research agents finished after your brief was written, with adversarial
+verification on the highest-risk areas. Everything marked *provisional* in your
+brief is now settled, and some of it went the other way. **These amendments
+outrank the brief above.**
+
+**Pinned, verified at source (`models/bedrock.py:44-46`) - these are the SDK's
+own defaults, so a missed env var degrades to correct rather than split-brain:**
+
+| Setting | Value |
+|---|---|
+| AWS region | `us-west-2` |
+| Bedrock model | `global.anthropic.claude-sonnet-4-6` |
+| Cheap-step model | `global.anthropic.claude-haiku-4-5` |
+
+The `global.` prefix is not optional. Sonnet 4.6 has **no in-region endpoint
+outside eu-west-2**, so a bare `anthropic.claude-sonnet-4-6` fails with
+`ValidationException ... on-demand throughput isn't supported`. This is the
+highest-probability day-1 blocker in the build.
+
+**`invocation_state` must be namespaced under `["second"]`.** Not hygiene - the
+SDK writes reserved keys (`agent`, `messages`, `system_prompt`, `tool_config`,
+`request_state`, `event_loop_cycle_*`) straight onto the caller's own dict
+mid-run. `phase0_proof.py` claim 4b now asserts this against the live SDK.
+
+**No `SessionManager` is attached to any graph.** Verified by execution: a graph
+session manager leaves the `agents/` directory empty, node agents restore with
+zero messages, and `deserialize_state` resets every node on completion. It is
+crash-resume, not memory. The Living Graph is PLATFORM's own DynamoDB layer.
+
+### What changes for you - including two places my brief was wrong
+
+1. **Tools must RAISE, never return a hand-built error dict.** My brief did not
+   say this and it matters in your domain more than anywhere. The `@tool`
+   decorator already catches every exception, formats the error result, and
+   attaches the original exception to `AfterToolCallEvent.exception`. A returned
+   error dict passes straight through (`decorator.py:689-692`) and leaves
+   `event.exception` as `None` - **stripping the audit record of its stack
+   context.** The audit trail is the demo's evidence; do not degrade it.
+
+2. **I was wrong about staying in Testing mode. Reverse it.** A refresh token
+   minted while publishing status is `Testing` **expires in 7 days, and the fuse
+   is baked in at issuance** - publishing afterwards does not defuse a token
+   already minted. A build judged a week after submission dies with a
+   `400 invalid_grant` that looks like a code bug.
+   **Publish the app BEFORE the first `authorize.py` run.** 60 seconds, no
+   verification needed, works to 100 users. Never submit for Google verification
+   - both Gmail scopes are Restricted and that is a CASA assessment taking weeks.
+   The owner has this on their list; **assert in `authorize.py` that
+   `refresh_token` is present in the written token**, and use
+   `access_type="offline"` *and* `prompt="consent"` - without both you get an
+   access token only and the file is worthless.
+
+3. **The seeding conflict has a better answer than my hand-seed default. Use it.**
+   Two separate Desktop OAuth clients:
+   - **runtime**: `calendar`, `gmail.readonly`, `gmail.compose` - exactly the
+     spec's scopes, shipped.
+   - **seeder**: `gmail.insert`, `calendar.events` - run once locally, **never
+     shipped**.
+
+   `users.messages.insert` accepts only `mail.google.com`, `gmail.modify` or
+   `gmail.insert`, so the runtime scopes genuinely cannot seed. Splitting costs
+   nothing and it **proves the agent cannot fabricate its own evidence** - which
+   is a better story than the hand-seed was.
+
+4. **Seeding gotchas, each of which would cost you an hour:**
+   - The **"dragged across four days" task must be FOUR separate events**, three
+     with `status='cancelled'`, read back with `showDeleted=true`. A Calendar
+     event has no move history, so patching one event four times leaves one
+     artefact and the whole story is invisible to the Observer.
+   - Event ids must be **lowercase base32hex (a-v, 0-9), >=5 chars**.
+     `seed-gym-01` is rejected; `seedgym001` works. Deterministic ids make the
+     seeder idempotent.
+   - **Always pass `sendUpdates='none'`** or you email real people 21 days of
+     fake invites from the demo account.
+   - Backdated mail needs **`internalDateSource='dateHeader'`**; omit it and
+     Gmail stamps today's date in front of the judge.
+   - Build the RFC822 message with **`email.policy.SMTP`** (the default policy
+     emits bare LF) and `email.utils.format_datetime`.
+   - Prefer `insert` over `import` - import runs spam classification and can
+     shunt a fabricated insurer email into SPAM.
+   - Tag everything `extendedProperties.private.secondSeed='v1'` so seed data can
+     be found and wiped.
+   - **Smoke-test ONE event and ONE message before running the full seeder.**
+
+5. **Voice: Transcribe BATCH, and this is not a latency judgement.** botocore
+   ships no `transcribestreaming` service model (`UnknownServiceError`) and
+   `amazon-transcribe` is not installed, so streaming would mean hand-rolled
+   SigV4 WebSocket frames. `webm` **is** in the batch `MediaFormat` enum.
+   $0.006/min, free under 60 min/month.
+
+   **Sign the presigned PUT with a bare `audio/webm` content type.** MediaRecorder
+   sends `audio/webm;codecs=opus`; the mismatch produces an opaque
+   `SignatureDoesNotMatch` 403 that looks exactly like a CORS problem and will
+   eat your evening. Note botocore does **not** validate `MediaFormat`
+   client-side, so a bad format only surfaces server-side - read `FailureReason`
+   on a failed job.
+
+6. **The live transcript is not yours.** SURFACES paints it with the Chrome Web
+   Speech API - free, instant, no AWS. Your Transcribe result swaps in when the
+   job lands. You own accuracy; they own perceived latency.
+
+7. **The installed AWS CLI is 2.7.24 and too old** for `bedrock-agentcore`
+   subcommands (needs >= 2.27.42). Drive AWS from boto3 (1.43.91, already has
+   both agentcore clients) rather than shelling out.
+
+---
+WAITING ON: CONNECTORS - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn

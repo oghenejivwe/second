@@ -288,5 +288,75 @@ Ranked. The first is first because it unblocks you from everyone else.
 Resource Finder, voice input, Living Graph visualisation. Note that the Living
 Graph visualisation is on it — build it early and well so it never gets there.
 
+
 ---
-WAITING ON: SURFACES — read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn
+
+## CTO - brief addendum · 2026-09-10T10:14Z
+**verdict:** brief amended before you start - the Phase 0 research landed and corrected several things
+**phase:** not yet started
+
+Fifteen research agents finished after your brief was written, with adversarial
+verification on the highest-risk areas. Everything marked *provisional* in your
+brief is now settled, and some of it went the other way. **These amendments
+outrank the brief above.**
+
+**Pinned, verified at source (`models/bedrock.py:44-46`) - these are the SDK's
+own defaults, so a missed env var degrades to correct rather than split-brain:**
+
+| Setting | Value |
+|---|---|
+| AWS region | `us-west-2` |
+| Bedrock model | `global.anthropic.claude-sonnet-4-6` |
+| Cheap-step model | `global.anthropic.claude-haiku-4-5` |
+
+The `global.` prefix is not optional. Sonnet 4.6 has **no in-region endpoint
+outside eu-west-2**, so a bare `anthropic.claude-sonnet-4-6` fails with
+`ValidationException ... on-demand throughput isn't supported`. This is the
+highest-probability day-1 blocker in the build.
+
+**`invocation_state` must be namespaced under `["second"]`.** Not hygiene - the
+SDK writes reserved keys (`agent`, `messages`, `system_prompt`, `tool_config`,
+`request_state`, `event_loop_cycle_*`) straight onto the caller's own dict
+mid-run. `phase0_proof.py` claim 4b now asserts this against the live SDK.
+
+**No `SessionManager` is attached to any graph.** Verified by execution: a graph
+session manager leaves the `agents/` directory empty, node agents restore with
+zero messages, and `deserialize_state` resets every node on completion. It is
+crash-resume, not memory. The Living Graph is PLATFORM's own DynamoDB layer.
+
+### What changes for you
+
+1. **The Record screen gets a genuinely live transcript, for free.** Use the
+   **Chrome Web Speech API** (`SpeechRecognition` / `webkitSpeechRecognition`,
+   verified present in Chromium 152) to paint words as they are spoken - no
+   polling, no AWS, no latency. Amazon Transcribe still runs in the background on
+   the uploaded audio and its accurate result swaps in when the job lands.
+   **The user perceives zero latency and the graph gets the accurate transcript.**
+   This is a better Record screen than the brief described; build to it.
+
+2. **Audio reaches S3 by presigned PUT from the browser.** CONNECTORS mints the
+   URL. **Send `Content-Type: audio/webm` exactly** - bare, no `;codecs=opus`,
+   even though that is what `MediaRecorder.mimeType` reports. The signature
+   covers the content type, and a mismatch gives an opaque 403 that reads like a
+   CORS failure. If you see a 403 on upload, check this before anything else.
+
+3. **`fastapi` is not installed yet.** `uvicorn` 0.52.4 is present, FastAPI is
+   not. I am adding `fastapi==0.141.1` to the project - run `uv sync` in your
+   worktree once I have landed it.
+
+4. **`/api/audit` matters more than the brief implied.** The audit trail is now
+   the demo's primary evidence that the system is doing what it claims, and a
+   judge will be pointed at it. Give it a real, legible screen or panel -
+   chronological, showing node spans and tool writes, with failures marked. It
+   does not need to be beautiful; it needs to be readable at a glance on a
+   recording.
+
+5. Region and model are pinned to `us-west-2` and
+   `global.anthropic.claude-sonnet-4-6` if you surface either in config or a
+   status line.
+
+Nothing else in your brief changed. The nine routes, the four screens, the
+`TodayCard | null` contract and the TypeScript 5.9.3 pin all stand.
+
+---
+WAITING ON: SURFACES - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn

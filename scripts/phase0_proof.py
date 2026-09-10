@@ -20,7 +20,10 @@ Five claims are proved, each of which the build depends on:
      field, not a prompt hoping for the best.
   4. ``invocation_state`` is one dict shared by every node and every tool for the
      whole graph run, mutable from inside a tool. That is where the Living Graph
-     lives during a run.
+     lives during a run. Everything Second puts there is namespaced under the
+     ``"second"`` key, because the SDK overwrites reserved names (``agent``,
+     ``model``, ``messages``, ``system_prompt``, ``tool_config``,
+     ``request_state``, ``event_loop_cycle_*``) on the caller's own dict mid-run.
   5. One hook provider instance, registered on the graph AND on each node agent,
      covers every write the system makes. Graph-level registration alone is not
      enough -- a graph's registry only fires multi-agent events, never tool
@@ -103,6 +106,19 @@ def _diagnosis_from(state: GraphState) -> Diagnosis | None:
 # --------------------------------------------------------------------------
 
 
+NAMESPACE = "second"
+
+
+def _run_scope(invocation_state: dict[str, Any]) -> dict[str, Any]:
+    """Second's own corner of the run-wide shared dict.
+
+    The SDK writes reserved keys straight onto ``invocation_state`` during a run,
+    including the caller's original dict. Namespacing is required to avoid a
+    collision, not tidiness.
+    """
+    return invocation_state.setdefault(NAMESPACE, {})
+
+
 @tool(context=True)
 def record_evidence(kind: str, detail: str, tool_context: ToolContext) -> str:
     """Attach a piece of observed evidence to the current run.
@@ -114,7 +130,7 @@ def record_evidence(kind: str, detail: str, tool_context: ToolContext) -> str:
     Returns:
         A confirmation naming how many pieces of evidence the run now holds.
     """
-    ledger = tool_context.invocation_state.setdefault("evidence", [])
+    ledger = _run_scope(tool_context.invocation_state).setdefault("evidence", [])
     ledger.append({"kind": kind, "detail": detail})
     return f"recorded {kind} evidence ({len(ledger)} total this run)"
 
@@ -126,7 +142,7 @@ def read_evidence(tool_context: ToolContext) -> list[dict[str, str]]:
     Returns:
         The evidence ledger, oldest first.
     """
-    return list(tool_context.invocation_state.get("evidence", []))
+    return list(_run_scope(tool_context.invocation_state).get("evidence", []))
 
 
 # --------------------------------------------------------------------------
@@ -263,7 +279,7 @@ def run_scenario(label: str, payload: dict[str, Any], expected_node: str, forbid
     """Run one scenario and return the list of failed assertion messages."""
     audit = AuditLog()
     graph = build_daily_graph(payload, audit)
-    shared: dict[str, Any] = {"user_id": USER_ID}
+    shared: dict[str, Any] = {NAMESPACE: {"user_id": USER_ID}}
 
     result = graph(
         "Yesterday's plan versus what actually happened.",
@@ -310,9 +326,16 @@ def run_scenario(label: str, payload: dict[str, Any], expected_node: str, forbid
     )
 
     check(
-        len(shared.get("evidence", [])) == 1,
+        len(shared[NAMESPACE].get("evidence", [])) == 1,
         "4. invocation_state was shared and mutated across nodes",
-        f"evidence ledger written by observer, read by diagnostician: {shared.get('evidence')}",
+        f"written by observer, read by diagnostician: {shared[NAMESPACE].get('evidence')}",
+    )
+
+    stomped = sorted(k for k in shared if k != NAMESPACE)
+    check(
+        bool(stomped),
+        "4b. the SDK writes reserved keys onto the caller's own dict",
+        f"namespacing is required, not hygiene. SDK added: {stomped[:6]}",
     )
 
     tools_seen = [e["tool"] for e in audit.entries if e["kind"] == "tool"]

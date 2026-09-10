@@ -370,5 +370,90 @@ Ranked. The first is first because everything else is downstream of it.
 The Resource Finder is last **because it is first on the cut list** if the
 schedule tightens. Do not start it before the other nine are tested.
 
+
 ---
-WAITING ON: AGENTS — read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn
+
+## CTO - brief addendum · 2026-09-10T10:14Z
+**verdict:** brief amended before you start - the Phase 0 research landed and corrected several things
+**phase:** not yet started
+
+Fifteen research agents finished after your brief was written, with adversarial
+verification on the highest-risk areas. Everything marked *provisional* in your
+brief is now settled, and some of it went the other way. **These amendments
+outrank the brief above.**
+
+**Pinned, verified at source (`models/bedrock.py:44-46`) - these are the SDK's
+own defaults, so a missed env var degrades to correct rather than split-brain:**
+
+| Setting | Value |
+|---|---|
+| AWS region | `us-west-2` |
+| Bedrock model | `global.anthropic.claude-sonnet-4-6` |
+| Cheap-step model | `global.anthropic.claude-haiku-4-5` |
+
+The `global.` prefix is not optional. Sonnet 4.6 has **no in-region endpoint
+outside eu-west-2**, so a bare `anthropic.claude-sonnet-4-6` fails with
+`ValidationException ... on-demand throughput isn't supported`. This is the
+highest-probability day-1 blocker in the build.
+
+**`invocation_state` must be namespaced under `["second"]`.** Not hygiene - the
+SDK writes reserved keys (`agent`, `messages`, `system_prompt`, `tool_config`,
+`request_state`, `event_loop_cycle_*`) straight onto the caller's own dict
+mid-run. `phase0_proof.py` claim 4b now asserts this against the live SDK.
+
+**No `SessionManager` is attached to any graph.** Verified by execution: a graph
+session manager leaves the `agents/` directory empty, node agents restore with
+zero messages, and `deserialize_state` resets every node on completion. It is
+crash-resume, not memory. The Living Graph is PLATFORM's own DynamoDB layer.
+
+### What changes for you
+
+1. **A node with `structured_output_model` sends ONLY the JSON downstream.** The
+   structured-output branch in `AgentResult.__str__` returns *before* the text
+   loop, so any prose the model also produced is **silently dropped** from the
+   dependent node's prompt. **Every field a downstream node needs must be a typed
+   field.** `models.py` already gets this right - `Diagnosis.evidence`,
+   `ScheduleDecision.rationale` and `Deprioritised.reason` are typed rather than
+   assumed prose. Keep it that way, and if you find yourself wanting a node to
+   "also explain", add a field.
+
+2. **A structured-output run ends with `stop_reason == "tool_use"`, never
+   `"end_turn"`.** The loop short-circuits the moment the schema tool validates.
+   **Never write a condition on `stop_reason`** - it will not fire.
+
+3. **`structured_output` can be `None` with no exception raised.**
+   `limit_turns`, `limit_total_tokens` and `cancelled` all exit that way.
+   **Null-check every time.** Route on `result.structured_output is not None`
+   first, then on the typed fields.
+
+4. **Structured output is a tool with `toolChoice: auto`, not JSON mode.** The
+   model can ignore it. The SDK notices only after the turn ends, appends a
+   nagging user message, and re-asks once with `toolChoice {"any": {}}` - and
+   **that second ask strips all your other tools and extended thinking.** Exactly
+   one force attempt, then `StructuredOutputException`. Two consequences:
+   override the bland default `structured_output_prompt` on agents that matter,
+   and design so the first ask usually succeeds.
+
+5. **Pydantic validation failures are fed back as error tool results with no
+   attempt cap.** An unbounded validation loop is a real way to burn the credit.
+   The only hard backstop is `limits`, which is a **call-time argument**:
+   `agent.invoke_async(..., limits={"turns": 8, "total_tokens": 120000})`.
+   `Agent(limits=...)` is a `TypeError` - verified.
+
+6. **Edge conditions are independent OR-gates, not a switch.** Two sibling edges
+   that are both true both fire and both nodes run. Each condition is evaluated
+   **at least twice** per traversal. I own the edges, but you set the fields they
+   read: make `requires_user_decision`, `confidence` and `blocker_type` mean
+   exactly what they say, because there is no tie-breaker downstream.
+
+7. **`strands.interventions` and the vended `HumanInTheLoop` exist in 1.55.1** -
+   the spec did not know. I am evaluating them as a *second* gate at tool level,
+   orthogonal to your conditional-edge routing. **Do not adopt them yourself**;
+   if you think an agent needs one, say so in your turn.
+
+Route cheap classification steps to Haiku if the token bill bites; keep Sonnet
+for planning and diagnosis. `ScriptedModel` remains the default dev path and
+that is now a budget decision, not just a speed one.
+
+---
+WAITING ON: AGENTS - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn
