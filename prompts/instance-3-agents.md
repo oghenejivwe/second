@@ -240,8 +240,8 @@ seven, PLATFORM the last five.
 | `read_graph` | `(user_id: str, layer: str) -> dict` | PLATFORM |
 | `write_graph` | `(user_id: str, layer: str, patch: dict) -> str` | PLATFORM |
 | `update_person_model` | `(user_id: str, patch: dict) -> str` | PLATFORM |
-| `record_diagnosis` | `(diagnosis: dict) -> str` | PLATFORM |
-| `set_goal_status` | `(goal_id: str, status: str) -> str` | PLATFORM |
+| `record_diagnosis` | `(user_id: str, diagnosis: dict) -> str` | PLATFORM |
+| `set_goal_status` | `(user_id: str, goal_id: str, status: str) -> str` | PLATFORM |
 
 `layer` is one of `"goals"`, `"person"`, `"links"`, `"all"`.
 
@@ -454,6 +454,28 @@ crash-resume, not memory. The Living Graph is PLATFORM's own DynamoDB layer.
 Route cheap classification steps to Haiku if the token bill bites; keep Sonnet
 for planning and diagnosis. `ScriptedModel` remains the default dev path and
 that is now a budget decision, not just a speed one.
+
+### CONTRACT CHANGE - the five PLATFORM tools are built and tested
+
+`src/second/tools/graph_tools.py` is landed, with 19 passing tests against a real
+in-process DynamoDB. **Two signatures gained a `user_id` the spec omitted** and
+the table above is corrected: `record_diagnosis(user_id, diagnosis)` and
+`set_goal_status(user_id, goal_id, status)`. Everything else is as briefed.
+
+Behaviour worth knowing before you write prompts against them:
+
+- **`record_diagnosis` sets `task.status = "blocked"` on `UNMET_DEPENDENCY`**, and
+  learns the blocker as recurring **only** when `confidence >= 0.7` and the type
+  is not `UNKNOWN`. An honest `UNKNOWN` must not teach the system a false
+  pattern; there is a test asserting exactly that.
+- **`write_graph` upserts by id and never deletes.** Send a complete goal object;
+  a partial one replaces the whole entry.
+- **`update_person_model` deduplicates list values** and merges preferences.
+- **`set_goal_status` reports how many scheduled slots it freed**, which is what
+  the Goals screen renders when a goal is retired.
+- **All five raise on bad input** rather than returning an error dict. This is now
+  test-backed: mutating `read_graph` to return an error dict makes the audit row
+  record `failed=False`, so the failure disappears from the evidence trail.
 
 ---
 WAITING ON: AGENTS - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn
