@@ -26,7 +26,22 @@ diagnose, adapt, prepare, and stay quiet. Build for the destination. A beautiful
 intake flow attached to a system that cannot notice a slipped task is the wrong
 product.
 
-**The constraint that outranks everything — enforced in code, never by prompt:**
+**The constraint that outranks everything — enforced in code, and ONLY in code:**
+
+> **There is no scope-level layer. Verified 2026-09-10 in the discovery docs
+> shipped with `google-api-python-client` 2.200.0:** `gmail.compose` grants
+> `users.messages.send` *and* `users.drafts.send`; `drafts.create` has no narrower
+> scope. `calendar` grants `events.delete`, and even `calendar.events.owned`
+> grants delete, move and import.
+>
+> An earlier version of these briefs said the absence of a send scope was a second
+> layer. **That was false and it was mine.** CONNECTORS caught it by reading the
+> discovery documents. There is exactly one layer — a transport-level interlock
+> that denies `DELETE` and `*/send` beneath every tool — so it gets the attention
+> a single point of failure deserves.
+>
+> A system that claims two layers and has one is more dangerous than one that
+> claims one honestly.
 
 - **Never send an email.** Drafts only.
 - **Never delete a calendar event.**
