@@ -22,7 +22,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 TaskStatus = Literal["pending", "done", "blocked"]
 RouteStatus = Literal["proposed", "approved", "rejected", "dropped"]
@@ -355,16 +355,53 @@ class Diagnosis(BaseModel):
 
     ``requires_user_decision`` routes the Daily Graph. It is a typed field read by
     a conditional edge, not a prompt hoping for the best.
+
+    **``evidence`` is nullable, and that is load-bearing.** Strands produces
+    structured output by *forcing* a tool call: if the model declines, it is
+    re-asked with the choice forced, and on that pass it cannot refuse. A required
+    non-nullable ``evidence`` field would therefore compel the model to write
+    *something* in it even when nothing in the calendar or inbox supports a cause
+    -- which is how a real quote ends up attached to a conclusion it does not
+    support. The rule this model is meant to encode, *no evidence no diagnosis*,
+    is precisely the rule forced tool choice removes. So the schema has to give
+    the model somewhere honest to land.
     """
 
     task_id: str
     blocker_type: BlockerType
-    evidence: str = Field(description="Quote the calendar entry or the email. No evidence, no diagnosis.")
+    evidence: str | None = Field(
+        default=None,
+        description=(
+            "Quote the calendar entry or the email this rests on. "
+            "Leave null if nothing in the evidence supports a structural cause. "
+            "Never invent or paraphrase a quote to fill this field."
+        ),
+    )
     confidence: float = Field(ge=0.0, le=1.0)
     proposed_action: str
     requires_user_decision: bool = Field(
         description="True when Second genuinely cannot resolve this without the user."
     )
+
+    @model_validator(mode="after")
+    def _no_evidence_means_unknown(self) -> "Diagnosis":
+        """A diagnosis with no evidence is downgraded, not rejected.
+
+        Coerced rather than raised, deliberately. A ``ValidationError`` goes back
+        to the model as an error tool result with **no attempt cap**, and the
+        cheapest way for a model to escape that loop is to invent a quote. Raising
+        here would actively manufacture the failure it is trying to prevent.
+
+        So instead: no evidence, no claim. The blocker becomes ``UNKNOWN``,
+        confidence is capped low, and the conditional edge routes to the
+        Communicator, which asks the user honestly. That is the behaviour the
+        product promises, enforced by the type rather than by a prompt.
+        """
+        if not (self.evidence or "").strip():
+            self.blocker_type = "UNKNOWN"
+            self.confidence = min(self.confidence, 0.3)
+            self.requires_user_decision = True
+        return self
 
 
 class FeedbackUpdate(BaseModel):

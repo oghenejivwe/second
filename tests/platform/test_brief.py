@@ -261,3 +261,80 @@ def test_a_cycle_in_the_ladder_does_not_hang_the_day():
         ],
     )
     assert [goal.id for goal in graph.ladder("a")] == ["a", "b"]
+
+
+# -- no evidence, no diagnosis ----------------------------------------------
+
+
+def test_a_diagnosis_with_no_evidence_is_downgraded_to_unknown():
+    """The rule forced tool choice would otherwise remove.
+
+    Strands forces the tool call, so on the re-ask a model cannot decline. If
+    `evidence` were required and non-nullable it would have to write something --
+    and the cheapest something is an invented quote attached to a confident
+    conclusion. The schema gives it somewhere honest to land instead.
+    """
+    from second.core.models import Diagnosis
+
+    d = Diagnosis(
+        task_id="t-recording",
+        blocker_type="CALENDAR_CONFLICT",
+        evidence=None,
+        confidence=0.95,
+        proposed_action="Move it to the morning.",
+        requires_user_decision=False,
+    )
+
+    assert d.blocker_type == "UNKNOWN", "a claim with nothing behind it is not a claim"
+    assert d.confidence <= 0.3
+    assert d.requires_user_decision is True
+
+
+def test_whitespace_is_not_evidence():
+    from second.core.models import Diagnosis
+
+    d = Diagnosis(
+        task_id="t1", blocker_type="UNMET_DEPENDENCY", evidence="   ",
+        confidence=0.9, proposed_action="do the other one first",
+        requires_user_decision=False,
+    )
+    assert d.blocker_type == "UNKNOWN"
+
+
+def test_real_evidence_is_left_alone():
+    from second.core.models import Diagnosis
+
+    d = Diagnosis(
+        task_id="t-gym",
+        blocker_type="CALENDAR_CONFLICT",
+        evidence="18:00 gym declined 4 of 5 weekdays; each collided with 'Eng sync'.",
+        confidence=0.92,
+        proposed_action="Move the block to 07:00.",
+        requires_user_decision=False,
+    )
+    assert d.blocker_type == "CALENDAR_CONFLICT"
+    assert d.confidence == 0.92
+    assert d.requires_user_decision is False
+
+
+def test_an_evidenceless_diagnosis_routes_to_asking():
+    """End to end: the coercion reaches the conditional edge."""
+    from second.core.models import Diagnosis
+    from second.graphs.conditions import can_act_alone, needs_user_decision
+
+    class _State:
+        results = {}
+
+    d = Diagnosis(
+        task_id="t1", blocker_type="CALENDAR_CONFLICT", evidence=None,
+        confidence=0.99, proposed_action="x", requires_user_decision=False,
+    )
+
+    class _Node:
+        result = type("R", (), {"structured_output": d})()
+
+    state = _State()
+    state.results = {"diagnostician": _Node()}
+
+    assert needs_user_decision(state) is True
+    assert can_act_alone(state) is False
