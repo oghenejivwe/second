@@ -257,8 +257,9 @@ seven, PLATFORM the last five.
 | `diagnostician` | `read_graph`, `record_diagnosis` | **`Diagnosis`** |
 | `adapter` | `read_graph`, `reschedule_event`, `write_graph` | *(free text)* |
 | `preparer` | `read_graph`, `search_gmail`, `draft_email`, `web_search` | `PreparedAction` |
-| `communicator` | *(none)* | `TodayCard` |
-| `interpreter` | `read_graph`, `update_person_model`, `write_graph`, `set_goal_status` | `FeedbackResult` |
+| `communicator` | *(none)* | **`Communique`** |
+| `interpreter` | `read_graph` | `FeedbackResult` |
+| `graph_updater` | `write_graph`, `update_person_model`, `set_goal_status` | *(free text)* |
 
 Two deliberate choices in that table, both scored:
 
@@ -476,6 +477,59 @@ Behaviour worth knowing before you write prompts against them:
 - **All five raise on bad input** rather than returning an error dict. This is now
   test-backed: mutating `read_graph` to return an error dict makes the audit row
   record `failed=False`, so the failure disappears from the evidence trail.
+
+### CONTRACT CHANGE 2 - the three graphs are built. There are ELEVEN agents.
+
+`src/second/graphs/` is landed: `conditions.py`, `composition.py`, `intake.py`,
+`daily.py`, `feedback.py`, `service.py`. 30 tests green, every node a real
+`Agent` with real tools and real structured output against a scripted model.
+**The module contract works exactly as briefed** - `REQUIRED_TOOLS`,
+`OUTPUT_MODEL`, `build(deps)`. Write to it and your agents drop straight in.
+
+Three changes to the matrix above, all of them tightening isolation:
+
+1. **The Feedback graph is two nodes, so there is an eleventh agent:
+   `graph_updater`.** The Interpreter now has **no write tools** - it reads the
+   graph and emits typed `FeedbackUpdate` entries, and that is all. The Graph
+   Updater receives those already-validated updates and applies them, and never
+   sees the raw sentence. The node that interprets speech cannot write; the node
+   that writes cannot interpret. This is what the spec's
+   `INTERPRETER -> GRAPH_UPDATER` was for.
+
+2. **The Communicator's output model is `Communique`, not `TodayCard`.** New type
+   in `models.py`:
+
+   ```python
+   class Communique(BaseModel):
+       should_speak: bool
+       card: TodayCard | None = None
+       silence_reason: str = ""
+   ```
+
+   Silence is now a **typed decision** rather than an empty string. When
+   `should_speak` is false the user sees nothing and `silence_reason` goes to the
+   audit log - which turns "Second decided today was not worth interrupting you,
+   and here is why" into something demonstrable rather than an absence a judge
+   has to take on trust. **Design the Communicator to reach for silence.** There
+   is a test asserting `run_daily` returns `None` on that path.
+
+3. **`IntakeResult`** is added for the service layer. You do not emit it.
+
+Two things the graph now guarantees, so you do not have to defend against them:
+
+- **A node that exits with `structured_output=None` routes to asking, not to
+  acting.** A turn-limit or token-limit exit is silent, so `needs_user_decision`
+  treats a missing diagnosis as "we do not know". Mutation-tested: flipping that
+  default makes the Adapter and Preparer run on a diagnosis that was never made.
+- **The Intake graph stops after the Extractor** when confidence is below 0.7 or
+  there are clarifying questions. Nothing reaches a real calendar on a misheard
+  goal. So set `extraction_confidence` honestly - it is load-bearing, not
+  decorative.
+
+**What I need from your first turn:** the shape of `deps.context` for the
+Diagnostician. It receives the Observer's sanitised evidence bundle rather than
+tool access to Gmail and Calendar, and that bundle's shape is the contract
+between your two most important agents. Propose it and I will wire it.
 
 ---
 WAITING ON: AGENTS - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn

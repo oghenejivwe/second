@@ -304,6 +304,43 @@ class TodayCard(BaseModel):
     prepared: PreparedAction | None = None
 
 
+class IntakeResult(BaseModel):
+    """What one spoken brain dump produced.
+
+    ``clarifying_questions`` being non-empty means the Intake graph stopped after
+    the Extractor on purpose: it was not clear enough what the user wanted to
+    justify putting anything in their calendar. ``schedule`` is ``None`` in that
+    case, and the caller asks rather than shows a plan.
+    """
+
+    graph: LivingGraph
+    clarifying_questions: list[str] = Field(default_factory=list)
+    schedule: "ScheduleDecision | None" = Field(
+        default=None,
+        description="What the Scheduler placed and what it deprioritised, when it ran.",
+    )
+
+
+class Communique(BaseModel):
+    """The Communicator's decision about whether to say anything at all.
+
+    Silence is a feature, so it is a typed outcome rather than an empty string.
+    When ``should_speak`` is false the user sees nothing and ``silence_reason``
+    goes to the audit log -- which makes "Second decided today was not worth
+    interrupting you, and here is why" a thing you can actually show someone,
+    instead of an absence you have to take on trust.
+    """
+
+    should_speak: bool = Field(
+        description="True only when a decision is genuinely needed, or something was prepared."
+    )
+    card: TodayCard | None = Field(default=None, description="Set only when should_speak is true.")
+    silence_reason: str = Field(
+        default="",
+        description="Why nothing needed saying. Recorded for the audit, never shown to the user.",
+    )
+
+
 class AuditEntry(BaseModel):
     """One thing the system did. Written by the audit hook, never by an agent."""
 

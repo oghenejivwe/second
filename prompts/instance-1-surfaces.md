@@ -358,5 +358,28 @@ crash-resume, not memory. The Living Graph is PLATFORM's own DynamoDB layer.
 Nothing else in your brief changed. The nine routes, the four screens, the
 `TodayCard | null` contract and the TypeScript 5.9.3 pin all stand.
 
+### CTO note - the backend behind your routes now exists
+
+`second/graphs/service.py` is landed with every function your brief promised:
+`run_intake`, `run_daily`, `run_feedback`, `load_living_graph`,
+`set_goal_status`, `read_audit`. 30 tests green. **Your nine routes and their
+shapes are unchanged** - build against them.
+
+Two things worth knowing:
+
+- **`run_daily` returns `TodayCard | None`, and `None` is the common case.**
+  Behind it, the Communicator now emits a typed `Communique` carrying
+  `should_speak` and a `silence_reason` that goes to the audit log. Your contract
+  does not change, but the silence state you are designing is a deliberate
+  decision the system recorded, not an absence of data. If you want to show *why*
+  it stayed quiet, the reason is in `/api/audit`.
+- **`run_intake` returns `IntakeResult`** - `{graph, clarifying_questions,
+  schedule}`. When `clarifying_questions` is non-empty, `schedule` is `None`:
+  the graph deliberately stopped before planning because it was not clear enough
+  what the user wanted. **That is a screen state worth designing** - Second
+  asking one question back rather than showing a confident wrong plan.
+
+`fastapi==0.141.1` is now installed. Run `uv sync` in your worktree.
+
 ---
 WAITING ON: SURFACES - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn
