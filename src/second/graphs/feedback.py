@@ -22,6 +22,7 @@ from typing import Any
 
 from strands.multiagent.graph import GraphBuilder
 
+from second.core.clock import Clock
 from second.graphs.composition import (
     AgentSpec,
     ComposedGraph,
@@ -30,6 +31,7 @@ from second.graphs.composition import (
     build_model,
     build_node_agent,
     default_registry,
+    resolve_clock,
     load_agent_spec,
 )
 from second.hooks.audit import AuditLogHook
@@ -41,7 +43,7 @@ def build_feedback_graph(
     *,
     store: Any,
     user_id: str,
-    today: date | None = None,
+    clock: Clock | None = None,
     model: Any = None,
     registry: ToolRegistry | None = None,
     specs: dict[str, AgentSpec] | None = None,
@@ -52,7 +54,9 @@ def build_feedback_graph(
     Args:
         store: The Living Graph store, injected into the run.
         user_id: Whose feedback this is.
-        today: Injected rather than read from the clock.
+        clock: What time it is for this user, in their own timezone. Resolved
+            from their Google Calendar when not supplied -- nobody is asked. Pass
+            ``Clock.fixed(...)`` to pin a scenario.
         model: Model provider. Pass a ``ScriptedModel`` to run offline.
         registry: Tool registry. Defaults to every tool that currently exists.
         specs: Agent specs by node id, for injecting stubs.
@@ -61,6 +65,7 @@ def build_feedback_graph(
     Returns:
         A :class:`ComposedGraph` ready to ``await .run(feedback_text)``.
     """
+    clock = clock or resolve_clock()
     model = model or build_model()
     registry = registry or default_registry()
     specs = specs or {}
@@ -76,7 +81,7 @@ def build_feedback_graph(
                 registry=registry,
                 hooks=[audit],
                 user_id=user_id,
-                today=today,
+                clock=clock,
                 context=context.get(node_id, {}),
             ),
             node_id,

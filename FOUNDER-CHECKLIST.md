@@ -3,12 +3,18 @@
 **Everything on this list is something only you can do** — it needs your
 identity, your card, or a decision that is yours. Nothing else is blocked on you.
 
-Ordered by what unblocks the most. Roughly **3 hours** of console work, plus six
+Ordered by what unblocks the most. Roughly **3 hours** of console work, plus five
 answers that take two minutes.
+
+> **Timezone is no longer on this list.** Second reads it from your Google
+> Calendar, which is where it actually lives and which follows you when you
+> travel. Falls back to this machine, then to UTC, and records which -- so an
+> agent can decline to be precise about times it guessed rather than quietly
+> being an hour out.
 
 ---
 
-## A. Six answers I need (2 minutes, no console)
+## A. Five answers I need (2 minutes, no console)
 
 Reply to these in chat. Three of them change what I build.
 
@@ -16,7 +22,6 @@ Reply to these in chat. Three of them change what I build.
 |---|---|---|
 | A1 | **Do you already have an AWS account, or starting from zero?** | Changes the whole setup path and whether there is billing history. |
 | A2 | **Is `jivwewonder@gmail.com` consumer Gmail or Workspace?** Does `admin.google.com` open? | Workspace can skip the consent-screen dance entirely via domain-wide delegation, and handles inserted mail differently. |
-| A3 | **What timezone is the demo user in?** | **The Scheduler is wrong without this.** "6pm loses to meetings" is meaningless if the calendar is UTC and you are not. |
 | A4 | **Your three real goals for the demo** — or shall I invent them? | Real goals make a far better demo than invented ones, and the Route Planner's rationale reads as genuine. |
 | A5 | **Tavily or Brave** for web search? | Only affects one dependency. Tavily is the cheapest to obtain. |
 | A6 | **GitHub repo — shall I create it with `gh`, or will you?** | Public repo with MIT visible is a submission requirement. If `gh` is already authenticated here, I can do it. |

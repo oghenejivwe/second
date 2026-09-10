@@ -531,5 +531,56 @@ Diagnostician. It receives the Observer's sanitised evidence bundle rather than
 tool access to Gmail and Calendar, and that bundle's shape is the contract
 between your two most important agents. Propose it and I will wire it.
 
+### CONTRACT CHANGE 3 - `deps.clock`, and the framework is finished
+
+**`deps.today` is now derived from `deps.clock`.** `AgentDeps` carries a `Clock`
+(`second/core/clock.py`) rather than a bare date:
+
+```python
+deps.clock.today          # the user's today, not UTC's
+deps.clock.name           # "Europe/London"
+deps.clock.slot_label(dt) # "Tue 19:00" -- exactly how the Person layer stores it
+deps.clock.window(days_back=21)   # ISO range for a calendar or inbox query
+deps.when                 # one line to drop in a system prompt
+deps.clock.is_trustworthy # False when the zone was guessed
+```
+
+`deps.today` still works and returns `clock.today`.
+
+**Nobody is asked what timezone they are in** - it is read from their Google
+Calendar. Two things follow for you:
+
+1. **Use `deps.clock.slot_label()` whenever you write an honoured or abandoned
+   slot.** Computing "Tue 19:00" in the wrong zone silently records a slot the
+   user has never once attended, and the Person layer's whole claim is that it
+   knows which slots they keep.
+2. **Check `deps.clock.is_trustworthy` in the Scheduler.** When it is `False` the
+   zone was guessed from the machine; say so rather than placing a 07:00 block
+   with confidence. Put `deps.when` in your system prompts so the model reasons
+   in the right frame.
+
+### The framework is done. Everything you need is landed and tested.
+
+**73 tests green.** You are not blocked on anything, including credentials.
+
+| What | Where |
+|---|---|
+| all seven CONNECTORS tools, working | `second/testing/fake_connectors.py` |
+| the seeded demo world | `second/testing/demo_scenario.py` |
+| shared fixtures: `store`, `registry`, `today` | `tests/conftest.py` |
+| offline model provider | `second/testing/scripted_model.py` |
+| a worked example of the whole Daily loop | `tests/platform/test_end_to_end.py` |
+
+**Read `tests/platform/test_end_to_end.py` first.** It runs all five Daily nodes
+against real tools and real DynamoDB semantics with scripted model choices. Every
+agent you write drops into that harness -- swap a `spec(...)` for your real
+module and it runs. It is the fastest way to see exactly what your `build(deps)`
+has to return.
+
+The demo world's fourth beat is the one to design the Diagnostician around:
+`t-recording` slipped three times into slots that were **completely free** - no
+conflict, no dependency, nothing missing. There is no structural explanation, so
+the only honest answer is `UNKNOWN` and the only honest action is to ask.
+
 ---
 WAITING ON: AGENTS - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn

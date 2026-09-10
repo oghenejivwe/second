@@ -36,6 +36,7 @@ from typing import Any
 
 from strands.multiagent.graph import GraphBuilder
 
+from second.core.clock import Clock
 from second.graphs.composition import (
     AgentSpec,
     ComposedGraph,
@@ -44,6 +45,7 @@ from second.graphs.composition import (
     build_model,
     build_node_agent,
     default_registry,
+    resolve_clock,
     load_agent_spec,
 )
 from second.graphs.conditions import can_act_alone, needs_user_decision
@@ -56,7 +58,7 @@ def build_daily_graph(
     *,
     store: Any,
     user_id: str,
-    today: date | None = None,
+    clock: Clock | None = None,
     model: Any = None,
     registry: ToolRegistry | None = None,
     specs: dict[str, AgentSpec] | None = None,
@@ -67,9 +69,9 @@ def build_daily_graph(
     Args:
         store: The Living Graph store, injected into the run.
         user_id: Whose day this is.
-        today: Injected rather than read from the clock, so a seeded scenario
-            reproduces. A test that passes on Tuesday and fails on Wednesday is
-            worse than no test.
+        clock: What time it is for this user, in their own timezone. Resolved
+            from their Google Calendar when not supplied -- nobody is asked. Pass
+            ``Clock.fixed(...)`` to pin a scenario.
         model: Model provider. Defaults to Bedrock; pass a ``ScriptedModel`` to
             run the whole graph offline.
         registry: Tool registry. Defaults to every tool that currently exists.
@@ -81,6 +83,7 @@ def build_daily_graph(
     Returns:
         A :class:`ComposedGraph` ready to ``await .run(...)``.
     """
+    clock = clock or resolve_clock()
     model = model or build_model()
     registry = registry or default_registry()
     specs = specs or {}
@@ -94,7 +97,7 @@ def build_daily_graph(
             registry=registry,
             hooks=[audit],
             user_id=user_id,
-            today=today,
+            clock=clock,
             context=context.get(node_id, {}),
         )
         for node_id in NODES

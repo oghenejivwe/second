@@ -32,6 +32,7 @@ from strands import Agent
 from strands.models.model import Model
 from strands.types.tools import AgentTool
 
+from second.core.clock import Clock
 from second.core.deps import AgentDeps, assert_privileges
 from second.settings import (
     AWS_REGION,
@@ -171,6 +172,31 @@ def load_agent_spec(node_id: str, module_name: str | None = None) -> AgentSpec:
         ) from error
 
 
+def resolve_clock(explicit_timezone: str | None = None) -> Clock:
+    """Work out what time it is for this user, without asking them.
+
+    Tries the user's own Google Calendar first, because that is where their
+    timezone actually lives and it follows them when they travel. Falls back to
+    the machine, then to UTC -- and :attr:`Clock.is_trustworthy` records which,
+    so an agent can decline to be precise about times it guessed.
+
+    CONNECTORS supplies ``get_calendar_timezone() -> str`` returning an IANA name
+    such as ``"Europe/London"``. Until that lands, this quietly falls through to
+    the machine's timezone, which is right for local development.
+    """
+    calendar_timezone: str | None = None
+    try:
+        from second.tools.calendar_tools import get_calendar_timezone
+
+        calendar_timezone = get_calendar_timezone()
+    except (ImportError, AttributeError):
+        logger.info("calendar timezone unavailable; falling back to the machine")
+    except Exception:  # noqa: BLE001 - a clock lookup never breaks a run
+        logger.warning("calendar timezone lookup failed; falling back", exc_info=True)
+
+    return Clock.detect(explicit=explicit_timezone, calendar_timezone=calendar_timezone)
+
+
 def build_model(model_id: str = BEDROCK_MODEL_ID, region: str = AWS_REGION) -> Model:
     """Construct the Bedrock model provider.
 
@@ -204,7 +230,7 @@ def build_node_agent(
     registry: ToolRegistry,
     hooks: list[Any],
     user_id: str,
-    today: date | None = None,
+    clock: Clock | None = None,
     context: dict[str, Any] | None = None,
 ) -> Agent:
     """Build one node's agent with exactly the tools it declared -- no more.
@@ -217,7 +243,7 @@ def build_node_agent(
         tools=registry.resolve(spec.required_tools),
         hooks=hooks,
         user_id=user_id,
-        today=today,
+        clock=clock,
         context=context or {},
     )
     assert_privileges(spec.node_id, spec.required_tools, deps)

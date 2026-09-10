@@ -26,6 +26,8 @@ from second.core.models import (
     ScheduleDecision,
     TodayCard,
 )
+from second.core.clock import Clock
+from second.graphs.composition import resolve_clock
 from second.graphs.conditions import typed_result
 from second.graphs.daily import build_daily_graph
 from second.graphs.feedback import build_feedback_graph
@@ -36,6 +38,19 @@ from second.settings import DEMO_USER_ID
 logger = logging.getLogger(__name__)
 
 _store: LivingGraphStore | None = None
+
+
+def _clock_for(today: date | None) -> Clock:
+    """Build the clock for a run.
+
+    ``today`` stays in the public signatures because the HTTP layer and the
+    scheduled trigger both want to pin a date. When it is not given, the
+    timezone is discovered from the user's calendar rather than asked for.
+    """
+    resolved = resolve_clock()
+    if today is None:
+        return resolved
+    return Clock.fixed(today, zone_name=resolved.name)
 
 
 def get_store() -> LivingGraphStore:
@@ -117,7 +132,9 @@ async def run_intake(
     was not confident -- the graph is built to stop there rather than plan on a
     guess.
     """
-    composed = build_intake_graph(store=get_store(), user_id=user_id, today=today, **build_kwargs)
+    composed = build_intake_graph(
+        store=get_store(), user_id=user_id, clock=_clock_for(today), **build_kwargs
+    )
     result = await composed.run(transcript)
 
     extraction = typed_result(result, "extractor", ExtractionResult)
@@ -141,7 +158,9 @@ async def run_daily(
     the common case and it is correct -- the reason is recorded in the audit log,
     so silence is auditable rather than indistinguishable from a failure.
     """
-    composed = build_daily_graph(store=get_store(), user_id=user_id, today=today, **build_kwargs)
+    composed = build_daily_graph(
+        store=get_store(), user_id=user_id, clock=_clock_for(today), **build_kwargs
+    )
     result = await composed.run("Yesterday's plan against what actually happened.")
 
     communique = typed_result(result, "communicator", Communique)  # type: ignore[arg-type]
@@ -162,7 +181,9 @@ async def run_feedback(
     **build_kwargs: Any,
 ) -> FeedbackResult:
     """Apply what the user said back to the plan."""
-    composed = build_feedback_graph(store=get_store(), user_id=user_id, today=today, **build_kwargs)
+    composed = build_feedback_graph(
+        store=get_store(), user_id=user_id, clock=_clock_for(today), **build_kwargs
+    )
     result = await composed.run(text)
 
     interpreted = typed_result(result, "interpreter", FeedbackResult)  # type: ignore[arg-type]

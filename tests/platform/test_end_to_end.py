@@ -15,6 +15,7 @@ from datetime import timedelta
 import pytest
 from strands import Agent
 
+from second.core.clock import Clock
 from second.core.deps import AgentDeps
 from second.core.models import Communique, Diagnosis
 from second.graphs.composition import AgentSpec
@@ -23,6 +24,7 @@ from second.testing import demo_scenario
 from second.testing.scripted_model import ScriptedModel, Structured, Text, ToolUse
 
 USER = demo_scenario.USER_ID
+DEMO_TZ = "Europe/London"
 WINDOW_START = demo_scenario.HISTORY_START.isoformat() + "T00:00:00"
 WINDOW_END = (demo_scenario.TODAY + timedelta(days=1)).isoformat() + "T00:00:00"
 
@@ -75,7 +77,7 @@ def daily_with_real_tools(store, *, adapter_script=None):
     return build_daily_graph(
         store=store,
         user_id=USER,
-        today=demo_scenario.TODAY,
+        clock=Clock.fixed(demo_scenario.TODAY, zone_name=DEMO_TZ),
         model=object(),
         registry=ToolRegistry([*ALL_GRAPH_TOOLS, *ALL_FAKE_CONNECTORS]),
         specs={

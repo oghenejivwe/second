@@ -441,5 +441,39 @@ crash-resume, not memory. The Living Graph is PLATFORM's own DynamoDB layer.
    subcommands (needs >= 2.27.42). Drive AWS from boto3 (1.43.91, already has
    both agentcore clients) rather than shelling out.
 
+### CTO addendum 2 - one function to add, and the framework you build against
+
+**New contract: `get_calendar_timezone() -> str`** in `calendar_tools.py`.
+
+A plain function, not a `@tool` -- no agent calls it. Return the IANA name from
+the user's own calendar settings (`Settings.get(setting='timezone')`, or the
+primary calendar's `timeZone`), e.g. `"Europe/London"`.
+
+**Why it exists:** every wall-clock claim Second makes is wrong by an hour or a
+day if the timezone is wrong, and nothing crashes when it is. Rather than ask the
+user -- an answer that goes stale the moment they travel -- `second/core/clock.py`
+reads it from the calendar, falls back to the machine, then to UTC, and records
+which. Until your function lands it quietly uses the machine's zone, which is
+right for local development and marked untrustworthy.
+
+**Everything else you need already exists and is tested.** Before you write a
+line, read these two:
+
+- **`src/second/testing/fake_connectors.py`** - working stand-ins for all seven
+  of your tools, with the same names, signatures and safety rails, driven by a
+  seeded demo world. **The dict shapes they return are the contract AGENTS is
+  already coding against.** Match them, or tell me in a turn if a real Google
+  payload makes one wrong and I will change it in both places at once.
+- **`src/second/testing/demo_scenario.py`** - the world your seeder recreates in
+  the real account. Three goals, three weeks of history, four planted beats. Your
+  `seed_demo.py` writes exactly this. Note the second beat: the dragged task is
+  **four separate events, three cancelled** - a calendar has no move history, so
+  patching one event four times leaves a single artefact and the story is
+  invisible to the Observer.
+
+`tests/conftest.py` gives you `store`, `registry` and `today` fixtures. Use them
+rather than rolling your own; three instances inventing three DynamoDB fixtures
+is three subtly different DynamoDBs, and the bug will be in the difference.
+
 ---
 WAITING ON: CONNECTORS - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn
