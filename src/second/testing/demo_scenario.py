@@ -72,6 +72,11 @@ def _weekdays_in_history() -> list[int]:
 # ---------------------------------------------------------------------------
 
 
+def _today_at(hour: int, minute: int = 0) -> datetime:
+    """A slot on the demo day itself, so Today has a day to show."""
+    return datetime.combine(TODAY, datetime.min.time()).replace(hour=hour, minute=minute)
+
+
 def living_graph() -> LivingGraph:
     """The seeded graph as it stands the morning of the demo."""
     # The ladder. Two life-shaped ambitions, each cashed down to something that
@@ -141,7 +146,7 @@ def living_graph() -> LivingGraph:
                         id="t-recording",
                         route_id="r-daily",
                         title="Record five minutes and listen back",
-                        scheduled_slots=[_at(offset, 8) for offset in (2, 9, 16, 21)],
+                        scheduled_slots=[_at(offset, 8) for offset in (2, 9, 16)] + [_today_at(8)],
                         slip_count=3,
                         slips=[
                             Slip(on=HISTORY_START + timedelta(days=offset), scheduled_for=_at(offset, 8))
@@ -164,7 +169,7 @@ def living_graph() -> LivingGraph:
                         id="t-pitch",
                         route_id="r-pitch",
                         title="Draft the talk pitch",
-                        scheduled_slots=[_at(offset, 17) for offset in (10, 11, 12, 13)],
+                        scheduled_slots=[_at(offset, 17) for offset in (10, 11, 12, 13)] + [_today_at(17)],
                         slip_count=3,
                         slips=[
                             Slip(
@@ -203,7 +208,7 @@ def living_graph() -> LivingGraph:
                         id="t-gym",
                         route_id="r-gym",
                         title="Gym session",
-                        scheduled_slots=[_at(offset, 18) for offset in (0, 2, 4, 7, 9)],
+                        scheduled_slots=[_at(offset, 18) for offset in (0, 2, 4, 7, 9)] + [_today_at(18)],
                         slip_count=4,
                         slips=[
                             Slip(

@@ -2045,6 +2045,7 @@ dependencies = [
     { name = "strands-agents", extra = ["anthropic"] },
     { name = "strands-agents-tools" },
     { name = "tzlocal" },
+    { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
@@ -2066,6 +2067,7 @@ requires-dist = [
     { name = "strands-agents", extras = ["anthropic"], specifier = ">=1.55.1" },
     { name = "strands-agents-tools", specifier = ">=0.8.8" },
     { name = "tzlocal", specifier = ">=5.4.4" },
+    { name = "uvicorn", specifier = "==0.52.4" },
 ]
 
 [package.metadata.requires-dev]

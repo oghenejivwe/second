@@ -473,11 +473,47 @@ class ScheduledBlock(BaseModel):
         description="Titles of the longer-horizon goals above this one, nearest first.",
     )
     title: str
-    start: datetime
+    start: datetime = Field(
+        description=(
+            "Timezone-AWARE, in the user's own zone. Note the asymmetry, which is "
+            "deliberate: Task.scheduled_slots are stored NAIVE because the Living "
+            "Graph holds wall-clock time -- a plan is what the person reads off "
+            "their own calendar, and storing it as UTC would move the plan when "
+            "they travel. Anything crossing the API boundary is made aware by "
+            "Clock.local() so a browser cannot guess wrong. Never compare a raw "
+            "scheduled_slot against one of these without passing it through the "
+            "clock first."
+        )
+    )
     duration_min: int
     resource_url: str | None = Field(
         default=None,
         description="Material attached to the slot, so the thing to watch is already there.",
+    )
+
+
+class GoalStatusChange(BaseModel):
+    """What pausing or retiring a goal actually did.
+
+    ``freed`` is the point. Retiring a goal releases the calendar time its routes
+    were holding, and the Goals screen has to be able to show that concretely --
+    these slots, this many hours, no longer spoken for.
+
+    It says *freed*, not *redistributed*, deliberately. The Scheduler has not run
+    again yet, so nothing has been reallocated. Claiming otherwise would have
+    Second describing a plan it has not made, which is the one thing this product
+    must never do. ``note`` says when the reallocation actually happens.
+    """
+
+    graph: "LivingGraph"
+    freed: list["ScheduledBlock"] = Field(
+        default_factory=list,
+        description="Upcoming slots the goal was holding, now released. Empty when it held none.",
+    )
+    freed_minutes: int = 0
+    note: str = Field(
+        default="",
+        description="What becomes of the freed time, in plain words.",
     )
 
 

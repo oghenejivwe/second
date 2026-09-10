@@ -338,3 +338,55 @@ def test_an_evidenceless_diagnosis_routes_to_asking():
 
     assert needs_user_decision(state) is True
     assert can_act_alone(state) is False
+
+
+# -- retiring a goal --------------------------------------------------------
+
+
+def test_retiring_reports_the_slots_it_freed(store, today):
+    """SURFACES may not compute a plan in the client, so give it the data.
+
+    A schedule Second did not make is a schedule Second cannot stand behind.
+    """
+    from second.graphs import service
+
+    result = service.set_goal_status("demo", "g-speaking", "retired", today=today)
+
+    assert result.freed, "the goal was holding upcoming slots"
+    assert result.freed_minutes == sum(b.duration_min for b in result.freed)
+    assert all(b.goal_id == "g-speaking" for b in result.freed)
+    assert result.graph.goal_by_id("g-speaking").status == "retired"
+
+
+def test_it_says_freed_not_redistributed(store, today):
+    """The Scheduler has not run. Claiming a reallocation would be fiction."""
+    from second.graphs import service
+
+    note = service.set_goal_status("demo", "g-speaking", "retired", today=today).note
+    assert "free" in note.lower()
+    assert "next daily run" in note.lower(), "it says WHEN the reallocation happens"
+
+
+def test_reactivating_frees_nothing(store, today):
+    from second.graphs import service
+
+    service.set_goal_status("demo", "g-speaking", "retired", today=today)
+    result = service.set_goal_status("demo", "g-speaking", "active", today=today)
+
+    assert result.freed == []
+    assert result.graph.goal_by_id("g-speaking").status == "active"
+
+
+def test_retiring_a_goal_that_holds_nothing_says_so(store, today):
+    from second.graphs import service
+
+    result = service.set_goal_status("demo", "g-company", "paused", today=today)
+    assert result.freed == []
+    assert "no upcoming slots" in result.note
+
+
+def test_an_unknown_goal_raises_rather_than_silently_doing_nothing(store, today):
+    from second.graphs import service
+
+    with pytest.raises(ValueError):
+        service.set_goal_status("demo", "g-nope", "retired", today=today)

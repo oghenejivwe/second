@@ -12,7 +12,7 @@ ImportError three frames deep.
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from second.core.models import (
@@ -22,14 +22,16 @@ from second.core.models import (
     ExtractionResult,
     FeedbackResult,
     GoalStatus,
+    GoalStatusChange,
     IntakeResult,
     LivingGraph,
     ObservationReport,
     PreparedAction,
+    ScheduledBlock,
     ScheduleDecision,
 )
 from second.core.clock import Clock
-from second.graphs.brief import assemble
+from second.graphs.brief import assemble, blocks_on
 from second.graphs.composition import resolve_clock
 from second.graphs.conditions import typed_result
 from second.graphs.daily import build_daily_graph
@@ -92,31 +94,69 @@ def set_goal_status(
     goal_id: str,
     status: GoalStatus,
     *,
-    reschedule: bool = False,
-) -> LivingGraph:
-    """Pause, retire or reactivate a goal.
+    today: date | None = None,
+) -> GoalStatusChange:
+    """Pause, retire or reactivate a goal, and say what time it released.
+
+    Returns the freed slots as real data rather than leaving the caller to work
+    them out. SURFACES is forbidden from computing a plan in the client, and it
+    is right to be: a schedule Second did not make is a schedule Second cannot
+    stand behind.
+
+    **It reports time freed, not time redistributed.** The Scheduler has not run
+    again at this point, so nothing has moved yet. The next daily run reallocates
+    it, and ``note`` says so. Claiming a redistribution that has not happened
+    would be exactly the kind of confident fiction this product exists to avoid.
 
     Args:
         user_id: Whose goal this is.
         goal_id: The goal to change.
         status: ``"active"``, ``"paused"`` or ``"retired"``.
-        reschedule: Reserved for re-running the Scheduler over the freed time.
-            Not yet wired -- the Goals screen currently shows the freed slots and
-            the next Daily run reallocates them.
+        today: Pin the day, for reproducible scenarios.
 
     Returns:
-        The graph as written.
+        The graph as written, the upcoming slots released, and what happens next.
 
     Raises:
         ValueError: If the goal is not in the graph.
     """
-    def change(graph: LivingGraph) -> None:
-        goal = next((candidate for candidate in graph.goals if candidate.id == goal_id), None)
-        if goal is None:
-            raise ValueError(f"no goal {goal_id!r} for {user_id!r}")
-        goal.status = status
+    clock = _clock_for(today)
+    before = get_store().load(user_id)
+    goal = before.goal_by_id(goal_id)
+    if goal is None:
+        raise ValueError(f"no goal {goal_id!r} for {user_id!r}")
 
-    return get_store().mutate(user_id, change)
+    freed: list[ScheduledBlock] = []
+    if status in ("paused", "retired"):
+        # Computed BEFORE the status changes, because afterwards the goal is
+        # excluded from scheduling and its slots become invisible.
+        seen: set[tuple[str, datetime]] = set()
+        for horizon_day in range(0, 28):
+            for block in blocks_on(before, clock, clock.today + timedelta(days=horizon_day)):
+                if block.goal_id == goal_id and (block.task_id, block.start) not in seen:
+                    seen.add((block.task_id, block.start))
+                    freed.append(block)
+
+    def change(graph: LivingGraph) -> None:
+        target = graph.goal_by_id(goal_id)
+        if target is None:
+            raise ValueError(f"no goal {goal_id!r} for {user_id!r}")
+        target.status = status
+
+    written = get_store().mutate(user_id, change)
+
+    minutes = sum(block.duration_min for block in freed)
+    if status == "active":
+        note = f"{goal.title!r} is active again. The next daily run will schedule it."
+    elif not freed:
+        note = f"{goal.title!r} is {status}. It was holding no upcoming slots."
+    else:
+        note = (
+            f"{len(freed)} slot(s) over the next four weeks are free. "
+            "The next daily run reallocates them to the goals still active."
+        )
+
+    return GoalStatusChange(graph=written, freed=freed, freed_minutes=minutes, note=note)
 
 
 # ---------------------------------------------------------------------------
