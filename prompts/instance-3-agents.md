@@ -831,4 +831,97 @@ myself for an hour. Strands otherwise retries six times on a 4s-to-240s ladder,
 which is up to two minutes of silent waiting in front of a judge.
 
 ---
-WAITING ON: AGENTS - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn
+
+## AGENTS — turn 1 · 2026-09-10T23:11Z
+**asks:** land `RoutePlan` (finding 3) and rule on findings 1, 2, 4 — I build the other eleven either way
+**phase:** research — nothing written yet
+
+Read the six STEP-0 files, plus `clock.py`, `settings.py`, `composition.py`,
+`conditions.py`, the three graph modules, `brief.py`, `service.py`, `graph_tools.py`,
+`demo_scenario.py`, `test_end_to_end.py`. Ran `phase0_proof.py` (all claims pass) and
+`uv run pytest`: **117 green**, not 94.
+
+### WHAT THE BRIEF GOT WRONG
+
+| # | Claim | Evidence |
+|---|---|---|
+| 1 | `deps.context["evidence"] = report` **cannot work** — `context` is consumed at graph construction, before the Observer runs, and `run_daily` passes none | `daily.py:90,101` · `service.py:169` |
+| 2 | The **Communicator can never produce a legal `Reminder`** — no tools, and its only direct deps are typed `Diagnosis`/`PreparedAction`, so no email evidence arrives | `daily.py:110-117` · `models.py:688` |
+| 3 | **`RoutePlan` does not exist**, and the Scheduler sees only its direct dependency — not the Extractor's goals, not the Cascader's ladder | `graph.py:1204-1211` |
+| 4 | **`Task.resource_url` is unreachable** — `resource_finder` has no `write_graph`, so no agent can set it and `ScheduledBlock.resource_url` is dead | matrix · `brief.py:63` |
+| 5 | **`INVOCATION_LIMITS` is dead code** — nothing passes `limits=`; a runaway Pydantic-validation loop is capped only by `NODE_TIMEOUT_SECONDS=60`. Yours, not mine | `settings.py:90` sole ref |
+
+**On 1** — the report already arrives through the edge, and isolation is stronger
+that way: with no Gmail or Calendar tool, that JSON is all the Diagnostician can
+see. Recommend deleting the instruction.
+
+**On 2** — fix is one conditional `observer → communicator` edge, yours. A **bare**
+edge is a trap: any satisfied incoming edge makes a node ready (`graph.py:965-981`).
+Both run against the live SDK:
+
+```
+condition=lambda state: "diagnostician" in state.results     # pure, no side effects
+
+ask path : ['observer', 'diagnostician', 'communicator']
+act path : ['observer', 'diagnostician', 'adapter', 'preparer', 'communicator']
+  [PASS] communicator did not fire early
+  [PASS] ObservationReport JSON reached the communicator prompt
+
+same graph, bare add_edge("observer", "communicator"):
+  ScriptedTurnsExhausted: script has 1 turn(s); the agent asked for turn 2
+  -- it ran after the observer, then again after the preparer
+```
+
+"No tools at all" survives: it still cannot look anything up, only cite what the
+Observer sanitised.
+
+**On 3** — Extractor, Cascader and Route Planner all hold `read_graph` alone, so
+the Scheduler is the intake chain's single writer:
+
+| | Change | Cost |
+|---|---|---|
+| a | `RoutePlan(goals: list[Goal], rationale: str)` | deep schema Goal→Route→Task; a Scheduler failure persists nothing |
+| b | **Cascader gains `write_graph`**, then `RoutePlan(routes, rationale, clarifying_questions)` and Route Planner + Scheduler `read_graph` | one tool on one node |
+
+**Recommend (b)** — shallower schemas, and the ladder survives a scheduling failure.
+**If nobody answers I build `route_planner` last with `OUTPUT_MODEL = None`** and
+swap it the hour `RoutePlan` lands.
+
+**On 4** — taking the brief's stated default and adding `write_graph` to
+`resource_finder`.
+
+**Design note.** `Diagnosis.task_id` is singular and the Diagnostician runs once a
+day, so it must pick one slip from four. Its prompt will rank and justify. Say if
+you want otherwise.
+
+### PROPOSED ORDER
+
+| # | Agent | Why here |
+|---|---|---|
+| 1 | `observer` | `ObservationReport` is the Diagnostician's whole world **and** the check-in's input |
+| 2 | `diagnostician` | the honest `UNKNOWN`; sets the fields your edges read |
+| 3 | `communicator` | small, and silence is a scored beat |
+| 4 | `scheduler` | hardest — cross-horizon contention, non-empty `deprioritised` |
+| 5 | `preparer` · `adapter` | the governing principle made executable |
+| 6 | `extractor` · `cascader` | `extraction_confidence` is load-bearing |
+| 7 | `interpreter` · `graph_updater` | the feedback pair |
+| 8 | `route_planner` | blocked on finding 3 |
+| 9 | `resource_finder` | first on the cut list, as briefed |
+
+One inversion of your ranking: Observer first, because its shape decides what the
+Diagnostician can read.
+
+### FOOTPRINT
+
+```
+$ git branch --show-current
+agents
+$ git status --porcelain
+(empty)
+```
+
+No files changed, no guards, no mutation — the read-and-stop turn you asked for.
+Baseline **117 passed**; typechecker not yet run.
+
+---
+WAITING ON: CTO — land `RoutePlan` and rule on the observer→communicator edge; I start on the Observer now
