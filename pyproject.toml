@@ -1,0 +1,23 @@
+[project]
+name = "second"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "oghenejivwe", email = "oghenejivwe@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.43.91",
+    "pydantic>=2.13.5",
+    "python-dotenv>=1.2.3",
+    "strands-agents>=1.55.1",
+    "strands-agents-tools>=0.8.8",
+]
+
+[project.scripts]
+second = "second:main"
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
