@@ -36,6 +36,7 @@ from second.core.clock import Clock
 from second.core.deps import AgentDeps, assert_privileges
 from second.settings import (
     ANTHROPIC_API_KEY_ENV,
+    ANTHROPIC_CLIENT_ARGS,
     ANTHROPIC_MODEL_ID,
     AWS_REGION,
     BEDROCK_MODEL_ID,
@@ -246,7 +247,13 @@ def build_model(
                 f"{ANTHROPIC_API_KEY_ENV} is not set. Get a key at console.anthropic.com "
                 f"and export it; or set SECOND_MODEL_PROVIDER=bedrock to use Bedrock instead."
             )
-        return AnthropicModel(model_id=model_id or ANTHROPIC_MODEL_ID, max_tokens=8192)
+        # max_tokens is REQUIRED here. Bedrock did not require it; omitting it
+        # fails at construction rather than at call time.
+        return AnthropicModel(
+            client_args=dict(ANTHROPIC_CLIENT_ARGS),
+            model_id=model_id or ANTHROPIC_MODEL_ID,
+            max_tokens=8192,
+        )
 
     if chosen != "bedrock":
         raise ModelProviderNotConfigured(

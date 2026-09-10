@@ -36,8 +36,26 @@ Transcribe, EventBridge and Lambda all stay exactly as they were.
 Flip to ``"bedrock"`` the day the block lifts; one environment variable.
 """
 
-ANTHROPIC_MODEL_ID = "claude-sonnet-4-6"
-"""The direct-API model id. No ``global.`` prefix -- that is a Bedrock concept."""
+ANTHROPIC_MODEL_ID = "claude-sonnet-5"
+"""The direct-API model id. No ``global.`` prefix -- that was a Bedrock
+inference-profile artifact and means nothing here.
+
+Sonnet 5 rather than 4.6: newer, and cheaper at $2/$10 per MTok. The earlier
+reservation about Sonnet 5 was specifically that it drops *Bedrock-native*
+structured output -- irrelevant on this route, where Strands implements
+structured output as a forced tool call.
+
+**Do not switch this to a Fable model.** Fable returns 400 on forced tool choice,
+and forced tool choice is exactly how Strands produces structured output. Typed
+output is the spine of this build; a model that cannot be forced into a tool call
+breaks every routing decision in the Daily graph."""
+
+ANTHROPIC_CLIENT_ARGS = {"max_retries": 3, "timeout": 30.0}
+"""HTTP-level retry and timeout, passed to the Anthropic client.
+
+Separate from ``Agent(retry_strategy=...)``, which governs model-call retries
+inside the event loop. Both are wanted: one survives a flaky socket, the other
+survives an overloaded model."""
 
 ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY"
 """Read from the environment, never from a file in this repo."""
