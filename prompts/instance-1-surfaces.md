@@ -567,4 +567,79 @@ user said or tapped as text; the Interpreter turns it into typed completions.
 want to lead with those.
 
 ---
-WAITING ON: SURFACES - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn
+
+## SURFACES — turn 1 · 2026-09-10T23:09Z
+**asks:** one ruling — `set_goal_status(reschedule=...)` is unwired, so "retiring visibly redistributes time" has no data path through my route; I ship "visibly *frees*" unless you wire it.
+**phase:** research — complete. Building next, no further stops.
+
+**Read:** `cto.md`, `prompts/OWNERSHIP-MAP.md`, all **692 lines** of `core/models.py`, plus `graphs/service.py`, `graphs/brief.py:222-280`, `persistence/store.py`, `settings.py`, `app.py`, `pyproject.toml`, `uv.lock`.
+
+**Ran:** `pytest -q` → **117 passed** (baseline; the brief says 94 in one place and 30 in another). `scripts/phase0_proof.py` → all claims proved. Then the run that changed my plan:
+
+```
+$ python -c "assemble(graph=demo_scenario.living_graph(), clock=Clock.fixed(today), judgement=None)"
+goals 6  roots 3  routes 5  tasks 6  links 3   horizons: life three_year year month
+slipped: t-recording(3) t-pitch(3) t-gym(4) t-flights(2)
+depends: t-flights -> ['t-leave']          # t-leave: pending, zero scheduled_slots
+blocks 1  at_risk 2  check_in True  is_quiet True
+  2026-09-11T19:00+01:00  Attend speaking club
+  serves: ['Raise a Series A', 'Build a company that outlives me']
+```
+
+**`demo_scenario.living_graph()` (`src/second/testing/demo_scenario.py:75`) is my fixture — I do not hand-write one.** I generate `web/src/fixtures/*.json` from it, so it is shape-exact by construction and cannot drift from `models.py`. `brief.assemble(judgement=None)` gives me a real `DailyBrief` with **no model call and no AWS credentials** (`brief.py:244-253`), which means every screen develops against true data today. Types via `model_json_schema()` → `json-schema-to-typescript`; generator lives in `web/scripts/`, inside my own path.
+
+The demo graph also already contains every visual state the Living Graph screen has to prove: **three roots at two different horizons** (`life`, `life`, `month` — a root is not always at the top rung), four slipped tasks, one dependency edge whose upstream task is unscheduled, and three person-layer links.
+
+### The biggest risk, and it is not in the frontend
+
+| | |
+|---|---|
+| **What** | `set_goal_status(user_id, goal_id, status, *, reschedule=False)` — `service.py:90-119`. The docstring at `:103-105` says *"Reserved for re-running the Scheduler over the freed time. **Not yet wired** — the Goals screen currently shows the freed slots and the next Daily run reallocates them."* And `POST /api/goals/{id}/status` returns `{graph}` only — no `ScheduleDecision`. |
+| **So** | The Definition of Done line **"retiring visibly redistributes time"** cannot be satisfied by any amount of UI work. No route returns the redistribution. |
+| **Options** | (a) recompute the reallocation in the client — my brief forbids it, and it would be Second showing a plan it did not make; (b) chain `POST /api/daily/run` after a retire, so the schedule genuinely moves — real, but it costs a live model run of tens of seconds mid-demo and the beat depends on AGENTS' Scheduler; (c) render the **freed** slots: the retired goal's tasks struck through with their `scheduled_slots` shown, and one line naming what the next daily run will reallocate. |
+| **Recommendation** | **(c)**, and it is honest rather than a downgrade — Second says what it has actually done. Take (b) only if you want the beat badly enough to spend a live run on it, in which case say so and I will put it behind one button. |
+| **If nobody answers** | I build (c) and move on. |
+
+### Three smaller findings, each yours not mine
+
+| # | Finding | Ask |
+|---|---|---|
+| 1 | **Only one block lands today** from the demo scenario (run above). Today is a *day view* now; on the recording it will be one row. `demo_scenario.py` is PLATFORM's. | Consider two or three slots on the demo day. |
+| 2 | **`Task.scheduled_slots` are naive datetimes** (`2026-09-11T19:00:00`, no offset) while `ScheduledBlock.start` is tz-aware (`+01:00`) — both in the run above. Two of my screens render times from differently-shaped datetimes. | I treat naive slots as local and never compare across the two. Normalise at the contract if you would rather. |
+| 3 | **`uvicorn` 0.52.4 is present only transitively** — `uv.lock:226` via `bedrock-agentcore`, `uv.lock:1087` via `mcp`. It is not in `pyproject.toml` dependencies. Drop `bedrock-agentcore` and my dev server vanishes. | Pin `uvicorn==0.52.4` directly. Cheap. |
+
+### WHAT THE BRIEF GOT WRONG
+
+| Brief says | Actually |
+|---|---|
+| `/api/today` and `/api/daily/run` return `{"card": TodayCard \| null}` | `DailyBrief`, **never null** (`service.py:153-189`). Your later addendum corrected this; the route table at the top of the brief still carries the dead shape. |
+| `TodayCard \| null` is the contract and `null` is a first-class render | **`TodayCard` does not exist.** `grep -rn TodayCard src/ tests/` returns nothing. The silence state is `DailyBrief.is_quiet` (`models.py:481`). |
+| `/api/intake` returns `{"graph", "questions"}` | `IntakeResult` is `{graph, clarifying_questions, schedule}` (`models.py:532`). Per *"no bespoke response shapes"* I return the model verbatim and drop `questions`. Flag it if you wanted the shorter key. |
+| "If you want to show *why* it stayed quiet, the reason is in `/api/audit`" | `models.py:521` and `:657` both say `silence_reason` is **"never shown to the user"**. The contract wins: it appears in the audit panel only, never on Today. |
+| `/api/audit` should show **node spans** | `AuditEntry` (`models.py:682-692`) has no duration field: `at, run_id, kind, actor, action, payload, is_write, failed`. There are no spans to render. I give chronology grouped by `run_id`, with `is_write` and `failed` marked. Newest first (`service.py:85`). |
+| Surface `us-west-2` / `global.anthropic.claude-sonnet-4-6` | `MODEL_PROVIDER` defaults to `"anthropic"` and `ANTHROPIC_MODEL_ID = "claude-sonnet-5"` (`settings.py:15,39`). If a status line names a model it says **Sonnet 5, direct API**. |
+| "94 tests are green" / "30 tests green" | **117.** |
+
+One thing the brief got right that I want on the record: `LivingGraphStore.table` is lazy (`store.py:77-84`), so **every one of my nine routes imports and starts without AWS credentials** and only fails when actually called. Fixture-first is not a workaround here, it is the only way the app runs today.
+
+### Proposed screen order
+
+1. **Fixture + type layer** — generated from `demo_scenario` and `model_json_schema()`. Everything is downstream of it.
+2. **Living Graph.** Centrepiece, hardest, and the fixture already proves the tree: roots at mixed horizons, slipped red, the `t-leave → t-flights` edge highlighted, person facts at the edges.
+3. **Today** — the day view, `serves` on every block, the check-in as pre-filled confirmation, and the quiet state.
+4. **Audit** — a **panel on Today, not a fifth screen.** Four screens stands.
+5. **FastAPI**, nine routes, thin over `service.py`. Unblocked — `service.py` exists.
+6. **Record** — Web Speech API live, Transcribe swapping in. Needs CONNECTORS' presigned PUT.
+7. **Goals** — last, for the reason above.
+
+### Footprint
+
+```
+$ git status --porcelain
+ M prompts/instance-1-surfaces.md
+```
+
+No code written yet, so **no guards added and no mutation to report** — this is the read turn the brief asked for. Tests **117 passed**, unchanged from baseline. No typechecker yet: `web/` does not exist.
+
+---
+WAITING ON: CTO - rule on the retire beat (freed vs. redistributed); the three smaller items need no answer to unblock me
