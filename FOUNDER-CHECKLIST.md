@@ -118,10 +118,18 @@ Required for the hackathon submission itself. Separate from your AWS account.
 
 1. `console.cloud.google.com/auth/branding` → Get started → App Information →
    Audience **External** → Contact → agree to the User Data Policy → Create
-2. `auth/scopes` → Add or remove scopes → add:
+2. `auth/scopes` → Add or remove scopes → add **all five**:
    - `https://www.googleapis.com/auth/calendar`
    - `https://www.googleapis.com/auth/gmail.readonly`
    - `https://www.googleapis.com/auth/gmail.compose`
+   - `https://www.googleapis.com/auth/gmail.insert` ← seeder
+   - `https://www.googleapis.com/auth/calendar.events` ← seeder
+
+   **All five go on the one app.** Scope registration is app-level; each OAuth
+   client then requests a subset. Register only three and the seeder's consent
+   screen fails — and you would find that out on the 13th, seeding the demo.
+   Both seeder scopes are Restricted, exactly like the two already there, so this
+   adds no verification exposure. Sixty seconds now.
 3. **Ignore the verification nag. Never click "Submit for verification."**
    Both Gmail scopes are Restricted, and verification is a CASA assessment that
    takes weeks. We do not need it.

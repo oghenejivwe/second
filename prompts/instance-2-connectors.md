@@ -123,8 +123,14 @@ proposed first move. **After that turn, do not stop again.**
   not an internal one. The safest way to guarantee Second never deletes a
   calendar event is that no code path exists to do it.
 - **`draft_email` creates a Gmail draft and returns its id. It never sends.**
-  Use `users.drafts.create`. Do not request a send scope. The absence of the
-  scope is the second layer; the tool's behaviour is the first.
+  Use `users.drafts.create`.
+  **CORRECTION, 2026-09-10: there is no second layer and there cannot be one.**
+  I wrote that the absence of a send scope was a second layer. It is not.
+  Verified in the discovery docs shipped with `google-api-python-client` 2.200.0:
+  `gmail.compose` grants `users.messages.send` AND `users.drafts.send`, and
+  `drafts.create` has no narrower scope. `calendar` grants `events.delete`, and
+  the narrowest write scope `calendar.events.owned` still grants delete, move and
+  import. **Every layer is code.** See the interlock ruling in CTO turn 1.
 - **`reschedule_event` refuses any event the user does not own.** Check the
   organiser/creator before patching, and raise if it is someone else's meeting.
   **Failure direction: refuse.** A refused reschedule is a message in a log; a
@@ -291,7 +297,7 @@ All greenfield. `src/second/tools/graph_tools.py` in the same directory is
 | `google-auth-oauthlib` | 1.4.1 | current stable; `run_console` is gone, use `run_local_server` |
 | `google-auth-httplib2` | 0.4.2 | current stable |
 | `boto3` | 1.43.91 | S3 + Transcribe |
-| `tavily-python` | 0.8.1 | web search; swap if the owner's key is for another provider |
+| ~~`tavily-python`~~ | *not installed* | call the REST endpoint with `requests`; no new dependency |
 | `strands-agents` | 1.55.1 | the `@tool` decorator: `from strands import tool` |
 
 **No AWS credentials and no Google OAuth client exist yet.** `aws sts
@@ -746,3 +752,94 @@ paths and three instances committing it would collide.
 
 ---
 WAITING ON: CTO — ack the scope finding and the no-new-dependency call on Tavily; add the two seeder scopes to C2. I am building, not waiting.
+
+---
+
+## CTO - turn 1 · 2026-09-10T23:55Z
+**verdict:** approved, and finding 1 is the most important correction anyone has made this build. Both handoffs done.
+**phase:** building - the interlock first, exactly as you have it
+
+**I verified finding 1 at source before ruling, and you are right.** From the
+discovery docs in `google-api-python-client` 2.200.0:
+
+```
+gmail.users.messages.send  -> ['gmail.compose', 'gmail.modify', 'gmail.send', ...]
+gmail.users.drafts.send    -> ['gmail.compose', 'gmail.modify', ...]
+gmail.users.drafts.create  -> ['gmail.compose', 'gmail.modify', ...]
+calendar.events.delete     -> ['calendar', 'calendar.events', 'calendar.events.owned', ...]
+```
+
+`gmail.compose` grants send. `calendar` grants delete. `drafts.create` has no
+narrower option. **The brief claimed a defence-in-depth that does not exist**, and
+I wrote it. Corrected in both your brief and the ownership map, with the evidence,
+so nobody re-derives the comfortable version later.
+
+That is the worst class of error in this build: not a bug, a *false assurance*. A
+system that says "two layers" and has one is more dangerous than one that says
+"one layer", because the single layer stops getting the attention it deserves.
+
+### The rulings
+
+**1. `GuardedHttp` first, and I am elevating it.** Your design is better than what
+I specified. One `build(http=...)` seam that denies `DELETE` and `*/send` at the
+transport layer means the guarantee holds **below** every tool, so it survives a
+tool I have not reviewed, a library call I did not anticipate, and any future
+agent that gets creative. Constructing offline with no credentials is the part
+that makes it excellent: the three negative tests drive the real `googleapiclient`
+request machinery rather than mocks of your own code, so they cannot pass
+vacuously.
+
+Make the deny-list explicit and comment *why* each entry is there. When a judge
+asks "what stops it sending an email", the answer should be a file, not a
+paragraph.
+
+**2. Tavily: your call, approved. No new dependency.** One POST, `requests`
+already present, lowest-priority tool on the cut list. I have removed the pin from
+your brief's stack table rather than leave a version nobody installs.
+
+**3. Your two handoffs, both done:**
+
+- **`FOUNDER-CHECKLIST.md` C2 now registers all five scopes** with your reasoning
+  written in: registration is app-level, the client requests a subset, register
+  three and the seeder consent fails on the 13th. Good catch - that is exactly the
+  class of thing that surfaces at the worst moment.
+- **`default_registry()` catching only `ImportError`** - noted, and your two
+  constraints are correct: build no client at import time, never import a fake.
+  I am not widening the catch. A `FileNotFoundError` escaping composition is loud
+  and immediate, which is what I want; silently registering a half-built tool is
+  not. Your discipline is the right fix.
+
+**4. The mixed-tz seam: yours, and your analysis is right.** Convert into the
+calendar timezone, then drop the offset. Do not truncate the string. A `+00:00`
+event landing an hour early for a `Europe/London` user is exactly the silent class
+of bug that survives to the demo. Landing `get_calendar_timezone()` in the same
+commit as `get_calendar_events` is the right call for the same reason.
+
+The fakes hide it because they were written against naive demo data. That is my
+seam to have made clean and I did not. Once your real tools land, propose whatever
+shape makes the boundary honest and I will change the fakes to match.
+
+**5. Typechecker: do not add one.** You are right that there is nothing to be
+clean against, and adding mypy three days out is a cost with no payoff. Tests are
+the standard here.
+
+**6. Baseline is 131 as of this turn, not 117 and not 94.** Stop trusting any
+number written in a brief. Run it.
+
+### One thing you could not have known
+
+`Diagnosis.evidence` is now `str | None`, and `INVOCATION_LIMITS` is gone,
+replaced by a `RunawayGuard` hook that caps model calls per node. Neither touches
+your domain. Mentioned only because both came from AGENTS finding defects in my
+work the same way you just did, and the pattern is worth naming: **three
+instances have now corrected the CTO on things no test would have caught.** Keep
+doing it.
+
+### Proceed
+
+Your order is right and I am not touching it. Build the interlock, prove the three
+rails RED first, then the tools. **Next time I hear from you the package is
+built.**
+
+---
+WAITING ON: CONNECTORS - build the interlock, the rails, then Calendar, Gmail, voice and the seeder; report once
