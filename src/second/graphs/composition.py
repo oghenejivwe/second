@@ -35,8 +35,11 @@ from strands.types.tools import AgentTool
 from second.core.clock import Clock
 from second.core.deps import AgentDeps, assert_privileges
 from second.settings import (
+    ANTHROPIC_API_KEY_ENV,
+    ANTHROPIC_MODEL_ID,
     AWS_REGION,
     BEDROCK_MODEL_ID,
+    MODEL_PROVIDER,
     RETRY_INITIAL_DELAY,
     RETRY_MAX_ATTEMPTS,
     RETRY_MAX_DELAY,
@@ -71,6 +74,10 @@ class MissingTool(RuntimeError):
 
 class MissingAgent(RuntimeError):
     """A graph node references an agent module that does not exist yet."""
+
+
+class ModelProviderNotConfigured(RuntimeError):
+    """No usable route to a model. Says which one is missing and how to fix it."""
 
 
 # ---------------------------------------------------------------------------
@@ -198,30 +205,60 @@ def resolve_clock(explicit_timezone: str | None = None) -> Clock:
     return Clock.detect(explicit=explicit_timezone, calendar_timezone=calendar_timezone)
 
 
-def build_model(model_id: str = BEDROCK_MODEL_ID, region: str = AWS_REGION) -> Model:
-    """Construct the Bedrock model provider.
+def build_model(
+    model_id: str | None = None,
+    region: str = AWS_REGION,
+    provider: str | None = None,
+) -> Model:
+    """Construct the model provider. Claude either way.
 
-    ``model_id`` is always passed explicitly. The SDK's "you are using the
-    default model" warning is dead code -- ``_get_default_model_with_warning``
-    returns early whenever ``DEFAULT_BEDROCK_MODEL_ID`` differs from the
-    ``us.``-prefixed form, and the shipped value is ``global.``-prefixed -- so
-    nothing would catch a missing id at runtime.
+    Two routes to the same model, chosen by ``SECOND_MODEL_PROVIDER``:
 
-    Note ``region_name`` and ``boto_session`` are mutually exclusive; passing
-    both raises ``ValueError`` at construction.
+    * ``"anthropic"`` (default) -- Anthropic's own API. **Bedrock refuses
+      Anthropic models on this account**, reproducibly, on both a current and a
+      two-year-old Claude model: *"Access to Anthropic models is not allowed from
+      unsupported countries, regions, or territories."* The account is registered
+      in Nigeria, which is on Anthropic's own published supported list, so the
+      direct API is open where Bedrock is not.
+    * ``"bedrock"`` -- kept working, and one environment variable away, for the
+      day that block lifts.
+
+    Retries are NOT configured here. ``retry_strategy`` is an ``Agent`` argument,
+    not a model config key -- passing it to either provider is silently discarded
+    with only a UserWarning, which is exactly the kind of "I configured that"
+    that turns out to be false on stage. It arrives via ``AgentDeps.retry``.
+
+    **This changes nothing else.** Strands treats both as ``Model``; structured
+    output goes through the same tool-call machinery on both; every graph, tool,
+    condition and test is provider-agnostic. AgentCore still deploys our code --
+    it runs the app, it does not decide where the model comes from -- and
+    DynamoDB, S3, Transcribe, EventBridge and Lambda are untouched.
     """
-    from strands.event_loop._retry import ModelRetryStrategy
+    chosen = (provider or MODEL_PROVIDER).lower()
+
+    if chosen == "anthropic":
+        import os
+
+        from strands.models.anthropic import AnthropicModel
+
+        if not os.environ.get(ANTHROPIC_API_KEY_ENV):
+            raise ModelProviderNotConfigured(
+                f"{ANTHROPIC_API_KEY_ENV} is not set. Get a key at console.anthropic.com "
+                f"and export it; or set SECOND_MODEL_PROVIDER=bedrock to use Bedrock instead."
+            )
+        return AnthropicModel(model_id=model_id or ANTHROPIC_MODEL_ID, max_tokens=8192)
+
+    if chosen != "bedrock":
+        raise ModelProviderNotConfigured(
+            f"SECOND_MODEL_PROVIDER must be 'anthropic' or 'bedrock'; got {chosen!r}"
+        )
+
     from strands.models.bedrock import BedrockModel
 
-    return BedrockModel(
-        model_id=model_id,
-        region_name=region,
-        retry_strategy=ModelRetryStrategy(
-            max_attempts=RETRY_MAX_ATTEMPTS,
-            initial_delay=RETRY_INITIAL_DELAY,
-            max_delay=RETRY_MAX_DELAY,
-        ),
-    )
+    # model_id is always explicit: the SDK's "you are using the default model"
+    # warning is dead code, so nothing would catch a missing one at runtime.
+    # Note region_name and boto_session are mutually exclusive.
+    return BedrockModel(model_id=model_id or BEDROCK_MODEL_ID, region_name=region)
 
 
 def build_node_agent(
@@ -239,8 +276,15 @@ def build_node_agent(
     The privilege assertion runs before the factory, so an agent that has grown
     a dependency it did not declare fails here rather than at run time.
     """
+    from strands.event_loop._retry import ModelRetryStrategy
+
     deps = AgentDeps(
         model=model,
+        retry=ModelRetryStrategy(
+            max_attempts=RETRY_MAX_ATTEMPTS,
+            initial_delay=RETRY_INITIAL_DELAY,
+            max_delay=RETRY_MAX_DELAY,
+        ),
         tools=registry.resolve(spec.required_tools),
         hooks=hooks,
         user_id=user_id,

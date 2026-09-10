@@ -43,6 +43,15 @@ class AgentDeps:
     hooks: list[HookProvider] = field(default_factory=list)
     """The shared audit log. Pass straight through to ``Agent(hooks=...)``."""
 
+    retry: Any = None
+    """Retry policy. Pass straight through to ``Agent(retry_strategy=...)``.
+
+    It lives here rather than on the model because ``retry_strategy`` is an
+    ``Agent`` argument: handing it to a model provider is silently dropped with
+    only a UserWarning. Strands retries six times by default on a 4s-to-240s
+    ladder -- up to about two minutes of silent waiting, which is not what you
+    want happening during a live demo."""
+
     user_id: str = "demo"
     """Single hardcoded demo user for this build."""
 

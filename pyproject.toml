@@ -15,7 +15,7 @@ dependencies = [
     "google-auth-oauthlib==1.4.1",
     "pydantic>=2.13.5",
     "python-dotenv>=1.2.3",
-    "strands-agents>=1.55.1",
+    "strands-agents[anthropic]>=1.55.1",
     "strands-agents-tools>=0.8.8",
     "tzlocal>=5.4.4",
 ]

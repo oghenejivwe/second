@@ -796,4 +796,39 @@ Updated tool matrix:
 | `graph_updater` | `write_graph`, `update_person_model`, `set_goal_status`, **`record_completion`** | *(free text)* |
 
 ---
+
+## MODEL PROVIDER CHANGED - 2026-09-10
+
+**Bedrock refuses Anthropic models on this AWS account.** Verified in CloudShell,
+reproducibly, on both Claude Sonnet 4.6 and a two-year-old Claude 3 Haiku:
+
+    ValidationException: Access to Anthropic models is not allowed from
+    unsupported countries, regions, or territories.
+
+The account is registered in Nigeria, which **is** on Anthropic's own published
+supported-countries list. So AWS applies a narrower list to Anthropic-on-Bedrock
+than Anthropic applies to its own API.
+
+**We use Anthropic's API directly. Claude, same model, different route.**
+`SECOND_MODEL_PROVIDER=anthropic` is the default; `build_model()` returns an
+`AnthropicModel`. Bedrock stays wired and is one env var away for the day the
+block lifts.
+
+**This changes nothing you write.** Strands treats both as `Model`, structured
+output uses the same tool-call machinery on both, and every graph, tool and
+condition is provider-agnostic. `ScriptedModel` remains your dev default.
+
+One thing to actually do: **pass `deps.retry` to your agents.**
+
+```python
+Agent(model=deps.model, tools=list(deps.tools), hooks=list(deps.hooks),
+      retry_strategy=deps.retry, structured_output_model=OUTPUT_MODEL, ...)
+```
+
+`retry_strategy` is an **Agent** argument, not a model config key -- handing it to
+a model provider is silently discarded with only a UserWarning. I had that bug
+myself for an hour. Strands otherwise retries six times on a 4s-to-240s ladder,
+which is up to two minutes of silent waiting in front of a judge.
+
+---
 WAITING ON: AGENTS - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn

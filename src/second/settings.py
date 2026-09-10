@@ -10,6 +10,39 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+# --- Which Claude, and from where ------------------------------------------
+
+MODEL_PROVIDER = os.environ.get("SECOND_MODEL_PROVIDER", "anthropic")
+"""``"anthropic"`` (direct API) or ``"bedrock"``.
+
+Defaults to the direct API because **Bedrock refuses Anthropic models on this
+account**. Verified in CloudShell on 2026-09-10, reproducibly, on both a current
+and a two-year-old Claude model:
+
+    ValidationException: Access to Anthropic models is not allowed from
+    unsupported countries, regions, or territories.
+
+The account is registered in Nigeria, which **is** on Anthropic's own published
+supported-countries list -- for both the commercial API and Claude.ai. So AWS
+applies a narrower country list to Anthropic-on-Bedrock than Anthropic applies to
+its own API, and the direct API is open to us where Bedrock is not.
+
+Nothing else in the build changes. Strands' ``AnthropicModel`` and
+``BedrockModel`` are interchangeable behind ``build_model()``, structured output
+works identically on both, and **AgentCore deployment is unaffected** -- it runs
+our code, it does not dictate where the model comes from. DynamoDB, S3,
+Transcribe, EventBridge and Lambda all stay exactly as they were.
+
+Flip to ``"bedrock"`` the day the block lifts; one environment variable.
+"""
+
+ANTHROPIC_MODEL_ID = "claude-sonnet-4-6"
+"""The direct-API model id. No ``global.`` prefix -- that is a Bedrock concept."""
+
+ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY"
+"""Read from the environment, never from a file in this repo."""
+
+
 # --- AWS -------------------------------------------------------------------
 
 AWS_REGION = os.environ.get("AWS_REGION", "us-west-2")
