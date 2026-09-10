@@ -18,12 +18,15 @@ interrupting -- ``notify`` is the separate, rarer decision.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from second.core.clock import Clock
 from second.core.models import (
     BriefJudgement,
+    CheckIn,
+    CheckInItem,
     DailyBrief,
+    ObservationReport,
     LivingGraph,
     PreparedAction,
     Risk,
@@ -62,13 +65,13 @@ def _blocks_for(graph: LivingGraph, task: Task, slot: datetime, clock: Clock) ->
     )
 
 
-def todays_blocks(graph: LivingGraph, clock: Clock) -> list[ScheduledBlock]:
-    """Every piece of work with a slot today, in time order.
+def blocks_on(graph: LivingGraph, clock: Clock, on: date) -> list[ScheduledBlock]:
+    """Every piece of work with a slot on a given day, in time order.
 
     Paused and retired goals are skipped -- that is what retiring a goal means,
     and it is why retiring one visibly frees time.
     """
-    today = clock.today
+    today = on
     blocks: list[ScheduledBlock] = []
 
     for goal in graph.active_goals():
@@ -86,6 +89,59 @@ def todays_blocks(graph: LivingGraph, clock: Clock) -> list[ScheduledBlock]:
                         blocks.append(block)
 
     return sorted(blocks, key=lambda block: block.start)
+
+
+def todays_blocks(graph: LivingGraph, clock: Clock) -> list[ScheduledBlock]:
+    """Today's schedule."""
+    return blocks_on(graph, clock, clock.today)
+
+
+def build_check_in(
+    graph: LivingGraph,
+    clock: Clock,
+    observations: ObservationReport | None = None,
+    *,
+    on: date | None = None,
+) -> CheckIn:
+    """Ask about yesterday, with the answers already filled in.
+
+    Second knows what was scheduled and has looked for evidence. What it cannot
+    know is whether the person actually did the thing -- a calendar shows an
+    invite was declined, but nothing anywhere shows whether a five-minute
+    recording happened. So it forms a view, shows the evidence, and asks for one
+    tap.
+
+    Work already marked done is left out: confirming something the system already
+    knows is exactly the busywork this product exists to remove.
+    """
+    reconciling = on or (clock.today - timedelta(days=1))
+    outcomes = {
+        observation.task_id: observation
+        for observation in (observations.observations if observations else [])
+    }
+
+    items: list[CheckInItem] = []
+    for block in blocks_on(graph, clock, reconciling):
+        task = graph.task_by_id(block.task_id)
+        if task is None or task.status == "done":
+            continue
+
+        observed = outcomes.get(block.task_id)
+        items.append(
+            CheckInItem(
+                task_id=block.task_id,
+                title=block.title,
+                goal_title=block.goal_title,
+                scheduled_for=block.start,
+                inferred=_INFERRED[observed.outcome] if observed else "unknown",
+                evidence=observed.evidence if observed else "",
+            )
+        )
+
+    return CheckIn(on=reconciling, items=items)
+
+
+_INFERRED = {"honoured": "likely_done", "missed": "likely_missed", "unknown": "unknown"}
 
 
 def deadline_risks(graph: LivingGraph, clock: Clock, *, window_days: int = RISK_WINDOW_DAYS) -> list[Risk]:
@@ -169,6 +225,7 @@ def assemble(
     clock: Clock,
     judgement: BriefJudgement | None,
     prepared: list[PreparedAction] | None = None,
+    observations: ObservationReport | None = None,
     on: date | None = None,
 ) -> DailyBrief:
     """Build the day from computed facts plus the model's judgement.
@@ -182,6 +239,7 @@ def assemble(
     prepared = prepared or []
     blocks = todays_blocks(graph, clock)
     risks = deadline_risks(graph, clock)
+    check_in = build_check_in(graph, clock, observations)
 
     if judgement is None:
         return DailyBrief(
@@ -189,6 +247,7 @@ def assemble(
             blocks=blocks,
             prepared=prepared,
             at_risk=risks,
+            check_in=check_in if check_in.needs_answer else None,
             notify=bool(prepared),
             silence_reason="No judgement was produced this run; showing the schedule only.",
         )
@@ -200,6 +259,10 @@ def assemble(
         at_risk=risks,
         reminders=judgement.reminders,
         decisions=judgement.decisions,
+        # The check-in never triggers a notification. It sits inside a brief the
+        # user is already looking at, which is what lets it be daily without
+        # breaking the promise that Second stays quiet.
+        check_in=check_in if check_in.needs_answer else None,
         # A decision or a prepared action always earns a notification, whatever
         # the model concluded. It cannot talk itself out of telling the user
         # about something it is waiting on them for.

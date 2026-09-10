@@ -18,11 +18,12 @@ reserved keys (``agent``, ``messages``, ``system_prompt``, ``tool_config``,
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from strands import ToolContext, tool
 
-from second.core.models import Diagnosis, Goal, Link, LivingGraph
+from second.core.models import Diagnosis, Goal, Link, LivingGraph, Slip
 from second.persistence.store import LivingGraphStore
 from second.settings import NAMESPACE
 
@@ -228,6 +229,88 @@ def record_diagnosis(user_id: str, diagnosis: dict, tool_context: ToolContext) -
 
 
 @tool(context=True)
+def record_completion(
+    user_id: str,
+    task_id: str,
+    did_it: bool,
+    tool_context: ToolContext,
+    note: str = "",
+) -> str:
+    """Record what the user said actually happened with a task.
+
+    **This is ground truth and it overrides every inference.** The calendar can
+    show that an invite was declined and the inbox can show that a mail was never
+    sent, but nothing anywhere can show whether somebody actually did a
+    five-minute recording. The person was there; the system was not.
+
+    When the user gives a reason for not doing something, it is written to the
+    task as a known blocker, and Second does not ask about it again. Being asked
+    the same question twice is how a system tells you it was not listening.
+
+    Args:
+        user_id: Whose graph this is.
+        task_id: The task being reported on.
+        did_it: True if the user says they did it.
+        note: Anything they said about it, in their own words. Optional, and the
+            most valuable field here when it is present.
+
+    Returns:
+        A description of what was recorded, including any slip that was reversed.
+
+    Raises:
+        GraphToolError: If the task is not in the graph.
+    """
+    outcome: list[str] = []
+
+    def change(graph: LivingGraph) -> None:
+        task = graph.task_by_id(task_id)
+        if task is None:
+            raise GraphToolError(f"no task {task_id!r} in the graph")
+
+        clock = run_scope(tool_context.invocation_state).get("clock")
+        slot = task.scheduled_slots[-1] if task.scheduled_slots else None
+        label = clock.slot_label(slot) if clock and slot else None
+
+        if did_it:
+            task.status = "done"
+            # An inferred slip the user has just contradicted is wrong, not
+            # merely outweighed. Remove it rather than averaging it.
+            reversed_slips = [slip for slip in task.slips if slip.noticed_by != "user"]
+            if reversed_slips and task.slip_count:
+                task.slip_count = max(0, task.slip_count - 1)
+                task.slips = [slip for slip in task.slips if slip.noticed_by == "user"]
+                outcome.append("reversed an inferred slip")
+            if label and label not in graph.person.honoured_slots:
+                graph.person.honoured_slots.append(label)
+                outcome.append(f"learned {label} as honoured")
+            if label in graph.person.abandoned_slots:
+                graph.person.abandoned_slots.remove(label)
+            return
+
+        task.slip_count += 1
+        task.slips.append(
+            Slip(
+                on=clock.today if clock else date.today(),
+                scheduled_for=slot,
+                noticed_by="user",
+                note=note,
+            )
+        )
+        if note:
+            task.known_blocker = note
+            outcome.append("recorded the reason, so it will not ask again")
+        if label and task.slip_count >= 2 and label not in graph.person.abandoned_slots:
+            graph.person.abandoned_slots.append(label)
+            outcome.append(f"learned {label} as abandoned")
+
+    _store(tool_context).mutate(user_id, change)
+
+    verdict = "done" if did_it else "not done"
+    tail = f"; {', '.join(outcome)}" if outcome else ""
+    return f"{task_id} marked {verdict} on the user's own report{tail}"
+
+
+@tool(context=True)
 def set_goal_status(user_id: str, goal_id: str, status: str, tool_context: ToolContext) -> str:
     """Pause, retire or reactivate a goal.
 
@@ -275,5 +358,6 @@ ALL_GRAPH_TOOLS = (
     write_graph,
     update_person_model,
     record_diagnosis,
+    record_completion,
     set_goal_status,
 )

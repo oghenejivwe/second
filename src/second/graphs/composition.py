@@ -56,6 +56,7 @@ TOOL_OWNERS = {
     "write_graph": "PLATFORM",
     "update_person_model": "PLATFORM",
     "record_diagnosis": "PLATFORM",
+    "record_completion": "PLATFORM",
     "set_goal_status": "PLATFORM",
 }
 """Every tool in the system and the instance responsible for it.
@@ -281,6 +282,7 @@ class ComposedGraph:
     audit: Any
     store: Any
     user_id: str
+    clock: Any = None
 
     async def run(self, task: str, **extra_state: Any) -> Any:
         """Invoke the graph and flush its audit log.
@@ -293,7 +295,14 @@ class ComposedGraph:
         from strands.multiagent.base import Status
         from second.settings import NAMESPACE
 
-        state = {NAMESPACE: {"store": self.store, "user_id": self.user_id, **extra_state}}
+        state = {
+            NAMESPACE: {
+                "store": self.store,
+                "user_id": self.user_id,
+                "clock": self.clock,
+                **extra_state,
+            }
+        }
         try:
             result = await self.graph.invoke_async(task, state)
         finally:

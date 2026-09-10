@@ -571,4 +571,52 @@ Two small things:
 Otherwise carry on exactly as briefed.
 
 ---
+
+## THE DAILY CHECK-IN - 2026-09-10, still before any instance started
+
+Second can infer a great deal from a calendar and an inbox. It **cannot** infer
+whether somebody actually did a five-minute recording, because nothing anywhere
+records that. Without asking, the picture drifts: slips get invented, honoured
+slots get filed as abandoned, and every diagnosis downstream is built on a guess.
+
+So once a day Second reconciles yesterday. **And it does not ask blind** -- the
+governing principle applies to the check-in itself. It arrives pre-filled with
+Second's best guess and the evidence behind it, so the user corrects rather than
+remembers.
+
+```python
+class CheckInItem(BaseModel):
+    task_id: str
+    title: str
+    goal_title: str
+    scheduled_for: datetime
+    inferred: Literal["likely_done", "likely_missed", "unknown"]
+    evidence: str          # why Second thinks so. Empty when it genuinely has none.
+```
+
+`DailyBrief.check_in: CheckIn | None`, built in `graphs/brief.py` from yesterday's
+blocks plus the Observer's report. **It never triggers a notification** -- it sits
+inside a brief the user is already looking at, which is exactly what lets it be
+daily without breaking the promise that Second stays quiet.
+
+**The user's answer beats every inference.** Not averaged, not weighed. The person
+was there; the system was not. A slip that was inferred and then contradicted is
+removed, not outvoted. Mutation-tested.
+
+### What this means for you: nothing changes, but one thing matters more
+
+Your seven signatures, the voice seam and the seeding plan are all unchanged.
+
+The one thing worth knowing: **the Observer now has to quote its evidence.** Every
+`Observation` carries the calendar entry or email it rests on, and that text goes
+in front of the user in the check-in. So the dicts you return need enough to
+quote from -- for events, `title`, `start`, `status`, `response` and `attendees`;
+for mail, `subject`, `from`, `date` and a usable `snippet`. The fakes in
+`second/testing/fake_connectors.py` already have this shape; match it.
+
+Also note `response: "none"` is meaningful and is not the same as `"declined"`.
+An event nobody responded to, on a slot that was otherwise free, is precisely the
+case where Second must admit it cannot tell.
+
+---
 WAITING ON: CONNECTORS - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn

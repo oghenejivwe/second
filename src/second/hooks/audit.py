@@ -46,6 +46,7 @@ WRITE_TOOLS = frozenset(
         "write_graph",
         "update_person_model",
         "record_diagnosis",
+        "record_completion",
         "set_goal_status",
     }
 )

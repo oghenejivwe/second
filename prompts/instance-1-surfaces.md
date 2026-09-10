@@ -500,4 +500,71 @@ Nothing else changed. Your other seven routes, the four-screen limit, the
 TypeScript 5.9.3 pin and the restraint all stand.
 
 ---
+
+## THE DAILY CHECK-IN - 2026-09-10, still before any instance started
+
+Second can infer a great deal from a calendar and an inbox. It **cannot** infer
+whether somebody actually did a five-minute recording, because nothing anywhere
+records that. Without asking, the picture drifts: slips get invented, honoured
+slots get filed as abandoned, and every diagnosis downstream is built on a guess.
+
+So once a day Second reconciles yesterday. **And it does not ask blind** -- the
+governing principle applies to the check-in itself. It arrives pre-filled with
+Second's best guess and the evidence behind it, so the user corrects rather than
+remembers.
+
+```python
+class CheckInItem(BaseModel):
+    task_id: str
+    title: str
+    goal_title: str
+    scheduled_for: datetime
+    inferred: Literal["likely_done", "likely_missed", "unknown"]
+    evidence: str          # why Second thinks so. Empty when it genuinely has none.
+```
+
+`DailyBrief.check_in: CheckIn | None`, built in `graphs/brief.py` from yesterday's
+blocks plus the Observer's report. **It never triggers a notification** -- it sits
+inside a brief the user is already looking at, which is exactly what lets it be
+daily without breaking the promise that Second stays quiet.
+
+**The user's answer beats every inference.** Not averaged, not weighed. The person
+was there; the system was not. A slip that was inferred and then contradicted is
+removed, not outvoted. Mutation-tested.
+
+### What this means for you: one new element, and it is a good one
+
+`DailyBrief.check_in` is `CheckIn | None`. When present it holds yesterday's
+work, each item **already carrying Second's guess and the evidence for it**:
+
+```json
+{ "on": "2026-09-09",
+  "items": [
+    { "task_id": "t-gym", "title": "Gym session",
+      "goal_title": "Train three times a week",
+      "scheduled_for": "2026-09-09T18:00:00+01:00",
+      "inferred": "likely_missed",
+      "evidence": "18:00 invite declined; 'Eng sync' ran at the same time." },
+    { "task_id": "t-recording", "title": "Record five minutes and listen back",
+      "goal_title": "Get comfortable speaking to a room",
+      "scheduled_for": "2026-09-09T08:00:00+01:00",
+      "inferred": "unknown", "evidence": "" }
+  ] }
+```
+
+**Design it as confirmation, not data entry.** Second has already done the work;
+the user is correcting a pre-filled answer. A tick and a cross per row, with the
+evidence readable underneath. `inferred: "unknown"` with an empty `evidence` is
+Second saying plainly *"I could not tell"* -- that row should look different from
+the ones it has a view on, and it is the honest one.
+
+**It does not notify.** It rides inside the brief the user already opened.
+
+Answers go back through `POST /api/feedback` -- **no new route**. Send what the
+user said or tapped as text; the Interpreter turns it into typed completions.
+
+`CheckIn` also exposes `uncertain` (the items Second could not work out), if you
+want to lead with those.
+
+---
 WAITING ON: SURFACES - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn

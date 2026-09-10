@@ -380,9 +380,22 @@ class FeedbackUpdate(BaseModel):
 
 
 class FeedbackResult(BaseModel):
-    """Everything the Interpreter took from one piece of feedback."""
+    """Everything the Interpreter took from one thing the user said.
 
+    Covers both directions of the daily loop: ``completions`` is the user
+    reporting backwards on what actually happened, ``updates`` is everything else
+    -- a preference, a time that does not work, a route that is too much.
+    """
+
+    completions: list[CompletionReport] = Field(
+        default_factory=list,
+        description="Answers to the check-in. Ground truth; overrides what was inferred.",
+    )
     updates: list[FeedbackUpdate] = Field(default_factory=list)
+    intentions: list[str] = Field(
+        default_factory=list,
+        description="Things the user says they want to do today that are not yet in the plan.",
+    )
     acknowledgement: str = Field(default="", description="At most one line back to the user. Often empty.")
 
 
@@ -497,6 +510,10 @@ class DailyBrief(BaseModel):
         default_factory=list,
         description="Usually empty. Each one costs the user attention, so earn it.",
     )
+    check_in: CheckIn | None = Field(
+        default=None,
+        description="Yesterday, pre-filled, awaiting confirmation. Does not trigger a notification.",
+    )
     notify: bool = Field(
         default=False,
         description="Push this at the user. True only when a decision is needed or something was prepared.",
@@ -527,6 +544,96 @@ class IntakeResult(BaseModel):
         default=None,
         description="What the Scheduler placed and what it deprioritised, when it ran.",
     )
+
+
+class Observation(BaseModel):
+    """What the Observer could work out about one scheduled slot.
+
+    Inference only. The calendar can show an invite was declined and the inbox
+    can show a mail was never sent, but **nothing in either can tell you whether
+    somebody actually did the five-minute recording.** That is what the check-in
+    is for, and it is why ``outcome`` is allowed to be ``"unknown"`` rather than
+    being forced into a guess.
+    """
+
+    task_id: str
+    scheduled_for: datetime
+    outcome: Literal["honoured", "missed", "unknown"]
+    evidence: str = Field(description="Quote the calendar entry or the email. No evidence, no claim.")
+    source: Literal["calendar", "email", "none"]
+
+
+class ObservationReport(BaseModel):
+    """The Observer's sanitised bundle. The only thing the Diagnostician sees.
+
+    This is the context-isolation boundary made concrete: the Observer reads raw
+    calendar entries and raw email, and hands on **this** -- task ids, outcomes
+    and quoted evidence. Not inbox contents. The Diagnostician cannot reach
+    Gmail or Calendar itself, so this report is the whole of its world.
+    """
+
+    observations: list[Observation] = Field(default_factory=list)
+    notes: str = Field(
+        default="",
+        description="Structural context not tied to one task, e.g. a standing meeting that moved.",
+    )
+
+
+class CheckInItem(BaseModel):
+    """One thing to confirm, arriving with the answer already filled in.
+
+    Second does everything it can before asking. It knows what was scheduled, it
+    has looked for evidence, and it has formed a view. The user's job is one tap
+    to confirm or correct -- not to remember and report.
+    """
+
+    task_id: str
+    title: str
+    goal_title: str
+    scheduled_for: datetime
+    inferred: Literal["likely_done", "likely_missed", "unknown"]
+    evidence: str = Field(
+        default="",
+        description="Why Second thinks so. Empty when it genuinely has nothing and is simply asking.",
+    )
+
+
+class CheckIn(BaseModel):
+    """The daily reconciliation. What actually happened, from the only source that knows.
+
+    **This is not a notification.** It sits inside the brief the user is already
+    looking at, so it costs them nothing extra -- which is why it can be daily
+    without breaking the promise that Second stays quiet.
+
+    Without it the system's picture drifts: slips get inferred that never
+    happened, honoured slots get recorded as abandoned, and every diagnosis
+    downstream is built on a guess.
+    """
+
+    on: date = Field(description="The day being reconciled, usually yesterday.")
+    items: list[CheckInItem] = Field(default_factory=list)
+
+    @property
+    def needs_answer(self) -> bool:
+        """Whether there is anything to confirm at all."""
+        return bool(self.items)
+
+    @property
+    def uncertain(self) -> list[CheckInItem]:
+        """The items Second genuinely could not work out. These matter most."""
+        return [item for item in self.items if item.inferred == "unknown"]
+
+
+class CompletionReport(BaseModel):
+    """The user's own answer about one task. Beats every inference.
+
+    When this disagrees with the Observer, this wins and the inference is
+    discarded -- not averaged, not weighed. The person was there.
+    """
+
+    task_id: str
+    did_it: bool
+    note: str = Field(default="", description="Anything they said about why, in their words.")
 
 
 class BriefJudgement(BaseModel):

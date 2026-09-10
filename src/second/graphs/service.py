@@ -24,6 +24,7 @@ from second.core.models import (
     GoalStatus,
     IntakeResult,
     LivingGraph,
+    ObservationReport,
     PreparedAction,
     ScheduleDecision,
 )
@@ -174,12 +175,14 @@ async def run_daily(
         logger.warning("communicator produced no typed result; falling back to a factual brief")
 
     prepared_action = typed_result(result, "preparer", PreparedAction)
+    observations = typed_result(result, "observer", ObservationReport)
 
     brief = assemble(
         graph=load_living_graph(user_id),
         clock=clock,
         judgement=judgement,
         prepared=[prepared_action] if prepared_action else [],
+        observations=observations,
     )
     if brief.is_quiet:
         logger.info("quiet day: %s", brief.silence_reason or "nothing needed the user")

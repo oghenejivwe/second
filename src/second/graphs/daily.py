@@ -121,4 +121,6 @@ def build_daily_graph(
     builder.set_hook_providers([audit])
     apply_guardrails(builder)
 
-    return ComposedGraph(graph=builder.build(), audit=audit, store=store, user_id=user_id)
+    return ComposedGraph(
+        graph=builder.build(), audit=audit, store=store, user_id=user_id, clock=clock
+    )

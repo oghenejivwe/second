@@ -708,4 +708,92 @@ weeks out and a task serving a fifteen-year ambition compete differently, and
 chain.
 
 ---
+
+## THE DAILY CHECK-IN - 2026-09-10, still before any instance started
+
+Second can infer a great deal from a calendar and an inbox. It **cannot** infer
+whether somebody actually did a five-minute recording, because nothing anywhere
+records that. Without asking, the picture drifts: slips get invented, honoured
+slots get filed as abandoned, and every diagnosis downstream is built on a guess.
+
+So once a day Second reconciles yesterday. **And it does not ask blind** -- the
+governing principle applies to the check-in itself. It arrives pre-filled with
+Second's best guess and the evidence behind it, so the user corrects rather than
+remembers.
+
+```python
+class CheckInItem(BaseModel):
+    task_id: str
+    title: str
+    goal_title: str
+    scheduled_for: datetime
+    inferred: Literal["likely_done", "likely_missed", "unknown"]
+    evidence: str          # why Second thinks so. Empty when it genuinely has none.
+```
+
+`DailyBrief.check_in: CheckIn | None`, built in `graphs/brief.py` from yesterday's
+blocks plus the Observer's report. **It never triggers a notification** -- it sits
+inside a brief the user is already looking at, which is exactly what lets it be
+daily without breaking the promise that Second stays quiet.
+
+**The user's answer beats every inference.** Not averaged, not weighed. The person
+was there; the system was not. A slip that was inferred and then contradicted is
+removed, not outvoted. Mutation-tested.
+
+### What this means for you
+
+**1. The Observer's output model is settled: `ObservationReport`.** This is the
+open question from your brief -- the shape of the sanitised bundle the
+Diagnostician receives. It is now decided, because the check-in needs the same
+data:
+
+```python
+class Observation(BaseModel):
+    task_id: str
+    scheduled_for: datetime
+    outcome: Literal["honoured", "missed", "unknown"]
+    evidence: str          # quote the calendar entry or the email
+    source: Literal["calendar", "email", "none"]
+
+class ObservationReport(BaseModel):
+    observations: list[Observation]
+    notes: str = ""
+```
+
+This **is** the context-isolation boundary made concrete. The Observer reads raw
+calendar entries and raw email; it hands on task ids, outcomes and quoted
+evidence -- not inbox contents. The Diagnostician cannot reach Gmail or Calendar
+itself, so this report is the whole of its world. Set
+`deps.context["evidence"] = report` and PLATFORM wires it.
+
+**`outcome="unknown"` is a first-class answer and you should reach for it.** An
+Observer that forces every slot into honoured-or-missed manufactures the very
+evidence the Diagnostician then reasons from. If the calendar and inbox are
+silent, say so and let the check-in ask.
+
+**2. A thirteenth tool: `record_completion(user_id, task_id, did_it, note="")`.**
+Owned by PLATFORM, injected into the **Graph Updater**. It marks the task done,
+reverses an inferred slip the user contradicted, learns the slot as honoured or
+abandoned, and -- when the user gives a reason -- writes it to
+`task.known_blocker` so **Second never asks about it again.** Being asked the
+same question twice is how a system tells you it was not listening.
+
+**3. `FeedbackResult` grew two fields**, so one Interpreter handles both
+directions of the daily loop:
+
+```python
+completions: list[CompletionReport]   # answers to the check-in. ground truth.
+intentions: list[str]                 # "I also want to get X done today"
+updates: list[FeedbackUpdate]         # everything else, as before
+```
+
+Updated tool matrix:
+
+| Agent | Tools | Output model |
+|---|---|---|
+| `observer` | `read_graph`, `get_calendar_events`, `search_gmail`, `update_person_model` | **`ObservationReport`** |
+| `interpreter` | `read_graph` | `FeedbackResult` |
+| `graph_updater` | `write_graph`, `update_person_model`, `set_goal_status`, **`record_completion`** | *(free text)* |
+
+---
 WAITING ON: AGENTS - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn
