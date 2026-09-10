@@ -31,6 +31,7 @@ from typing import Any
 from strands.multiagent.graph import GraphBuilder
 
 from second.core.clock import Clock
+from second.settings import MAX_MODEL_CALLS_PER_NODE
 from second.graphs.composition import (
     AgentSpec,
     ComposedGraph,
@@ -44,6 +45,7 @@ from second.graphs.composition import (
 )
 from second.graphs.conditions import extraction_is_clear
 from second.hooks.audit import AuditLogHook
+from second.hooks.guard import RunawayGuard
 
 CORE_NODES = ("extractor", "cascader", "route_planner", "scheduler")
 OPTIONAL_NODES = ("resource_finder",)
@@ -84,6 +86,7 @@ def build_intake_graph(
     specs = specs or {}
     context = context or {}
     audit = AuditLogHook(store=store, user_id=user_id)
+    guard = RunawayGuard(max_model_calls=MAX_MODEL_CALLS_PER_NODE)
 
     node_ids = list(CORE_NODES) + (list(OPTIONAL_NODES) if include_resource_finder else [])
 
@@ -94,7 +97,7 @@ def build_intake_graph(
                 specs.get(node_id) or load_agent_spec(node_id),
                 model=model,
                 registry=registry,
-                hooks=[audit],
+                hooks=[audit, guard],
                 user_id=user_id,
                 clock=clock,
                 context=context.get(node_id, {}),

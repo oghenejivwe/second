@@ -87,13 +87,17 @@ DEMO_USER_ID = "demo"
 
 # --- Run limits ------------------------------------------------------------
 
-INVOCATION_LIMITS = {"turns": 8, "total_tokens": 120_000}
-"""Passed at CALL time -- ``agent.invoke_async(..., limits=INVOCATION_LIMITS)``.
-``Agent(limits=...)`` is a TypeError; ``limits`` is not a constructor argument.
+MAX_MODEL_CALLS_PER_NODE = 12
+"""The real cap on a runaway structured-output loop. Enforced by ``RunawayGuard``.
 
-This is the only hard backstop against an unbounded structured-output validation
-loop: Pydantic validation failures are fed back to the model as error tool
-results with no attempt cap of their own."""
+There was an ``INVOCATION_LIMITS`` here that nothing consumed -- a control that
+existed only in settings. AGENTS found it. It could not have worked: ``limits`` is
+an argument to ``Agent.invoke_async``, and inside a ``Graph`` the SDK makes that
+call itself, so there is no seam to pass it through.
+
+A hook on every model call is the seam that does exist. Twelve is generous on
+purpose: the busiest node here is the Preparer at four tool calls plus the
+structured-output pass, so twelve means something is wrong rather than busy."""
 
 MAX_NODE_EXECUTIONS = 20
 NODE_TIMEOUT_SECONDS = 60.0

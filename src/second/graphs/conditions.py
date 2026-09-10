@@ -103,6 +103,29 @@ def can_act_alone(state: GraphState) -> bool:
     return not needs_user_decision(state)
 
 
+def diagnosis_has_run(state: GraphState) -> bool:
+    """True once the Diagnostician has finished, whatever it concluded.
+
+    This gates the ``observer -> communicator`` edge, which exists so the
+    Communicator can build reminders. Without it the Communicator sees only a
+    typed ``Diagnosis`` and a ``PreparedAction`` -- neither of which carries the
+    email a forgotten commitment came from -- so it could never produce a legal
+    ``Reminder``, every one of which must cite its source.
+
+    **The gate is not optional and a bare edge is a trap.** A node becomes ready
+    when any incoming edge *from the just-completed batch* is satisfied
+    (``graph.py:965-981``). An ungated observer edge therefore fires the
+    Communicator immediately after the Observer, and again after the Preparer --
+    it runs twice. Gating on the Diagnostician having completed means the edge is
+    never the one that triggers readiness, while still being satisfied when
+    ``_build_node_input`` collects dependencies, so the report reaches the prompt.
+
+    Pure, as every condition here must be: it is evaluated at least twice per
+    traversal.
+    """
+    return "diagnostician" in state.results
+
+
 # ---------------------------------------------------------------------------
 # Intake graph: did we understand the person well enough to plan?
 # ---------------------------------------------------------------------------

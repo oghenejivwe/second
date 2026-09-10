@@ -23,6 +23,7 @@ from typing import Any
 from strands.multiagent.graph import GraphBuilder
 
 from second.core.clock import Clock
+from second.settings import MAX_MODEL_CALLS_PER_NODE
 from second.graphs.composition import (
     AgentSpec,
     ComposedGraph,
@@ -35,6 +36,7 @@ from second.graphs.composition import (
     load_agent_spec,
 )
 from second.hooks.audit import AuditLogHook
+from second.hooks.guard import RunawayGuard
 
 NODES = ("interpreter", "graph_updater")
 
@@ -71,6 +73,7 @@ def build_feedback_graph(
     specs = specs or {}
     context = context or {}
     audit = AuditLogHook(store=store, user_id=user_id)
+    guard = RunawayGuard(max_model_calls=MAX_MODEL_CALLS_PER_NODE)
 
     builder = GraphBuilder()
     for node_id in NODES:
@@ -79,7 +82,7 @@ def build_feedback_graph(
                 specs.get(node_id) or load_agent_spec(node_id),
                 model=model,
                 registry=registry,
-                hooks=[audit],
+                hooks=[audit, guard],
                 user_id=user_id,
                 clock=clock,
                 context=context.get(node_id, {}),

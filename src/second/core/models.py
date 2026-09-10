@@ -733,6 +733,24 @@ class BriefJudgement(BaseModel):
     )
 
 
+class RoutePlan(BaseModel):
+    """Concrete routes proposed for goals that are near enough to work on.
+
+    Shallow on purpose. The alternative was to carry whole ``Goal`` objects here,
+    which means a Goal->Route->Task schema at every hop and nothing persisted at
+    all if the Scheduler fails downstream. Instead the Cascader writes the goal
+    ladder to the graph as it goes, and this carries only what is new -- so a
+    scheduling failure costs the routes, not the ladder.
+    """
+
+    routes: list[Route] = Field(description="Proposed routes, each already bound to a goal_id.")
+    rationale: str = Field(description="Why these routes suit THIS person, citing a person-layer fact.")
+    clarifying_questions: list[str] = Field(
+        default_factory=list,
+        description="Ask rather than invent a cadence the user will abandon in week two.",
+    )
+
+
 class CascadeResult(BaseModel):
     """A long-horizon ambition, cashed into goals that can actually be worked.
 

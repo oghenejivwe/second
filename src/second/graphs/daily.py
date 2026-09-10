@@ -1,8 +1,9 @@
 """The Daily graph. This is the product.
 
     observer ──► diagnostician ──┬──[can act alone]──► adapter ──► preparer ──┐
-                                 │                                            ▼
-                                 └──[needs the user]───────────────────► communicator
+        │                        │                                            ▼
+        │                        └──[needs the user]───────────────────► communicator
+        └──────────[once diagnosed]──────────────────────────────────────────▲
 
 Second compares the plan against what actually happened, works out *structurally*
 why something slipped, and then either changes the plan itself or asks one
@@ -37,6 +38,7 @@ from typing import Any
 from strands.multiagent.graph import GraphBuilder
 
 from second.core.clock import Clock
+from second.settings import MAX_MODEL_CALLS_PER_NODE
 from second.graphs.composition import (
     AgentSpec,
     ComposedGraph,
@@ -48,8 +50,9 @@ from second.graphs.composition import (
     resolve_clock,
     load_agent_spec,
 )
-from second.graphs.conditions import can_act_alone, needs_user_decision
+from second.graphs.conditions import can_act_alone, diagnosis_has_run, needs_user_decision
 from second.hooks.audit import AuditLogHook
+from second.hooks.guard import RunawayGuard
 
 NODES = ("observer", "diagnostician", "adapter", "preparer", "communicator")
 
@@ -89,13 +92,14 @@ def build_daily_graph(
     specs = specs or {}
     context = context or {}
     audit = AuditLogHook(store=store, user_id=user_id)
+    guard = RunawayGuard(max_model_calls=MAX_MODEL_CALLS_PER_NODE)
 
     agents = {
         node_id: build_node_agent(
             specs.get(node_id) or load_agent_spec(node_id),
             model=model,
             registry=registry,
-            hooks=[audit],
+            hooks=[audit, guard],
             user_id=user_id,
             clock=clock,
             context=context.get(node_id, {}),
@@ -116,6 +120,11 @@ def build_daily_graph(
 
     builder.add_edge("adapter", "preparer")
     builder.add_edge("preparer", "communicator")
+
+    # The Communicator has to cite the email a forgotten commitment came from,
+    # and it has no tools. This carries the Observer's sanitised report to it on
+    # both paths. Gated rather than bare -- see diagnosis_has_run.
+    builder.add_edge("observer", "communicator", condition=diagnosis_has_run)
 
     builder.set_entry_point("observer")
     builder.set_hook_providers([audit])

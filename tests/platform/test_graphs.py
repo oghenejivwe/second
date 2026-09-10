@@ -333,3 +333,69 @@ def test_a_tool_nobody_has_built_yet_names_its_owner():
         )
     assert "search_gmail" in str(excinfo.value)
     assert "CONNECTORS" in str(excinfo.value)
+
+
+# -- the observer -> communicator edge --------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_the_observer_report_reaches_the_communicator_on_both_paths(store):
+    """The Communicator must cite the email a forgotten commitment came from.
+
+    It has no tools, and its typed dependencies carry no inbox evidence, so
+    without this edge it could never produce a legal Reminder.
+    """
+    for diagnosis, expected in ((CONFIDENT, "adapter"), (HONEST_UNKNOWN, "communicator")):
+        composed = daily(store, diagnosis)
+        result = await composed.run("go")
+        visited = [node.node_id for node in result.execution_order]
+
+        assert visited.count("communicator") == 1, (
+            f"communicator ran {visited.count('communicator')} times on the "
+            f"{expected} path -- the observer edge is firing readiness"
+        )
+        prompt = composed.graph.nodes["communicator"].executor.model.calls[0]["prompt_text"]
+        assert "18:00 gym declined" in prompt, "the Observer's text did not reach it"
+
+
+@pytest.mark.asyncio
+async def test_an_ungated_observer_edge_would_run_the_communicator_twice(store):
+    """The trap this gate exists to avoid, demonstrated rather than asserted.
+
+    A node is ready when any incoming edge FROM THE JUST-COMPLETED BATCH is
+    satisfied (graph.py:965-981). A bare observer->communicator edge is therefore
+    satisfied the moment the Observer finishes, and again after the Preparer.
+    """
+    from strands.multiagent.graph import GraphBuilder
+
+    from second.graphs.composition import ToolRegistry, build_node_agent
+    from second.graphs.conditions import can_act_alone, needs_user_decision
+    from second.hooks.audit import AuditLogHook
+
+    audit = AuditLogHook(user_id=USER)
+    registry = ToolRegistry(ALL_GRAPH_TOOLS)
+    specs = _specs(SPEAKS)
+
+    builder = GraphBuilder()
+    for node_id, spec_obj in specs.items():
+        builder.add_node(
+            build_node_agent(spec_obj, model=object(), registry=registry, hooks=[audit], user_id=USER),
+            node_id,
+        )
+    builder.add_edge("observer", "diagnostician")
+    builder.add_edge("diagnostician", "adapter", condition=can_act_alone)
+    builder.add_edge("diagnostician", "communicator", condition=needs_user_decision)
+    builder.add_edge("adapter", "preparer")
+    builder.add_edge("preparer", "communicator")
+    builder.add_edge("observer", "communicator")  # <- ungated, the bug
+    builder.set_entry_point("observer")
+    builder.set_max_node_executions(12)
+
+    from second.testing.scripted_model import ScriptedTurnsExhausted
+
+    with pytest.raises((ScriptedTurnsExhausted, Exception)) as excinfo:
+        await builder.build().invoke_async("go", {"second": {"store": store, "user_id": USER}})
+
+    assert "turn 2" in str(excinfo.value) or "exhausted" in str(excinfo.value).lower(), (
+        f"expected the communicator to be asked twice, got: {excinfo.value}"
+    )

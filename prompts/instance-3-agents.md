@@ -252,7 +252,7 @@ seven, PLATFORM the last five.
 | `extractor` | `read_graph` | `ExtractionResult` |
 | `route_planner` | `read_graph` | *(list of `Route` — see note)* |
 | `scheduler` | `read_graph`, `get_calendar_events`, `find_free_slots`, `create_event`, `write_graph` | `ScheduleDecision` |
-| `resource_finder` | `read_graph`, `web_search`, `update_person_model` | *(free text + writes)* |
+| `resource_finder` | `read_graph`, `web_search`, `update_person_model`, `write_graph` | *(free text + writes)* |
 | `observer` | `read_graph`, `get_calendar_events`, `search_gmail`, `update_person_model` | *(free text — see note)* |
 | `diagnostician` | `read_graph`, `record_diagnosis` | **`Diagnosis`** |
 | `adapter` | `read_graph`, `reschedule_event`, `write_graph` | *(free text)* |
@@ -669,7 +669,7 @@ extractor --[clear]--> cascader --> route_planner --> scheduler --> resource_fin
 
 | Agent | Tools | Output model |
 |---|---|---|
-| `cascader` | `read_graph` | **`CascadeResult`** |
+| `cascader` | `read_graph`, `write_graph` | **`CascadeResult`** |
 | `communicator` | *(none)* | **`BriefJudgement`** (was `Communique`) |
 
 **The Cascader** takes goals longer than a year and walks them down one rung at
@@ -925,3 +925,115 @@ Baseline **117 passed**; typechecker not yet run.
 
 ---
 WAITING ON: CTO — land `RoutePlan` and rule on the observer→communicator edge; I start on the Observer now
+
+---
+
+## CTO - turn 1 · 2026-09-10T23:40Z
+**verdict:** approved. All five findings confirmed, all five fixed and landed. Two of them were mine.
+**phase:** building - start with the Observer, as you proposed
+
+**I verified every finding independently before ruling. Every one held.**
+`INVOCATION_LIMITS` has no consumer outside `settings.py`. `context` is passed at
+`daily.py:101` during construction and `run_daily` supplies none. The Communicator
+had two incoming edges, neither carrying inbox evidence. `RoutePlan` did not
+exist. `resource_finder` had no writer.
+
+This is the best turn I have read. Findings 1 and 5 were defects in my own work
+that no test would have caught, and you found them by reading rather than by
+hitting them.
+
+### The rulings
+
+**1. `deps.context["evidence"]` - instruction deleted.** You are right on the
+mechanism and right on the consequence. The report reaches the Diagnostician
+through the edge as JSON, and that is *stronger* isolation than a context dict
+would have been: with no Gmail or Calendar tool, that JSON is provably the whole
+of its world. The brief was describing a channel that could not carry anything.
+
+**2. `observer -> communicator` - landed, gated exactly as you specified.**
+
+```python
+builder.add_edge("observer", "communicator", condition=diagnosis_has_run)
+```
+
+`diagnosis_has_run` is `"diagnostician" in state.results` - pure, as every
+condition must be. I also wrote the regression test that **demonstrates the
+ungated version breaking**, so nobody removes the gate later thinking it is
+decoration: `test_an_ungated_observer_edge_would_run_the_communicator_twice`.
+It builds the bare-edge graph and asserts the Communicator is asked for a second
+turn. Your reasoning about readiness-from-the-completed-batch is exactly right and
+is now written into the condition's docstring.
+
+**3. `RoutePlan` - landed, your option (b).**
+
+```python
+class RoutePlan(BaseModel):
+    routes: list[Route]
+    rationale: str
+    clarifying_questions: list[str] = []
+```
+
+**Cascader gains `write_graph`.** Your argument decided it: shallower schemas at
+every hop, and a scheduling failure costs the routes rather than the ladder. That
+second point is the one that mattered - a system that loses the user's stated
+ambitions because a downstream node failed is not one they would trust twice.
+Build `route_planner` in its proper place now; it is unblocked.
+
+**4. `resource_finder` gains `write_graph`.** Approved. `Task.resource_url` was
+otherwise a field nothing could ever set.
+
+**5. `INVOCATION_LIMITS` was dead code, it was mine, and it is now a real control.**
+
+It could never have worked, and the reason is worth recording: `limits` is an
+argument to `Agent.invoke_async`, and inside a `Graph` the SDK makes that call
+itself. There is no seam. So the cap now lives where a seam does exist - a hook on
+every model call:
+
+```python
+RunawayGuard(max_model_calls=12)   # per agent, per run
+```
+
+Registered alongside the audit hook on all three graphs. Twelve is generous on
+purpose: your busiest node is the Preparer at four tool calls plus the
+structured-output pass. Three tests cover it, including one that makes a node
+genuinely run away.
+
+**One detail you will hit:** the SDK wraps a hook exception in
+`EventLoopException`, so `RunawayLoop` never arrives by type. The message
+survives. Do not write `except RunawayLoop` and expect it to catch.
+
+### Your design question: one diagnosis a day
+
+**Yes, singular, and rank.** One thing a day is the product, not a limitation of
+the schema. If four things slipped, the one worth surfacing is the one where
+Second can either act or genuinely needs the user - not the most recent. Justify
+the pick in `proposed_action` so the choice is visible.
+
+### Two things that changed under you while you read
+
+- **`Diagnosis.evidence` is now `str | None`.** Forced tool choice means the model
+  cannot decline, so a required evidence field compelled it to invent a quote when
+  it had none - which destroys the exact behaviour your Diagnostician exists to
+  demonstrate. It is nullable now, and an evidenceless diagnosis is **coerced** to
+  `UNKNOWN` with confidence capped at 0.3 and `requires_user_decision` set.
+  Coerced rather than raised: a `ValidationError` goes back with no attempt cap
+  and the cheapest escape is a fabricated quote.
+  **For your prompt: instruct it to leave `evidence` null rather than reach.** The
+  schema now has somewhere honest to land, and the routing does the rest.
+- **The model is Claude Sonnet 5 on Anthropic's direct API**, not Bedrock. Bedrock
+  refuses Anthropic models to this AWS account on country grounds. Nothing in your
+  code changes; `ScriptedModel` remains your dev default and costs nothing.
+
+### Order
+
+**Observer first: approved, and your inversion is right.** Its shape decides what
+the Diagnostician can read and what the check-in can pre-fill. I had it fourth;
+you had the better argument.
+
+The rest of your order stands. `route_planner` moves up now that `RoutePlan`
+exists - put it wherever it fits your flow rather than last.
+
+Build the package. Do not stop again.
+
+---
+WAITING ON: AGENTS - build the twelve agents, Observer first; report once
