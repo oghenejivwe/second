@@ -619,4 +619,130 @@ An event nobody responded to, on a slot that was otherwise free, is precisely th
 case where Second must admit it cannot tell.
 
 ---
-WAITING ON: CONNECTORS - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn
+
+## CONNECTORS — turn 1 · 2026-09-10T23:14Z
+**asks:** none — two findings change how I build; neither needs a ruling before I start
+**phase:** research complete — building next
+
+**The biggest risk: neither hard constraint has a scope-level layer.** The brief
+(line 128) says the absence of a send scope is `draft_email`'s second layer. It is
+not. Read out of the discovery docs bundled in `google-api-python-client` 2.200.0:
+
+| Approved scope | Also grants |
+|---|---|
+| `gmail.compose` | `users.messages.send`, `users.drafts.send` |
+| `calendar` | `events.delete`, `events.move`, `events.update` |
+
+**No Gmail scope permits `drafts.create` without `send`. No write-capable Calendar
+scope excludes `delete`.** I mapped every scope in both docs; the narrowest write
+scope, `calendar.events.owned`, still grants `delete`, `move` and `import`.
+
+**I do not recommend reopening scopes.** `settings.get` — which
+`get_calendar_timezone()` needs — requires `calendar` or `calendar.readonly`
+anyway, the owner's console steps are already written, and the protection has to
+live in code either way. Reopening costs a day and buys nothing.
+
+**So the interlock is the first thing I build, not the last.** `build(http=...)`
+funnels every Google call through one `request(uri, method, …)`, and it constructs
+**offline with no credentials** — so the three negative tests can drive the real
+`googleapiclient` request machinery instead of mocks of my own code:
+
+```
+$ .venv/Scripts/python.exe   # deny-http seam, no token, no network
+built gmail offline: Resource
+send attempt   -> RuntimeError BLOCKED POST   https://gmail.googleapis.com/gmail/v1/users/me/messages/send?alt=json
+delete attempt -> RuntimeError BLOCKED DELETE https://www.googleapis.com/calendar/v3/calendars/primary/events/x?
+```
+
+One seam therefore gives me three things at once: the fixture mechanism, the
+runtime interlock, and negative tests that cannot pass vacuously.
+
+### Live checks I ran
+
+| Check | Result |
+|---|---|
+| `scripts/phase0_proof.py` | all claims PASS, both scenarios (1, 2, 3, 4, 4b, 5) |
+| `pytest -q` | **117 passed**, 30s — baseline, not 94 |
+| `botocore` 1.43.91 `MediaFormat` enum | `['mp3','mp4','wav','flac','ogg','amr','webm','m4a']` — **`webm` confirmed** |
+| `transcribestreaming` service model | `UnknownServiceError` — **absent, confirmed** |
+| `decorator.py:687-694` + `_wrap_tool_result` | a returned dict goes through `ToolResultEvent(result, exception=None)`; only `raise` attaches `exception=e`. **Your ruling 1 confirmed at source** |
+| `InstalledAppFlow` | only `run_local_server` exists. `authorization_url` already does `kwargs.setdefault("access_type","offline")`, so **`prompt="consent"` is the load-bearing one** |
+| `settings.get` scopes | `calendar`, `calendar.readonly`, `calendar.settings.readonly` — `get_calendar_timezone()` is unblocked by the approved set |
+| credentials | `aws sts get-caller-identity` → "Unable to locate credentials"; `~/.aws` empty; no `client_secret*.json`. Fixtures it is |
+
+Typechecker: no mypy/pyright config in `pyproject.toml`, so there is nothing to be
+clean against. Say if you want one and I will not add it unilaterally.
+
+### What the brief got wrong
+
+1. **The send-scope claim above.** The layer it names does not exist.
+2. **Baseline is 117 tests, not 94** (addendum, "THE PRODUCT GREW").
+3. **`tavily-python` 0.8.1 is pinned in the brief but absent from `pyproject.toml`.**
+   Tavily's API is one POST; `requests` 2.34.2 and `httpx` 0.28.1 are already
+   installed. **Default: call the REST endpoint directly, add no dependency** — it
+   keeps `pyproject.toml`/`uv.lock` (yours) untouched for the lowest-priority tool
+   on the cut list. Overrule me if you would rather have the SDK.
+
+### Two things I found that are not mine to fix
+
+1. **`FOUNDER-CHECKLIST.md` C2 registers only the three runtime scopes.** The
+   seeder client needs `gmail.insert` and `calendar.events` registered on the same
+   Auth Platform app — scope registration is app-level, the client only requests a
+   subset. If they are unregistered the seeder consent will likely fail, and we
+   find out on the 13th. Adding them at C2 costs 60 seconds and risks nothing.
+   Both are Restricted, same as the two we already have, so it changes no
+   verification exposure. **Handoff — your file.**
+2. **`default_registry()` (`composition.py:129-138`) catches only `ImportError`.**
+   It registers every `AgentTool` in `vars(module)`. Two consequences I will
+   respect and test, no change needed from you: my modules must **build no client
+   at import time** (a `FileNotFoundError` on a missing token would escape that
+   `except` and kill composition), and they must **never import a fake**, or the
+   fake silently wins the name in the registry dict.
+
+### One contract detail to publish
+
+The dict shapes match `fake_connectors.py` exactly — I am matching, not proposing.
+But the seam is **mixed-tz** and the fakes hide it:
+
+```
+clock.window(days_back=21) -> ('2026-08-20T00:00:00+01:00', ...)   # offset-AWARE in
+demo_scenario events        -> '2026-08-20T18:00:00'                # NAIVE local out
+fake_connectors._parse      -> drops the offset with .replace(tzinfo=None)
+```
+
+Dropping the offset is only correct while it happens to be the user's own zone.
+Google returns `dateTime` with whatever offset the event was written in, so the
+real tool must **convert into the calendar timezone and then drop the offset** —
+truncating the string would put every `+00:00` event an hour early for a
+`Europe/London` user, silently. Confirming I own that, and it is the reason
+`get_calendar_timezone()` lands in the same commit as `get_calendar_events`.
+
+### First move, in order
+
+```
+1. src/second/tools/_google.py   lazy creds + GuardedHttp (deny DELETE and */send)
+                                 + the recorded-fixture seam
+2. tests/connectors/test_rails.py  the three negative tests, each watched RED first:
+                                   draft cannot send · foreign event refused · no delete path
+3. scripts/authorize_google.py   two clients, assert refresh_token present, prompt="consent"
+4. calendar_tools.py             five functions incl. get_calendar_timezone
+```
+
+Then Gmail, then voice (batch Transcribe, bare `audio/webm` on the presigned PUT),
+then the seeder, then `web_search`. **Next time you hear from me the package is
+built.**
+
+### Footprint
+
+```
+$ git status --porcelain     # C:\Users\jivwe\second-connectors, branch connectors
+(clean — nothing changed yet)
+```
+
+`uv sync` run in the worktree; `google-auth-httplib2` 0.4.2 arrives transitively,
+so the brief's pin needs no `pyproject.toml` entry. This turn is written into
+`MySecond\prompts\` uncommitted, not onto my branch — `prompts/` is not in my
+paths and three instances committing it would collide.
+
+---
+WAITING ON: CTO — ack the scope finding and the no-new-dependency call on Tavily; add the two seeder scopes to C2. I am building, not waiting.

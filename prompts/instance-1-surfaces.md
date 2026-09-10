@@ -643,3 +643,95 @@ No code written yet, so **no guards added and no mutation to report** — this i
 
 ---
 WAITING ON: CTO - rule on the retire beat (freed vs. redistributed); the three smaller items need no answer to unblock me
+
+---
+
+## CTO - turn 1 · 2026-09-10T23:24Z
+**verdict:** approved. Option (c), and I have removed the reason it was a compromise.
+**phase:** building - screens 1 and 2, no further stops
+
+**I verified all four of your findings myself before ruling. All four confirmed.**
+`uvicorn` was only transitive. `Task.scheduled_slots[0].tzinfo` is `None` while
+`ScheduledBlock.start.tzinfo` is `Europe/London`. Exactly one block landed on the
+demo day. `TodayCard` returns nothing from `grep -rn`. You were right on every
+count, and the brief was wrong on every count.
+
+### 1. The retire beat - (c), and it is no longer a downgrade
+
+You were right that no amount of UI work fixes it, and right to refuse (a). A
+schedule Second did not make is a schedule Second cannot stand behind.
+
+So I gave you the data instead of the problem:
+
+```python
+class GoalStatusChange(BaseModel):
+    graph: LivingGraph
+    freed: list[ScheduledBlock]   # upcoming slots the goal was holding
+    freed_minutes: int
+    note: str                     # what happens to them, in plain words
+```
+
+`POST /api/goals/{goal_id}/status` returns that, not `{graph}`. On the seeded
+demo, retiring `g-speaking` gives you **3 slots, 180 minutes**, each a full
+`ScheduledBlock` with its `serves` chain intact - so you can strike them through
+and show what they were feeding.
+
+**It says freed, not redistributed, and that is the ruling.** The Scheduler has
+not run at that moment. `note` carries when it will: *"The next daily run
+reallocates them to the goals still active."* Your instinct was right - this is
+honest rather than a downgrade, and I would rather ship the true sentence than
+the impressive one. Not (b): a live model run mid-demo, dependent on AGENTS'
+Scheduler, is a great deal of risk for one beat.
+
+The Definition-of-Done line now reads *"retiring visibly frees time, and says when
+it gets reallocated."* I changed the standard rather than asking you to meet an
+impossible one.
+
+### 2. Your three smaller items
+
+| # | Ruling |
+|---|---|
+| 1 | **Fixed.** The demo day now has **three** blocks - 08:00 recording, 17:00 pitch, 18:00 gym - across **two different ambitions**, so `serves` visibly differs down the column. Better than three rows of the same chain. |
+| 2 | **Your handling is correct; I have made it explicit rather than lucky.** The asymmetry is deliberate: the Living Graph stores wall-clock because a plan is what the person reads off their own calendar, and storing UTC would move the plan when they travel. Anything crossing the API boundary is made aware by `Clock.local()` so a browser cannot guess. Now stated on `ScheduledBlock.start` itself, with the warning never to compare a raw slot against one without passing it through the clock. |
+| 3 | **Pinned.** `uvicorn==0.52.4` is a direct dependency now. Good catch - that was a dev server one `uv remove` away from vanishing. |
+
+### 3. Where you corrected me, on the record
+
+- **`questions` vs `clarifying_questions`** - return `IntakeResult` verbatim. You
+  applied my own rule correctly and the brief contradicted itself.
+- **`silence_reason`** - you are right and my addendum was wrong. The contract
+  says never shown to the user. Audit panel only.
+- **Audit spans** - correct, `AuditEntry` has no duration. I wrote "node spans"
+  loosely. Chronology grouped by `run_id` with `is_write` and `failed` marked is
+  exactly right.
+- **Test count** - 126 as of this turn, and it keeps moving. Stop trusting any
+  number in the brief; run it.
+
+**Audit as a panel on Today rather than a fifth screen: approved, and the better
+call.** Four screens holds.
+
+### 4. Two things you do not know yet
+
+- **The model provider changed.** You caught the Sonnet 5 pin; here is why.
+  Bedrock refuses Anthropic models to this AWS account on country grounds,
+  reproducibly, on both a current and a two-year-old model. We use Anthropic's
+  API directly. Nothing in your domain changes - I mention it because a status
+  line naming the model should say **Sonnet 5, direct API**, and because it is
+  why `BEDROCK_MODEL_ID` still exists in settings and is not what runs.
+- **`Diagnosis.evidence` is now nullable.** Forced tool choice means a model
+  cannot decline, so a required evidence field compelled it to invent a quote
+  when it had none. Now nullable, and an evidenceless diagnosis is coerced to
+  `UNKNOWN` with confidence capped at 0.3. **For you:** a `Decision` may cite
+  thin evidence, and honest uncertainty is a real render case, not an edge case.
+
+### 5. Proceed
+
+Your screen order is right and I am not changing it. One push: **spend your best
+hour on the quiet state and the check-in**, not on the graph's prettiness. The
+graph proves the system thought; the quiet day and the pre-filled check-in prove
+it has judgement. That is the part nobody else will have built.
+
+Build screens 1-4. Do not stop again until the package is done.
+
+---
+WAITING ON: SURFACES - build the fixture, type layer, Living Graph, Today and the audit panel; report once
