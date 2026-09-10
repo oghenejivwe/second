@@ -80,6 +80,16 @@ class AuditLogHook(HookProvider):
     store: Any = None
     user_id: str = "demo"
     entries: list[AuditEntry] = field(default_factory=list)
+    """Everything recorded this run. Flushing persists; it does not erase.
+
+    A caller that has just awaited a run needs to be able to ask what happened --
+    which tool raised, which node produced what. Clearing on flush would make
+    that impossible and push every caller to re-read DynamoDB for facts it just
+    generated."""
+
+    _flushed: int = 0
+    """How many entries have already reached the store, so a second flush does
+    not write the first ones twice."""
 
     def register_hooks(self, registry: HookRegistry, **kwargs: Any) -> None:
         """Subscribe to whatever this particular registry can deliver.
@@ -185,8 +195,15 @@ class AuditLogHook(HookProvider):
         return [entry for entry in self.entries if entry.is_write]
 
     def flush(self) -> None:
-        """Persist and clear. Safe to call when no store is configured."""
-        if self.store is None or not self.entries:
+        """Persist everything not yet written. Safe to call repeatedly.
+
+        ``entries`` is left intact -- see the note on the field. Only the
+        high-water mark moves, so calling this twice writes each row once.
+        """
+        if self.store is None:
             return
-        self.store.append_audit(self.user_id, self.entries)
-        self.entries = []
+        pending = self.entries[self._flushed :]
+        if not pending:
+            return
+        self.store.append_audit(self.user_id, pending)
+        self._flushed = len(self.entries)

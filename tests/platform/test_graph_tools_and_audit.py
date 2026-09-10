@@ -254,4 +254,7 @@ def test_audit_flushes_to_the_store(seeded):
 
     rows = seeded.read_audit(USER)
     assert [row.action for row in rows] == ["update_person_model"]
-    assert audit.entries == [], "flush clears the buffer"
+    assert len(audit.entries) == 1, "flush persists; it does not erase the run record"
+
+    audit.flush()
+    assert len(seeded.read_audit(USER)) == 1, "a second flush must not write the row twice"
