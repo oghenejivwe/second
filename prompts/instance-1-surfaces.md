@@ -382,4 +382,122 @@ Two things worth knowing:
 `fastapi==0.141.1` is now installed. Run `uv sync` in your worktree.
 
 ---
+
+## THE PRODUCT GREW - 2026-09-10, before any instance started
+
+The founder expanded the shape of the product. **Nothing had been built against
+the old contract, so this cost one afternoon instead of three rebuilds.** All 94
+tests are green on the new one.
+
+### 1. Goals ladder. They are not a flat list.
+
+A goal now has a `horizon` and a `contributes_to`:
+
+```
+life        Build a company that outlives me
+  decade / three_year   Raise a Series A
+    year                Get comfortable speaking to a room
+      routes + tasks    Speaking club, Tuesdays 19:00
+```
+
+`Horizon = "life" | "decade" | "three_year" | "year" | "quarter" | "month" | "week" | "day"`
+
+Only **year and nearer** can hold routes and tasks (`SCHEDULABLE_HORIZONS`). A
+yearly goal with a weekly cadence needs no further decomposition; "build a
+billion-dollar company" cannot go in Tuesday's 9am slot, and a system that
+pretends otherwise produces a plan nobody believes.
+
+`LivingGraph` gained: `goal_by_id`, `children_of`, `ladder`, `roots`,
+`schedulable_goals`, `stalled_ambitions`, `broken_links`.
+
+`ladder(goal_id)` walks up nearest-first and is what lets a Tuesday morning
+answer **"why this, today?"**. It survives a cycle rather than hanging -- failure
+direction: a short chain, not no day.
+
+### 2. The day is the product, and it always exists.
+
+The old contract was "at most one card, often none". The new one is a **daily
+brief, every day**. The tension with "silence is a feature" is resolved by
+separating *content* from *interruption*:
+
+> **The brief always exists -- it is a plan, not an interruption. What stays rare
+> is `notify` and `decisions`.**
+
+Silence now means `notify` is false and `decisions` is empty, not that there is
+nothing to show. `silence_reason` still goes to the audit log, so quietness is
+auditable.
+
+```python
+class DailyBrief(BaseModel):
+    on: date
+    blocks: list[ScheduledBlock]      # today's schedule, each carrying its ladder
+    prepared: list[PreparedAction]    # work carried to the last click
+    at_risk: list[Risk]               # deadlines the current plan does not reach
+    reminders: list[Reminder]         # committed to, and forgotten
+    decisions: list[Decision]         # usually empty. each one costs attention
+    notify: bool
+    silence_reason: str
+```
+
+### 3. Facts are computed; only judgement is asked of a model.
+
+`second/graphs/brief.py` builds `blocks` and `at_risk` **in Python, from the
+Living Graph**. This is a correctness decision, not a style one: a model asked to
+list your day will eventually invent a block, and one imaginary meeting costs the
+user their trust in the other five.
+
+The model supplies only `BriefJudgement` -- reminders, decisions, notify,
+silence_reason. Those genuinely need judgement.
+
+Two guards in `assemble()`, both mutation-tested:
+
+* **A decision or a prepared action always forces `notify`**, whatever the model
+  concluded. It cannot talk itself out of telling the user about something it is
+  waiting on them for.
+* **A missing judgement degrades to a factual brief, not to no brief.** The
+  schedule is true regardless, and a user who opens the app to an error learns
+  not to open the app.
+
+### What this means for you: Today is a day view, and the graph is a tree
+
+**Two of your four screens change shape. Neither gets harder; both get better.**
+
+**`GET /api/today` and `POST /api/daily/run` now return `DailyBrief`, never
+null.** The old `{"card": TodayCard | null}` is gone.
+
+```json
+{ "on": "2026-09-10",
+  "blocks": [ { "title": "Record five minutes and listen back",
+                "start": "2026-09-10T08:00:00+01:00", "duration_min": 60,
+                "goal_title": "Get comfortable speaking to a room",
+                "horizon": "year",
+                "serves": ["Raise a Series A", "Build a company that outlives me"] } ],
+  "prepared": [...], "at_risk": [...], "reminders": [...], "decisions": [],
+  "notify": false, "silence_reason": "Nothing slipped, nothing needs deciding." }
+```
+
+**`serves` is the shot that sells the product.** A block reads:
+
+> **08:00 · Record five minutes and listen back**
+> *serving:* speak well → raise a Series A → build a company that outlives me
+
+That is a to-do list answering "why this, today?" and it is the thing no calendar
+app does. Design the block around it.
+
+**The silence state moved, it did not disappear.** A quiet day still shows the
+full schedule -- it just has no `decisions`, no push, and `notify: false`. What
+you are designing is *"Second has nothing to ask you today"* sitting calmly above
+a day that is fully planned. That is a better screen than an empty one, and a
+better ten seconds of demo.
+
+**The Living Graph screen now renders a tree.** Goals have `horizon` and
+`contributes_to`. Root ambitions at the top, tasks at the leaves.
+`@xyflow/react` does hierarchical layout, so this is mostly a layout choice, and
+the depth is what makes the visualisation worth looking at. Slipped tasks still
+red, blocking edges still highlighted, Person-layer facts still at the edges.
+
+Nothing else changed. Your other seven routes, the four-screen limit, the
+TypeScript 5.9.3 pin and the restraint all stand.
+
+---
 WAITING ON: SURFACES - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn

@@ -27,6 +27,39 @@ from pydantic import BaseModel, Field
 TaskStatus = Literal["pending", "done", "blocked"]
 RouteStatus = Literal["proposed", "approved", "rejected", "dropped"]
 GoalStatus = Literal["active", "paused", "retired"]
+
+Horizon = Literal["life", "decade", "three_year", "year", "quarter", "month", "week", "day"]
+"""How far out a goal sits.
+
+Goals ladder down: a life-shaped ambition becomes a decade, a decade becomes
+three years, three years becomes this year, and eventually something lands in
+Tuesday morning. ``contributes_to`` is the rung above.
+
+The horizon is the *rung*; ``deadline`` is the *date*. "In fifteen years" is a
+``life`` goal with a deadline fifteen years out -- the enum stays short so a
+model can reason about it reliably, and precision lives in the date."""
+
+HORIZON_ORDER: tuple[Horizon, ...] = (
+    "life",
+    "decade",
+    "three_year",
+    "year",
+    "quarter",
+    "month",
+    "week",
+    "day",
+)
+
+SCHEDULABLE_HORIZONS: frozenset[str] = frozenset({"year", "quarter", "month", "week", "day"})
+"""Goals near enough to hold routes and tasks that go in a calendar.
+
+A year is the boundary because a yearly goal with a weekly cadence is a perfectly
+ordinary thing -- "get comfortable speaking to a room this year, at the club every
+Tuesday" needs no further decomposition to be workable.
+
+Above a year it stops being true. You cannot put "build a billion-dollar company"
+in Tuesday's 9am slot, and a system that pretends otherwise produces a plan
+nobody believes. Those get walked down by the Cascader first."""
 BlockerType = Literal[
     "MISSING_INFORMATION",
     "UNDEFINED_SCOPE",
@@ -88,10 +121,22 @@ class Route(BaseModel):
 
 
 class Goal(BaseModel):
-    """Something the user said they want."""
+    """Something the user said they want, at some distance from today.
+
+    Goals form a ladder rather than a list. "A billion-dollar company in fifteen
+    years" is a real goal and it is not a task; it becomes a three-year goal,
+    which becomes this year's, which becomes something that occupies Tuesday
+    morning. ``contributes_to`` is that ladder, and it is what lets Second answer
+    the only question that matters on a Tuesday morning: *why this, today?*
+    """
 
     id: str
     title: str
+    horizon: Horizon = "year"
+    contributes_to: str | None = Field(
+        default=None,
+        description="The id of the longer-horizon goal this serves. None for a top-level ambition.",
+    )
     deadline: date | None = None
     status: GoalStatus = "active"
     routes: list[Route] = Field(default_factory=list)
@@ -99,6 +144,11 @@ class Goal(BaseModel):
         default=1.0,
         description="How sure the Extractor was that this is a real, distinct goal.",
     )
+
+    @property
+    def is_schedulable(self) -> bool:
+        """Whether this goal is near enough to hold calendar-bound work."""
+        return self.horizon in SCHEDULABLE_HORIZONS
 
 
 # ---------------------------------------------------------------------------
@@ -192,6 +242,67 @@ class LivingGraph(BaseModel):
     def active_goals(self) -> list[Goal]:
         """Goals still competing for the user's time."""
         return [goal for goal in self.goals if goal.status == "active"]
+
+    def goal_by_id(self, goal_id: str) -> Goal | None:
+        """Find a goal by id."""
+        return next((goal for goal in self.goals if goal.id == goal_id), None)
+
+    def children_of(self, goal_id: str) -> list[Goal]:
+        """The shorter-horizon goals that serve this one."""
+        return [goal for goal in self.goals if goal.contributes_to == goal_id]
+
+    def ladder(self, goal_id: str) -> list[Goal]:
+        """Walk up from a goal to the ambition it ultimately serves.
+
+        Returns the chain nearest-first, so ``ladder("t-week-goal")`` reads as
+        "this week, serving this quarter, serving this year, serving the decade".
+        This is what turns a line on a Tuesday into a reason.
+
+        Cycles are survivable rather than fatal: a malformed ``contributes_to``
+        stops the walk instead of hanging the daily run. **Failure direction:
+        return a short chain, not no day.**
+        """
+        chain: list[Goal] = []
+        seen: set[str] = set()
+        current = self.goal_by_id(goal_id)
+        while current and current.id not in seen:
+            chain.append(current)
+            seen.add(current.id)
+            current = self.goal_by_id(current.contributes_to) if current.contributes_to else None
+        return chain
+
+    def roots(self) -> list[Goal]:
+        """Top-level ambitions -- the goals nothing else sits above."""
+        return [goal for goal in self.goals if goal.contributes_to is None]
+
+    def schedulable_goals(self) -> list[Goal]:
+        """Active goals near enough to hold work that goes in a calendar."""
+        return [goal for goal in self.active_goals() if goal.is_schedulable]
+
+    def stalled_ambitions(self) -> list[Goal]:
+        """Long-horizon goals that have never been cashed into anything doable.
+
+        An ambition with no children and no routes is a wish. This is the
+        Cascader's work queue, and a non-empty list here on the day of a demo
+        means a goal the user stated is doing nothing.
+        """
+        return [
+            goal
+            for goal in self.active_goals()
+            if not goal.is_schedulable
+            and not self.children_of(goal.id)
+            and not goal.routes
+        ]
+
+    def broken_links(self) -> list[Goal]:
+        """Goals pointing at a parent that is not in the graph.
+
+        A data-integrity problem rather than a planning one, kept separate
+        because the two want different responses: this one is a bug, a stalled
+        ambition is just work not yet done.
+        """
+        ids = {goal.id for goal in self.goals}
+        return [goal for goal in self.goals if goal.contributes_to and goal.contributes_to not in ids]
 
 
 # ---------------------------------------------------------------------------
@@ -294,14 +405,111 @@ class PreparedAction(BaseModel):
     awaiting: str = Field(description="The single thing left for the user to do.")
 
 
-class TodayCard(BaseModel):
-    """At most one of these per day. Often there is none, and that is correct."""
+class ScheduledBlock(BaseModel):
+    """One piece of work occupying a real slot today, and what it is for.
 
+    ``goal_title`` and ``serves`` are denormalised onto the block on purpose. The
+    day has to answer *why this, today?* without the reader following a chain of
+    ids, and "Draft the pitch — 45 min — serves: speak well → this year → the
+    decade" is the whole product in one line.
+    """
+
+    task_id: str
+    goal_id: str
+    goal_title: str
+    horizon: Horizon
+    serves: list[str] = Field(
+        default_factory=list,
+        description="Titles of the longer-horizon goals above this one, nearest first.",
+    )
+    title: str
+    start: datetime
+    duration_min: int
+    resource_url: str | None = Field(
+        default=None,
+        description="Material attached to the slot, so the thing to watch is already there.",
+    )
+
+
+class Risk(BaseModel):
+    """Something with a deadline that will not be met on the current plan."""
+
+    task_id: str
+    goal_id: str
+    what: str
+    deadline: date
+    days_left: int
+    evidence: str = Field(description="Why this is at risk. Cite the calendar or the graph.")
+
+
+class Reminder(BaseModel):
+    """Something the user cares about and has probably forgotten.
+
+    Not a nag and not a nudge. This exists because commitments get made in email
+    and then never reach a plan -- a reply promised, a form nobody filled in, a
+    booking that closes. Every one cites where it came from, and a reminder with
+    no evidence is a defect.
+    """
+
+    what: str
+    evidence: str
+    source: Literal["email", "calendar", "graph"]
+
+
+class Decision(BaseModel):
+    """The one kind of thing that is allowed to interrupt.
+
+    Second reaches here only when it genuinely cannot proceed alone. Options are
+    included because a question with three researched answers costs five seconds
+    and a bare question costs a round trip.
+    """
+
+    question: str
     task_id: str | None = None
-    headline: str
-    evidence: str = Field(description="Why Second is saying anything at all.")
-    question: str | None = Field(default=None, description="Set only when a decision is genuinely needed.")
-    prepared: PreparedAction | None = None
+    evidence: str
+    options: list[str] = Field(default_factory=list)
+
+
+class DailyBrief(BaseModel):
+    """What Second has for you today. The product's face.
+
+    Assembled every day, whether or not anything needs you. **Existing is not
+    interrupting** -- ``notify`` is the separate, rarer decision about whether to
+    push. Silence means ``notify`` is false and ``decisions`` is empty, not that
+    the brief is missing.
+
+    The order of the fields is the order of value: what you are doing, what has
+    already been done for you, what is slipping, what you forgot, and only then
+    what Second needs from you.
+    """
+
+    on: date
+    blocks: list[ScheduledBlock] = Field(
+        default_factory=list, description="Today's schedule, in time order."
+    )
+    prepared: list[PreparedAction] = Field(
+        default_factory=list,
+        description="Work carried to the last click while the user was elsewhere.",
+    )
+    at_risk: list[Risk] = Field(default_factory=list)
+    reminders: list[Reminder] = Field(default_factory=list)
+    decisions: list[Decision] = Field(
+        default_factory=list,
+        description="Usually empty. Each one costs the user attention, so earn it.",
+    )
+    notify: bool = Field(
+        default=False,
+        description="Push this at the user. True only when a decision is needed or something was prepared.",
+    )
+    silence_reason: str = Field(
+        default="",
+        description="When notify is false, why. Recorded for the audit, never shown to the user.",
+    )
+
+    @property
+    def is_quiet(self) -> bool:
+        """Nothing here needs the user's attention today."""
+        return not self.notify and not self.decisions
 
 
 class IntakeResult(BaseModel):
@@ -321,23 +529,46 @@ class IntakeResult(BaseModel):
     )
 
 
-class Communique(BaseModel):
-    """The Communicator's decision about whether to say anything at all.
+class BriefJudgement(BaseModel):
+    """The part of the daily brief that requires judgement rather than arithmetic.
 
-    Silence is a feature, so it is a typed outcome rather than an empty string.
-    When ``should_speak`` is false the user sees nothing and ``silence_reason``
-    goes to the audit log -- which makes "Second decided today was not worth
-    interrupting you, and here is why" a thing you can actually show someone,
-    instead of an absence you have to take on trust.
+    Today's schedule and what is at risk are **facts already in the Living
+    Graph**, so PLATFORM computes them in Python: deterministic, free, testable,
+    and impossible to hallucinate a meeting into. A model asked to list your day
+    will eventually invent a block, and a plan you cannot trust is worse than no
+    plan.
+
+    What genuinely needs a model is this: what did the user commit to and forget,
+    and is any of it worth interrupting them for.
     """
 
-    should_speak: bool = Field(
-        description="True only when a decision is genuinely needed, or something was prepared."
+    reminders: list[Reminder] = Field(default_factory=list)
+    decisions: list[Decision] = Field(default_factory=list)
+    notify: bool = Field(
+        description="True only when a decision is needed or something was prepared for them."
     )
-    card: TodayCard | None = Field(default=None, description="Set only when should_speak is true.")
     silence_reason: str = Field(
         default="",
-        description="Why nothing needed saying. Recorded for the audit, never shown to the user.",
+        description="When notify is false, why. For the audit log, never shown to the user.",
+    )
+
+
+class CascadeResult(BaseModel):
+    """A long-horizon ambition, cashed into goals that can actually be worked.
+
+    "A billion-dollar company in fifteen years" is not a task and pretending
+    otherwise produces a plan nobody believes. The Cascader walks it down one
+    rung at a time until something lands at a horizon that can hold a calendar
+    slot, and says honestly when it cannot.
+    """
+
+    goals: list[Goal] = Field(
+        description="New goals, each with contributes_to set to the rung above it."
+    )
+    rationale: str = Field(description="Why this decomposition and not another.")
+    clarifying_questions: list[str] = Field(
+        default_factory=list,
+        description="Ask rather than invent a plausible-sounding ladder. Empty when it was clear.",
     )
 
 

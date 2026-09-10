@@ -17,7 +17,7 @@ from strands import Agent
 
 from second.core.clock import Clock
 from second.core.deps import AgentDeps
-from second.core.models import Communique, Diagnosis
+from second.core.models import BriefJudgement, Diagnosis
 from second.graphs.composition import AgentSpec
 from second.graphs.daily import build_daily_graph
 from second.testing import demo_scenario
@@ -53,17 +53,15 @@ GYM_CONFLICT = {
 }
 
 SPEAKS = {
-    "should_speak": True,
-    "card": {
-        "task_id": "t-gym",
-        "headline": "Gym moved to 07:00. Leave request drafted.",
-        "evidence": "18:00 lost to Eng sync 4 of 5 weekdays. Nothing matching a leave request was ever sent.",
-        "prepared": {
-            "kind": "email_draft",
-            "summary": "Leave request for the wedding week",
-            "awaiting": "Read it and press send.",
-        },
-    },
+    "reminders": [
+        {
+            "what": "Your sister asked whether the flights are booked. You never replied.",
+            "evidence": "m-wedding, 'Wedding week - are you booked yet?'",
+            "source": "email",
+        }
+    ],
+    "decisions": [],
+    "notify": True,
     "silence_reason": "",
 }
 
@@ -125,7 +123,7 @@ def daily_with_real_tools(store, *, adapter_script=None):
                 ],
                 tools=("read_graph", "search_gmail", "draft_email", "web_search"),
             ),
-            "communicator": spec("communicator", [Structured(SPEAKS)], output_model=Communique),
+            "communicator": spec("communicator", [Structured(SPEAKS)], output_model=BriefJudgement),
         },
     )
 

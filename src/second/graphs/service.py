@@ -17,16 +17,18 @@ from typing import Any
 
 from second.core.models import (
     AuditEntry,
-    Communique,
+    BriefJudgement,
+    DailyBrief,
     ExtractionResult,
     FeedbackResult,
     GoalStatus,
     IntakeResult,
     LivingGraph,
+    PreparedAction,
     ScheduleDecision,
-    TodayCard,
 )
 from second.core.clock import Clock
+from second.graphs.brief import assemble
 from second.graphs.composition import resolve_clock
 from second.graphs.conditions import typed_result
 from second.graphs.daily import build_daily_graph
@@ -151,26 +153,37 @@ async def run_daily(
     user_id: str = DEMO_USER_ID,
     today: date | None = None,
     **build_kwargs: Any,
-) -> TodayCard | None:
-    """Run one day's cycle.
+) -> DailyBrief:
+    """Run one day's cycle and return the day.
 
-    Returns ``None`` when Second decided there was nothing worth saying. That is
-    the common case and it is correct -- the reason is recorded in the audit log,
-    so silence is auditable rather than indistinguishable from a failure.
+    **A brief is always returned.** Existing is not interrupting: the schedule is
+    a plan the user asked for, and it is there whenever they look. What stays
+    rare is ``notify`` and ``decisions`` -- and when both are empty,
+    ``silence_reason`` records why, so quietness is auditable rather than
+    indistinguishable from a failure.
+
+    The schedule and the deadline risks are computed from the Living Graph rather
+    than asked of a model, so no block in this brief can be imaginary.
     """
-    composed = build_daily_graph(
-        store=get_store(), user_id=user_id, clock=_clock_for(today), **build_kwargs
-    )
+    clock = _clock_for(today)
+    composed = build_daily_graph(store=get_store(), user_id=user_id, clock=clock, **build_kwargs)
     result = await composed.run("Yesterday's plan against what actually happened.")
 
-    communique = typed_result(result, "communicator", Communique)  # type: ignore[arg-type]
-    if communique is None:
-        logger.warning("communicator produced no typed result; staying silent")
-        return None
-    if not communique.should_speak:
-        logger.info("silence: %s", communique.silence_reason)
-        return None
-    return communique.card
+    judgement = typed_result(result, "communicator", BriefJudgement)
+    if judgement is None:
+        logger.warning("communicator produced no typed result; falling back to a factual brief")
+
+    prepared_action = typed_result(result, "preparer", PreparedAction)
+
+    brief = assemble(
+        graph=load_living_graph(user_id),
+        clock=clock,
+        judgement=judgement,
+        prepared=[prepared_action] if prepared_action else [],
+    )
+    if brief.is_quiet:
+        logger.info("quiet day: %s", brief.silence_reason or "nothing needed the user")
+    return brief
 
 
 async def run_feedback(

@@ -15,14 +15,13 @@ from strands import Agent
 
 from second.core.deps import AgentDeps, ToolPrivilegeError
 from second.core.models import (
-    Communique,
+    BriefJudgement,
     Diagnosis,
     ExtractionResult,
     Goal,
     LivingGraph,
     Route,
     Task,
-    TodayCard,
 )
 from second.graphs import service
 from second.graphs.composition import AgentSpec, MissingTool, ToolRegistry, build_node_agent
@@ -107,11 +106,24 @@ HONEST_UNKNOWN = {**CONFIDENT, "blocker_type": "UNKNOWN", "confidence": 0.35, "r
 UNSURE = {**CONFIDENT, "confidence": 0.65}
 
 SPEAKS = {
-    "should_speak": True,
-    "card": {"task_id": "t1", "headline": "Gym moved to 07:00", "evidence": "18:00 lost to meetings 4 of 5 days."},
+    "reminders": [],
+    "decisions": [
+        {
+            "question": "The 18:00 gym slot keeps losing. Move it to 07:00?",
+            "task_id": "t1",
+            "evidence": "18:00 lost to meetings 4 of 5 days.",
+            "options": ["Move to 07:00", "Drop to twice a week", "Leave it"],
+        }
+    ],
+    "notify": True,
     "silence_reason": "",
 }
-STAYS_QUIET = {"should_speak": False, "card": None, "silence_reason": "Nothing slipped and nothing needs a decision."}
+STAYS_QUIET = {
+    "reminders": [],
+    "decisions": [],
+    "notify": False,
+    "silence_reason": "Nothing slipped and nothing needs a decision.",
+}
 
 
 def daily(store, diagnosis: dict, communique: dict = SPEAKS):
@@ -126,7 +138,7 @@ def daily(store, diagnosis: dict, communique: dict = SPEAKS):
             "diagnostician": stub("diagnostician", [Structured(diagnosis)], output_model=Diagnosis),
             "adapter": stub("adapter", [Text("Moved the gym block to 07:00.")]),
             "preparer": stub("preparer", [Text("Drafted nothing; the change needs no message.")]),
-            "communicator": stub("communicator", [Structured(communique)], output_model=Communique),
+            "communicator": stub("communicator", [Structured(communique)], output_model=BriefJudgement),
         },
     )
 
@@ -193,7 +205,7 @@ async def test_a_diagnostician_that_produced_nothing_routes_to_asking(store):
             "diagnostician": stub("diagnostician", [Text("I have no idea")]),  # no output model
             "adapter": stub("adapter", [Text("should not run")]),
             "preparer": stub("preparer", [Text("should not run")]),
-            "communicator": stub("communicator", [Structured(SPEAKS)], output_model=Communique),
+            "communicator": stub("communicator", [Structured(SPEAKS)], output_model=BriefJudgement),
         },
     )
     result = await composed.run("go")
@@ -206,25 +218,29 @@ async def test_a_diagnostician_that_produced_nothing_routes_to_asking(store):
 
 
 @pytest.mark.asyncio
-async def test_silence_returns_no_card(store):
-    """Silence is a typed decision, not an empty string."""
-    card = await service.run_daily(
+async def test_a_quiet_day_still_returns_a_brief(store):
+    """Existing is not interrupting. The day is there; the push is not."""
+    brief = await service.run_daily(
         USER,
         model=object(),
         registry=ToolRegistry(ALL_GRAPH_TOOLS),
         specs=_specs(STAYS_QUIET),
     )
-    assert card is None
+    assert brief is not None, "a brief is always returned"
+    assert brief.is_quiet
+    assert brief.notify is False
+    assert brief.decisions == []
+    assert brief.silence_reason, "quietness is auditable, not an absence"
 
 
 @pytest.mark.asyncio
-async def test_speaking_returns_the_card(store):
-    card = await service.run_daily(
+async def test_a_decision_earns_a_notification(store):
+    brief = await service.run_daily(
         USER, model=object(), registry=ToolRegistry(ALL_GRAPH_TOOLS), specs=_specs(SPEAKS)
     )
-    assert isinstance(card, TodayCard)
-    assert card.headline == "Gym moved to 07:00"
-    assert card.evidence, "every message cites its evidence"
+    assert brief.notify is True
+    assert brief.decisions[0].evidence, "every decision cites its evidence"
+    assert brief.decisions[0].options, "a question arrives with researched answers"
 
 
 def _specs(communique: dict) -> dict[str, AgentSpec]:
@@ -233,7 +249,7 @@ def _specs(communique: dict) -> dict[str, AgentSpec]:
         "diagnostician": stub("diagnostician", [Structured(CONFIDENT)], output_model=Diagnosis),
         "adapter": stub("adapter", [Text("adapted")]),
         "preparer": stub("preparer", [Text("prepared")]),
-        "communicator": stub("communicator", [Structured(communique)], output_model=Communique),
+        "communicator": stub("communicator", [Structured(communique)], output_model=BriefJudgement),
     }
 
 
@@ -259,6 +275,7 @@ def intake(store, extraction: dict):
         include_resource_finder=False,
         specs={
             "extractor": stub("extractor", [Structured(extraction)], output_model=ExtractionResult),
+            "cascader": stub("cascader", [Text("nothing longer than a year to walk down")]),
             "route_planner": stub("route_planner", [Text("two routes proposed")]),
             "scheduler": stub("scheduler", [Text("placed, and said what lost")]),
         },
@@ -268,7 +285,12 @@ def intake(store, extraction: dict):
 @pytest.mark.asyncio
 async def test_clear_speech_reaches_the_scheduler(store):
     result = await intake(store, CLEAR).run("I want to get better at speaking")
-    assert [node.node_id for node in result.execution_order] == ["extractor", "route_planner", "scheduler"]
+    assert [node.node_id for node in result.execution_order] == [
+        "extractor",
+        "cascader",
+        "route_planner",
+        "scheduler",
+    ]
 
 
 @pytest.mark.asyncio
@@ -278,6 +300,7 @@ async def test_unclear_speech_stops_before_anything_is_scheduled(store):
     visited = [node.node_id for node in result.execution_order]
 
     assert visited == ["extractor"]
+    assert "cascader" not in visited, "nothing is decomposed from a misheard goal either"
     assert "scheduler" not in visited
 
 

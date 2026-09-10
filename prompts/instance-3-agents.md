@@ -583,4 +583,129 @@ conflict, no dependency, nothing missing. There is no structural explanation, so
 the only honest answer is `UNKNOWN` and the only honest action is to ask.
 
 ---
+
+## THE PRODUCT GREW - 2026-09-10, before any instance started
+
+The founder expanded the shape of the product. **Nothing had been built against
+the old contract, so this cost one afternoon instead of three rebuilds.** All 94
+tests are green on the new one.
+
+### 1. Goals ladder. They are not a flat list.
+
+A goal now has a `horizon` and a `contributes_to`:
+
+```
+life        Build a company that outlives me
+  decade / three_year   Raise a Series A
+    year                Get comfortable speaking to a room
+      routes + tasks    Speaking club, Tuesdays 19:00
+```
+
+`Horizon = "life" | "decade" | "three_year" | "year" | "quarter" | "month" | "week" | "day"`
+
+Only **year and nearer** can hold routes and tasks (`SCHEDULABLE_HORIZONS`). A
+yearly goal with a weekly cadence needs no further decomposition; "build a
+billion-dollar company" cannot go in Tuesday's 9am slot, and a system that
+pretends otherwise produces a plan nobody believes.
+
+`LivingGraph` gained: `goal_by_id`, `children_of`, `ladder`, `roots`,
+`schedulable_goals`, `stalled_ambitions`, `broken_links`.
+
+`ladder(goal_id)` walks up nearest-first and is what lets a Tuesday morning
+answer **"why this, today?"**. It survives a cycle rather than hanging -- failure
+direction: a short chain, not no day.
+
+### 2. The day is the product, and it always exists.
+
+The old contract was "at most one card, often none". The new one is a **daily
+brief, every day**. The tension with "silence is a feature" is resolved by
+separating *content* from *interruption*:
+
+> **The brief always exists -- it is a plan, not an interruption. What stays rare
+> is `notify` and `decisions`.**
+
+Silence now means `notify` is false and `decisions` is empty, not that there is
+nothing to show. `silence_reason` still goes to the audit log, so quietness is
+auditable.
+
+```python
+class DailyBrief(BaseModel):
+    on: date
+    blocks: list[ScheduledBlock]      # today's schedule, each carrying its ladder
+    prepared: list[PreparedAction]    # work carried to the last click
+    at_risk: list[Risk]               # deadlines the current plan does not reach
+    reminders: list[Reminder]         # committed to, and forgotten
+    decisions: list[Decision]         # usually empty. each one costs attention
+    notify: bool
+    silence_reason: str
+```
+
+### 3. Facts are computed; only judgement is asked of a model.
+
+`second/graphs/brief.py` builds `blocks` and `at_risk` **in Python, from the
+Living Graph**. This is a correctness decision, not a style one: a model asked to
+list your day will eventually invent a block, and one imaginary meeting costs the
+user their trust in the other five.
+
+The model supplies only `BriefJudgement` -- reminders, decisions, notify,
+silence_reason. Those genuinely need judgement.
+
+Two guards in `assemble()`, both mutation-tested:
+
+* **A decision or a prepared action always forces `notify`**, whatever the model
+  concluded. It cannot talk itself out of telling the user about something it is
+  waiting on them for.
+* **A missing judgement degrades to a factual brief, not to no brief.** The
+  schedule is true regardless, and a user who opens the app to an error learns
+  not to open the app.
+
+### What this means for you: there are TWELVE agents
+
+`cascader` is new, and it sits in the Intake graph:
+
+```
+extractor --[clear]--> cascader --> route_planner --> scheduler --> resource_finder
+```
+
+| Agent | Tools | Output model |
+|---|---|---|
+| `cascader` | `read_graph` | **`CascadeResult`** |
+| `communicator` | *(none)* | **`BriefJudgement`** (was `Communique`) |
+
+**The Cascader** takes goals longer than a year and walks them down one rung at
+a time until something lands at a horizon that can hold a calendar slot, setting
+`contributes_to` on each. It emits `CascadeResult(goals, rationale,
+clarifying_questions)`.
+
+Three things to design it around:
+
+1. **One rung is not enough.** A `life` goal decomposed to `three_year` is
+   progress and is not done -- three years still cannot hold a slot. Keep walking
+   until you reach `year` or nearer. There is a test named
+   `test_one_rung_of_cascading_is_not_enough` asserting exactly this.
+2. **Ask rather than invent.** `clarifying_questions` exists because a plausible
+   ladder for someone else's fifteen years is the single most confident-sounding
+   wrong thing this product could produce.
+3. **Use the Person layer.** A decomposition that ignores their constraints is a
+   decomposition they will abandon in week two.
+
+**The Communicator's job got smaller and sharper.** It no longer describes the
+day -- PLATFORM computes that. It answers two questions only:
+
+* *What did they commit to and forget?* Reminders, each citing the email or event
+  it came from. **A reminder with no evidence is a defect**; this product does not
+  nag.
+* *Is any of this worth interrupting them for?* `notify` and `decisions`. Reach
+  for `notify=False`. The framework will override you upward if there is a
+  decision or something prepared, so you can be conservative safely.
+
+A `Decision` carries `options` because a question with three researched answers
+costs five seconds and a bare question costs a round trip.
+
+**The Scheduler now weighs across horizons.** A task serving a deadline three
+weeks out and a task serving a fifteen-year ambition compete differently, and
+`deprioritised` has to say which lost and why. `graph.ladder()` gives you the
+chain.
+
+---
 WAITING ON: AGENTS - read `cto.md`, then `prompts/OWNERSHIP-MAP.md`, then your domain, then post your status turn

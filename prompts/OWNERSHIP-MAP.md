@@ -78,7 +78,7 @@ built and proved that spine in Phase 0.
 | — | **PLATFORM** (CTO) | Strands graphs, shared contract, persistence, audit, deploy | contract breakage reaches all three |
 | 1 | **SURFACES** | React app + the FastAPI HTTP layer | none — no business logic here |
 | 2 | **CONNECTORS** | Google Calendar, Gmail, web search, voice intake, demo seed | **highest** — real writes to a real account |
-| 3 | **AGENTS** | all ten agents, their prompts, the Scheduler | the product's actual intelligence |
+| 3 | **AGENTS** | all twelve agents, their prompts, the Scheduler | the product's actual intelligence |
 
 CONNECTORS is the riskiest domain because it is the only one that can do
 something irreversible to a real person's calendar and inbox. AGENTS is the
@@ -89,10 +89,12 @@ largest by importance because the spec says to converge effort there.
 ```
 src/second/core/          models.py — THE SHARED CONTRACT
 src/second/persistence/   DynamoDB, the Living Graph repository, Strands sessions
-src/second/graphs/        intake.py daily.py feedback.py conditions.py service.py
+src/second/graphs/        intake.py daily.py feedback.py conditions.py
+                          composition.py brief.py service.py
 src/second/hooks/         audit.py
 src/second/tools/graph_tools.py
-src/second/testing/       scripted_model.py — the offline model provider
+src/second/core/clock.py  timezone, read from the calendar rather than asked
+src/second/testing/       scripted_model.py, fake_connectors.py, demo_scenario.py
 src/second/settings.py
 scripts/phase0_proof.py
 deploy/                   AgentCore, EventBridge, IAM
@@ -128,11 +130,11 @@ tool, not talked out of it.
 ### 3 — AGENTS (`prompts/instance-3-agents.md`)
 
 ```
-src/second/agents/        ten agent factories + their prompts
+src/second/agents/        twelve agent factories + their prompts
 ```
 
-The Extractor, Route Planner, Scheduler, Resource Finder, Observer,
-Diagnostician, Adapter, Preparer, Communicator and Interpreter. **You build
+The Extractor, Cascader, Route Planner, Scheduler, Resource Finder, Observer,
+Diagnostician, Adapter, Preparer, Communicator, Interpreter and Graph Updater. **You build
 agents; PLATFORM composes them into graphs.** You never construct a `Graph`.
 
 ---

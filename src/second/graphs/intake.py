@@ -1,6 +1,6 @@
 """The Intake graph. Loose speech becomes a plan in someone's real calendar.
 
-    extractor ──[clear]──► route_planner ──► scheduler ──► resource_finder
+    extractor ──[clear]──► cascader ──► route_planner ──► scheduler ──► resource_finder
 
     extractor ──[unclear]──► (ends here)
 
@@ -9,6 +9,14 @@ clear what someone wants, the honest move is to ask before building a plan on a
 guess -- the same principle as the Daily graph's ``UNKNOWN``, one stage earlier.
 The clarifying questions come back in ``ExtractionResult`` and the caller puts
 them to the user. Nothing is scheduled on a misheard goal.
+
+**The Cascader is what makes a fifteen-year ambition usable.** "A billion-dollar
+company in fifteen years" is a real goal and it is not a task. It becomes a
+three-year goal, which becomes this year's, which becomes something that occupies
+Tuesday morning. Only the near rungs -- quarter, month, week, day -- can hold
+routes and tasks, so everything longer is walked down first. Without this step
+the Route Planner is handed an ambition and invents a plausible-sounding plan for
+it, which is the failure mode this whole product exists to avoid.
 
 The Resource Finder is optional because it is first on the project's cut list.
 Dropping it costs the graph nothing structurally -- the Scheduler has already
@@ -37,7 +45,7 @@ from second.graphs.composition import (
 from second.graphs.conditions import extraction_is_clear
 from second.hooks.audit import AuditLogHook
 
-CORE_NODES = ("extractor", "route_planner", "scheduler")
+CORE_NODES = ("extractor", "cascader", "route_planner", "scheduler")
 OPTIONAL_NODES = ("resource_finder",)
 
 
@@ -96,7 +104,8 @@ def build_intake_graph(
 
     # The only conditional edge in this graph. There is no complementary edge:
     # when extraction is unclear the graph simply ends, and the caller asks.
-    builder.add_edge("extractor", "route_planner", condition=extraction_is_clear)
+    builder.add_edge("extractor", "cascader", condition=extraction_is_clear)
+    builder.add_edge("cascader", "route_planner")
     builder.add_edge("route_planner", "scheduler")
     if include_resource_finder:
         builder.add_edge("scheduler", "resource_finder")

@@ -74,9 +74,39 @@ def _weekdays_in_history() -> list[int]:
 
 def living_graph() -> LivingGraph:
     """The seeded graph as it stands the morning of the demo."""
+    # The ladder. Two life-shaped ambitions, each cashed down to something that
+    # can occupy a Tuesday morning. This is what lets the day answer "why this?"
+    company = Goal(
+        id="g-company",
+        title="Build a company that outlives me",
+        horizon="life",
+        deadline=TODAY + timedelta(days=365 * 15),
+        status="active",
+        extraction_confidence=0.9,
+    )
+    raise_round = Goal(
+        id="g-raise",
+        title="Raise a Series A",
+        horizon="three_year",
+        contributes_to="g-company",
+        deadline=TODAY + timedelta(days=365 * 3),
+        status="active",
+        extraction_confidence=0.9,
+    )
+    health = Goal(
+        id="g-health",
+        title="Still be climbing at sixty",
+        horizon="life",
+        deadline=None,
+        status="active",
+        extraction_confidence=0.85,
+    )
+
     speaking = Goal(
         id="g-speaking",
         title="Get comfortable speaking to a room",
+        horizon="year",
+        contributes_to="g-raise",
         deadline=TODAY + timedelta(days=90),
         status="active",
         extraction_confidence=0.93,
@@ -93,7 +123,7 @@ def living_graph() -> LivingGraph:
                         id="t-club",
                         route_id="r-club",
                         title="Attend speaking club",
-                        scheduled_slots=[_at(offset, 19) for offset in (1, 8, 15)],
+                        scheduled_slots=[_at(offset, 19) for offset in (1, 8, 15, 22)],
                         status="pending",
                     )
                 ],
@@ -111,7 +141,7 @@ def living_graph() -> LivingGraph:
                         id="t-recording",
                         route_id="r-daily",
                         title="Record five minutes and listen back",
-                        scheduled_slots=[_at(offset, 8) for offset in (2, 9, 16)],
+                        scheduled_slots=[_at(offset, 8) for offset in (2, 9, 16, 21)],
                         slip_count=3,
                         slips=[
                             Slip(on=HISTORY_START + timedelta(days=offset), scheduled_for=_at(offset, 8))
@@ -154,6 +184,8 @@ def living_graph() -> LivingGraph:
     fitness = Goal(
         id="g-fitness",
         title="Train three times a week",
+        horizon="year",
+        contributes_to="g-health",
         deadline=None,
         status="active",
         extraction_confidence=0.88,
@@ -188,9 +220,12 @@ def living_graph() -> LivingGraph:
         ],
     )
 
+    # Deliberately unparented: not everything ladders up to an ambition, and a
+    # system that insists otherwise makes people invent reasons for a wedding.
     lisbon = Goal(
         id="g-lisbon",
         title="Be at my sister's wedding in Lisbon",
+        horizon="month",
         deadline=TODAY + timedelta(days=45),
         status="active",
         extraction_confidence=0.97,
@@ -266,7 +301,7 @@ def living_graph() -> LivingGraph:
 
     return LivingGraph(
         user_id=USER_ID,
-        goals=[speaking, fitness, lisbon],
+        goals=[company, raise_round, health, speaking, fitness, lisbon],
         person=person,
         links=links,
     )
