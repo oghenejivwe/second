@@ -72,8 +72,13 @@ async def main() -> int:
         service.set_store(store)
         clock = Clock.fixed(demo_scenario.TODAY, zone_name="Europe/London")
 
-        model = build_model()
-        print(f"model   : {type(model).__name__} | {model.get_config().get('model_id')}")
+        # Deliberately NOT passing a model: each node picks its own, which is the
+        # only way the free tier's per-model daily quota adds up to a whole run.
+        from second.settings import GEMINI_NODE_MODELS
+
+        print("models  : one per node --")
+        for node in ("observer", "diagnostician", "adapter", "preparer", "communicator"):
+            print(f"            {node:15s} {GEMINI_NODE_MODELS.get(node)}")
         print(f"date    : {clock.today}  ({clock.name})")
         print("-" * 66)
 
@@ -81,7 +86,6 @@ async def main() -> int:
             store=store,
             user_id=USER,
             clock=clock,
-            model=model,
             registry=ToolRegistry([*ALL_GRAPH_TOOLS, *ALL_FAKE_CONNECTORS]),
         )
 

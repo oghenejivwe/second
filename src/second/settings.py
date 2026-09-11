@@ -87,12 +87,12 @@ GEMINI_API_KEY_ENV = "GEMINI_API_KEY"
 GEMINI_NODE_MODELS: dict[str, str] = {
     # Daily -- the five that run every morning
     "observer": "gemini-3.5-flash-lite",
-    "diagnostician": "gemini-3.6-flash",
+    "diagnostician": "gemini-3.7-flash",
     "adapter": "gemini-3.1-flash-lite",
     "preparer": "gemini-3.5-flash",
-    "communicator": "gemini-3.7-flash",
+    "communicator": "gemini-3-flash-preview",
     # Intake
-    "extractor": "gemini-3.6-flash",
+    "extractor": "gemini-3.6-flash",  # heaviest reasoning gets the best model
     "cascader": "gemini-3.5-flash",
     "route_planner": "gemini-3.7-flash",
     "scheduler": "gemini-3.8-flash",
