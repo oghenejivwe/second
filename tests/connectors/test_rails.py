@@ -491,6 +491,46 @@ def test_events_import_is_refused_for_the_runtime():
         GuardedHttp(_NeverCalled(), role="seeder").request(uri, "POST", body="{}")
 
 
+def _media_upload_paths(document: str) -> list[tuple[str, str, str]]:
+    """Every ``/upload/`` and ``/resumable/upload/`` alias in a discovery document."""
+    doc = json.loads((_discovery_dir() / document).read_text(encoding="utf-8"))
+    out: list[tuple[str, str, str]] = []
+
+    def walk(node: dict) -> None:
+        for resource in node.get("resources", {}).values():
+            for method in resource.get("methods", {}).values():
+                for info in (method.get("mediaUpload") or {}).get("protocols", {}).values():
+                    if path := info.get("path"):
+                        out.append((method["httpMethod"].upper(), path, method["id"]))
+            walk(resource)
+
+    walk(doc)
+    return out
+
+
+@pytest.mark.parametrize("role", ["runtime", "seeder"])
+def test_every_media_upload_alias_is_refused(role):
+    """Six Gmail methods have a second path, and one of them sends mail.
+
+    ``messages.send`` is also reachable at ``/upload/gmail/v1/users/{id}/messages/send``
+    and ``/resumable/upload/gmail/v1/...``. So is ``drafts.send``, and so is
+    ``messages.insert``. An interlock anchored on ``/gmail/v1/`` refuses all of
+    them -- which is the allowlist earning its keep, because nobody writing a
+    denylist thinks of the upload aliases.
+
+    Enumerated from the discovery document rather than listed by hand, so an alias
+    Google adds later is covered without anybody remembering to add it.
+    """
+    guard = GuardedHttp(_NeverCalled(), role=role)
+    aliases = _media_upload_paths("gmail.v1.json")
+    assert len(aliases) >= 12, "the discovery document no longer declares upload aliases"
+
+    for verb, path_template, method_id in aliases:
+        uri = "https://gmail.googleapis.com" + _as_request_path(path_template) + "?alt=json&uploadType=media"
+        with pytest.raises(GoogleGuardViolation):
+            guard.request(uri, verb, body="{}")
+
+
 def test_the_seeder_is_wider_than_the_runtime_in_exactly_three_ways():
     """Scope splitting is a claim about least privilege; this checks the claim.
 
