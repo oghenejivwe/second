@@ -1,0 +1,95 @@
+/* @xyflow/react 12.11.6, made quiet.
+ *
+ * Two things here are not obvious and both were verified rather than assumed.
+ *
+ * **Import `base.css`, not `style.css`.** style.css is base.css plus a default
+ * node skin (`.react-flow__node-default { padding: 10px; ... }`). Every rule in
+ * that skin is a rule to fight, and the nodes here are entirely custom.
+ *
+ * **Override the UN-SUFFIXED variable names.** The library consumes each token
+ * as `var(--xy-node-background-color, var(--xy-node-background-color-default))`.
+ * Setting the `-default` name at `:root` silently fails in dark mode, because
+ * `.react-flow.dark` redeclares the same `-default` names and a class selector
+ * (0,2,0) beats `:root` (0,1,0). A browser probe confirmed it: with
+ * `--xy-node-background-color-default` set at `:root` the node still computed
+ * to the library's `#1e1e1e`; with the un-suffixed name it computed to the
+ * value asked for. So: no `-default` suffixes anywhere in this file.
+ */
+
+:root {
+  --xy-background-color: var(--bg);
+  --xy-background-pattern-dots-color: var(--ink-200);
+  --xy-background-pattern-lines-color: var(--ink-200);
+  --xy-background-pattern-cross-color: var(--ink-200);
+
+  --xy-node-color: var(--text);
+  --xy-node-background-color: var(--bg-raised);
+  --xy-node-border: 1px solid var(--rule);
+  --xy-node-border-radius: 2px;
+  --xy-node-group-background-color: transparent;
+  --xy-node-boxshadow-hover: none;
+  --xy-node-boxshadow-selected: 0 0 0 1px var(--ink-600);
+
+  --xy-edge-stroke: var(--ink-400);
+  --xy-edge-stroke-width: 1;
+  --xy-edge-stroke-selected: var(--ink-600);
+  --xy-edge-label-background-color: var(--bg);
+  --xy-edge-label-color: var(--text-faint);
+
+  --xy-handle-background-color: var(--ink-400);
+  --xy-handle-border-color: var(--bg);
+
+  --xy-connectionline-stroke: var(--ink-500);
+  --xy-connectionline-stroke-width: 1;
+
+  --xy-selection-background-color: rgba(107, 115, 125, 0.05);
+  --xy-selection-border: 1px dotted var(--ink-500);
+
+  --xy-controls-button-background-color: var(--bg-raised);
+  --xy-controls-button-background-color-hover: var(--bg-hover);
+  --xy-controls-button-color: var(--text-faint);
+  --xy-controls-button-color-hover: var(--text);
+  --xy-controls-button-border-color: var(--rule);
+  --xy-controls-box-shadow: none;
+
+  --xy-minimap-background-color: var(--bg);
+  --xy-minimap-mask-background-color: rgba(10, 11, 12, 0.72);
+  --xy-minimap-mask-stroke-color: transparent;
+  --xy-minimap-node-background-color: var(--ink-300);
+  --xy-minimap-node-stroke-color: transparent;
+
+  --xy-attribution-background-color: transparent;
+}
+
+/* The handles exist so edges attach in the right place; nobody connects
+ * anything by hand in this app, so they are invisible. */
+.react-flow__handle {
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+}
+
+.react-flow__attribution {
+  font-size: var(--size-11);
+  color: var(--text-ghost);
+  opacity: 0.45;
+}
+
+.react-flow__attribution a {
+  color: inherit;
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+/* A node is selected by clicking it, and the only thing that changes is a
+ * brighter rule. No scale, no glow, no lift. */
+.react-flow__node.selectable:focus,
+.react-flow__node.selectable:focus-visible {
+  outline: none;
+}

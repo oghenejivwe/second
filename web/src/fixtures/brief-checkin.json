@@ -1,0 +1,71 @@
+{
+  "on": "2026-09-11",
+  "blocks": [
+    {
+      "task_id": "t-club",
+      "goal_id": "g-speaking",
+      "goal_title": "Get comfortable speaking to a room",
+      "horizon": "year",
+      "serves": [
+        "Raise a Series A",
+        "Build a company that outlives me"
+      ],
+      "title": "Attend speaking club",
+      "start": "2026-09-11T19:00:00+01:00",
+      "duration_min": 60,
+      "resource_url": null
+    }
+  ],
+  "prepared": [],
+  "at_risk": [
+    {
+      "task_id": "t-leave",
+      "goal_id": "g-lisbon",
+      "what": "Request leave for the wedding week",
+      "deadline": "2026-09-15",
+      "days_left": 4,
+      "evidence": "Due in 4 day(s) with nothing booked before then."
+    },
+    {
+      "task_id": "t-flights",
+      "goal_id": "g-lisbon",
+      "what": "Book flights to Lisbon",
+      "deadline": "2026-09-24",
+      "days_left": 13,
+      "evidence": "Due in 13 day(s) with nothing booked before then."
+    }
+  ],
+  "reminders": [],
+  "decisions": [],
+  "check_in": {
+    "on": "2026-09-10",
+    "items": [
+      {
+        "task_id": "t-gym",
+        "title": "Gym session",
+        "goal_title": "Train three times a week",
+        "scheduled_for": "2026-09-10T07:00:00+01:00",
+        "inferred": "likely_missed",
+        "evidence": "18:00 invite declined; 'Eng sync' (9 attendees) ran at the same time."
+      },
+      {
+        "task_id": "t-recording",
+        "title": "Record five minutes and listen back",
+        "goal_title": "Get comfortable speaking to a room",
+        "scheduled_for": "2026-09-10T08:00:00+01:00",
+        "inferred": "unknown",
+        "evidence": ""
+      },
+      {
+        "task_id": "t-pitch",
+        "title": "Draft the talk pitch",
+        "goal_title": "Get comfortable speaking to a room",
+        "scheduled_for": "2026-09-10T17:00:00+01:00",
+        "inferred": "likely_missed",
+        "evidence": "The 17:00 slot was declined and no draft reached the inbox."
+      }
+    ]
+  },
+  "notify": false,
+  "silence_reason": "Nothing slipped that Second could not handle, and nothing needs deciding."
+}

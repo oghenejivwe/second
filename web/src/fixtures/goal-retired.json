@@ -1,0 +1,391 @@
+{
+  "graph": {
+    "user_id": "demo",
+    "goals": [
+      {
+        "id": "g-company",
+        "title": "Build a company that outlives me",
+        "horizon": "life",
+        "contributes_to": null,
+        "deadline": "2041-09-06",
+        "status": "active",
+        "routes": [],
+        "extraction_confidence": 0.9
+      },
+      {
+        "id": "g-raise",
+        "title": "Raise a Series A",
+        "horizon": "three_year",
+        "contributes_to": "g-company",
+        "deadline": "2029-09-09",
+        "status": "active",
+        "routes": [],
+        "extraction_confidence": 0.9
+      },
+      {
+        "id": "g-health",
+        "title": "Still be climbing at sixty",
+        "horizon": "life",
+        "contributes_to": null,
+        "deadline": null,
+        "status": "active",
+        "routes": [],
+        "extraction_confidence": 0.85
+      },
+      {
+        "id": "g-speaking",
+        "title": "Get comfortable speaking to a room",
+        "horizon": "year",
+        "contributes_to": "g-raise",
+        "deadline": "2026-12-09",
+        "status": "retired",
+        "routes": [
+          {
+            "id": "r-club",
+            "goal_id": "g-speaking",
+            "title": "Weekly speaking club",
+            "cadence": "Tuesdays 19:00",
+            "rationale": "Tuesday evenings are the slot they actually keep.",
+            "status": "approved",
+            "tasks": [
+              {
+                "id": "t-club",
+                "route_id": "r-club",
+                "title": "Attend speaking club",
+                "depends_on": [],
+                "deadline": null,
+                "scheduled_slots": [
+                  "2026-08-21T19:00:00",
+                  "2026-08-28T19:00:00",
+                  "2026-09-04T19:00:00",
+                  "2026-09-11T19:00:00"
+                ],
+                "slip_count": 0,
+                "slips": [],
+                "status": "pending",
+                "known_blocker": null,
+                "resource_url": null
+              }
+            ]
+          },
+          {
+            "id": "r-daily",
+            "goal_id": "g-speaking",
+            "title": "Five-minute daily recording",
+            "cadence": "Weekday mornings 08:00",
+            "rationale": "Short enough to survive a bad morning.",
+            "status": "approved",
+            "tasks": [
+              {
+                "id": "t-recording",
+                "route_id": "r-daily",
+                "title": "Record five minutes and listen back",
+                "depends_on": [],
+                "deadline": null,
+                "scheduled_slots": [
+                  "2026-08-22T08:00:00",
+                  "2026-08-29T08:00:00",
+                  "2026-09-05T08:00:00",
+                  "2026-09-10T08:00:00"
+                ],
+                "slip_count": 3,
+                "slips": [
+                  {
+                    "on": "2026-08-22",
+                    "scheduled_for": "2026-08-22T08:00:00",
+                    "noticed_by": "observer",
+                    "note": ""
+                  },
+                  {
+                    "on": "2026-08-29",
+                    "scheduled_for": "2026-08-29T08:00:00",
+                    "noticed_by": "observer",
+                    "note": ""
+                  },
+                  {
+                    "on": "2026-09-05",
+                    "scheduled_for": "2026-09-05T08:00:00",
+                    "noticed_by": "observer",
+                    "note": ""
+                  }
+                ],
+                "status": "pending",
+                "known_blocker": null,
+                "resource_url": null
+              }
+            ]
+          },
+          {
+            "id": "r-pitch",
+            "goal_id": "g-speaking",
+            "title": "Pitch one talk a fortnight",
+            "cadence": "Every other Thursday",
+            "rationale": "Forces the work to leave the practice room.",
+            "status": "approved",
+            "tasks": [
+              {
+                "id": "t-pitch",
+                "route_id": "r-pitch",
+                "title": "Draft the talk pitch",
+                "depends_on": [],
+                "deadline": null,
+                "scheduled_slots": [
+                  "2026-08-30T17:00:00",
+                  "2026-08-31T17:00:00",
+                  "2026-09-01T17:00:00",
+                  "2026-09-02T17:00:00",
+                  "2026-09-10T17:00:00"
+                ],
+                "slip_count": 3,
+                "slips": [
+                  {
+                    "on": "2026-08-30",
+                    "scheduled_for": "2026-08-30T17:00:00",
+                    "noticed_by": "observer",
+                    "note": "moved to the next day"
+                  },
+                  {
+                    "on": "2026-08-31",
+                    "scheduled_for": "2026-08-31T17:00:00",
+                    "noticed_by": "observer",
+                    "note": "moved to the next day"
+                  },
+                  {
+                    "on": "2026-09-01",
+                    "scheduled_for": "2026-09-01T17:00:00",
+                    "noticed_by": "observer",
+                    "note": "moved to the next day"
+                  }
+                ],
+                "status": "pending",
+                "known_blocker": null,
+                "resource_url": null
+              }
+            ]
+          }
+        ],
+        "extraction_confidence": 0.93
+      },
+      {
+        "id": "g-fitness",
+        "title": "Train three times a week",
+        "horizon": "year",
+        "contributes_to": "g-health",
+        "deadline": null,
+        "status": "active",
+        "routes": [
+          {
+            "id": "r-gym",
+            "goal_id": "g-fitness",
+            "title": "Gym after work",
+            "cadence": "Mon/Wed/Fri 18:00",
+            "rationale": "They said evenings were free. The calendar disagrees.",
+            "status": "approved",
+            "tasks": [
+              {
+                "id": "t-gym",
+                "route_id": "r-gym",
+                "title": "Gym session",
+                "depends_on": [],
+                "deadline": null,
+                "scheduled_slots": [
+                  "2026-08-20T18:00:00",
+                  "2026-08-22T18:00:00",
+                  "2026-08-24T18:00:00",
+                  "2026-08-27T18:00:00",
+                  "2026-08-29T18:00:00",
+                  "2026-09-10T18:00:00"
+                ],
+                "slip_count": 4,
+                "slips": [
+                  {
+                    "on": "2026-08-20",
+                    "scheduled_for": "2026-08-20T18:00:00",
+                    "noticed_by": "observer",
+                    "note": "collided with Eng sync"
+                  },
+                  {
+                    "on": "2026-08-22",
+                    "scheduled_for": "2026-08-22T18:00:00",
+                    "noticed_by": "observer",
+                    "note": "collided with Eng sync"
+                  },
+                  {
+                    "on": "2026-08-24",
+                    "scheduled_for": "2026-08-24T18:00:00",
+                    "noticed_by": "observer",
+                    "note": "collided with Eng sync"
+                  },
+                  {
+                    "on": "2026-08-27",
+                    "scheduled_for": "2026-08-27T18:00:00",
+                    "noticed_by": "observer",
+                    "note": "collided with Eng sync"
+                  }
+                ],
+                "status": "pending",
+                "known_blocker": null,
+                "resource_url": null
+              }
+            ]
+          }
+        ],
+        "extraction_confidence": 0.88
+      },
+      {
+        "id": "g-lisbon",
+        "title": "Be at my sister's wedding in Lisbon",
+        "horizon": "month",
+        "contributes_to": null,
+        "deadline": "2026-10-25",
+        "status": "active",
+        "routes": [
+          {
+            "id": "r-travel",
+            "goal_id": "g-lisbon",
+            "title": "Book the trip",
+            "cadence": "One-off, before the end of the month",
+            "rationale": "Fixed date, so everything else moves around it.",
+            "status": "approved",
+            "tasks": [
+              {
+                "id": "t-leave",
+                "route_id": "r-travel",
+                "title": "Request leave for the wedding week",
+                "depends_on": [],
+                "deadline": "2026-09-15",
+                "scheduled_slots": [],
+                "slip_count": 0,
+                "slips": [],
+                "status": "pending",
+                "known_blocker": null,
+                "resource_url": null
+              },
+              {
+                "id": "t-flights",
+                "route_id": "r-travel",
+                "title": "Book flights to Lisbon",
+                "depends_on": [
+                  "t-leave"
+                ],
+                "deadline": "2026-09-24",
+                "scheduled_slots": [
+                  "2026-09-06T20:00:00",
+                  "2026-09-08T20:00:00"
+                ],
+                "slip_count": 2,
+                "slips": [
+                  {
+                    "on": "2026-09-06",
+                    "scheduled_for": "2026-09-06T20:00:00",
+                    "noticed_by": "observer",
+                    "note": "leave not yet confirmed"
+                  },
+                  {
+                    "on": "2026-09-08",
+                    "scheduled_for": "2026-09-08T20:00:00",
+                    "noticed_by": "observer",
+                    "note": "leave not yet confirmed"
+                  }
+                ],
+                "status": "pending",
+                "known_blocker": null,
+                "resource_url": null
+              }
+            ]
+          }
+        ],
+        "extraction_confidence": 0.97
+      }
+    ],
+    "person": {
+      "preferences": {
+        "learning_mode": "video",
+        "day_shape": "early"
+      },
+      "constraints": [
+        "No meetings before 09:00",
+        "Sundays are family"
+      ],
+      "honoured_slots": [
+        "Tue 19:00",
+        "Sat 09:00"
+      ],
+      "abandoned_slots": [
+        "Mon 18:00",
+        "Wed 18:00",
+        "Fri 18:00"
+      ],
+      "recurring_blockers": [],
+      "resources_served": []
+    },
+    "links": [
+      {
+        "kind": "slot_abandoned_for_task",
+        "from_id": "t-gym",
+        "to_ref": "Wed 18:00",
+        "note": "Four of five weekday sessions collided with Eng sync."
+      },
+      {
+        "kind": "slot_honoured_for_task",
+        "from_id": "t-club",
+        "to_ref": "Tue 19:00",
+        "note": "Attended every week."
+      },
+      {
+        "kind": "route_suits_preference",
+        "from_id": "r-daily",
+        "to_ref": "learning_mode",
+        "note": "Recording and listening back suits someone who learns by video."
+      }
+    ],
+    "version": 2,
+    "updated_at": "2026-09-11T00:03:47.397385Z"
+  },
+  "freed": [
+    {
+      "task_id": "t-recording",
+      "goal_id": "g-speaking",
+      "goal_title": "Get comfortable speaking to a room",
+      "horizon": "year",
+      "serves": [
+        "Raise a Series A",
+        "Build a company that outlives me"
+      ],
+      "title": "Record five minutes and listen back",
+      "start": "2026-09-10T08:00:00+01:00",
+      "duration_min": 60,
+      "resource_url": null
+    },
+    {
+      "task_id": "t-pitch",
+      "goal_id": "g-speaking",
+      "goal_title": "Get comfortable speaking to a room",
+      "horizon": "year",
+      "serves": [
+        "Raise a Series A",
+        "Build a company that outlives me"
+      ],
+      "title": "Draft the talk pitch",
+      "start": "2026-09-10T17:00:00+01:00",
+      "duration_min": 60,
+      "resource_url": null
+    },
+    {
+      "task_id": "t-club",
+      "goal_id": "g-speaking",
+      "goal_title": "Get comfortable speaking to a room",
+      "horizon": "year",
+      "serves": [
+        "Raise a Series A",
+        "Build a company that outlives me"
+      ],
+      "title": "Attend speaking club",
+      "start": "2026-09-11T19:00:00+01:00",
+      "duration_min": 60,
+      "resource_url": null
+    }
+  ],
+  "freed_minutes": 180,
+  "note": "3 slot(s) over the next four weeks are free. The next daily run reallocates them to the goals still active."
+}

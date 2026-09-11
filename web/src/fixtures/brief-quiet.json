@@ -1,0 +1,70 @@
+{
+  "on": "2026-09-10",
+  "blocks": [
+    {
+      "task_id": "t-gym",
+      "goal_id": "g-fitness",
+      "goal_title": "Train three times a week",
+      "horizon": "year",
+      "serves": [
+        "Still be climbing at sixty"
+      ],
+      "title": "Gym session",
+      "start": "2026-09-10T07:00:00+01:00",
+      "duration_min": 60,
+      "resource_url": null
+    },
+    {
+      "task_id": "t-recording",
+      "goal_id": "g-speaking",
+      "goal_title": "Get comfortable speaking to a room",
+      "horizon": "year",
+      "serves": [
+        "Raise a Series A",
+        "Build a company that outlives me"
+      ],
+      "title": "Record five minutes and listen back",
+      "start": "2026-09-10T08:00:00+01:00",
+      "duration_min": 60,
+      "resource_url": null
+    },
+    {
+      "task_id": "t-pitch",
+      "goal_id": "g-speaking",
+      "goal_title": "Get comfortable speaking to a room",
+      "horizon": "year",
+      "serves": [
+        "Raise a Series A",
+        "Build a company that outlives me"
+      ],
+      "title": "Draft the talk pitch",
+      "start": "2026-09-10T17:00:00+01:00",
+      "duration_min": 60,
+      "resource_url": null
+    }
+  ],
+  "prepared": [],
+  "at_risk": [
+    {
+      "task_id": "t-leave",
+      "goal_id": "g-lisbon",
+      "what": "Request leave for the wedding week",
+      "deadline": "2026-09-15",
+      "days_left": 5,
+      "evidence": "Due in 5 day(s) with nothing booked before then."
+    },
+    {
+      "task_id": "t-flights",
+      "goal_id": "g-lisbon",
+      "what": "Book flights to Lisbon",
+      "deadline": "2026-09-24",
+      "days_left": 14,
+      "evidence": "Due in 14 day(s) with nothing booked before then."
+    }
+  ],
+  "reminders": [],
+  "decisions": [],
+  "check_in": null,
+  "notify": false,
+  "silence_reason": "Nothing slipped that Second could not handle, and nothing needs deciding."
+}

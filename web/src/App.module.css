@@ -1,0 +1,71 @@
+.shell {
+  display: grid;
+  grid-template-columns: var(--rail-width) 1fr;
+  height: 100%;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-5) 0 var(--space-4);
+  border-right: 1px solid var(--rule);
+  background: var(--bg);
+}
+
+.wordmark {
+  padding: 0 var(--space-5);
+  font-size: var(--size-13);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+}
+
+/* No icons. An icon set is a decision about tone, and the tone here is a list
+ * of words. The current screen is marked by a rule and a brighter label, which
+ * is the least a navigation item can do and still be legible. */
+.navItem {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-5);
+  text-align: left;
+  font-size: var(--size-14);
+  color: var(--text-dim);
+  border-left: 2px solid transparent;
+  transition: color var(--beat) var(--ease);
+}
+
+.navItem:hover {
+  color: var(--text);
+}
+
+.navItem[aria-current='page'] {
+  color: var(--text);
+  border-left-color: var(--ink-700);
+}
+
+.source {
+  margin-top: auto;
+  padding: var(--space-3) var(--space-5) 0;
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: var(--size-11);
+  color: var(--text-ghost);
+}
+
+.sourceNote {
+  display: block;
+  margin-top: var(--space-1);
+  font-family: var(--font);
+  line-height: 1.4;
+}
+
+.screen {
+  overflow: auto;
+  min-width: 0;
+}

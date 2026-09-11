@@ -1,0 +1,1438 @@
+{
+  "$defs": {
+    "AuditEntry": {
+      "description": "One thing the system did. Written by the audit hook, never by an agent.",
+      "properties": {
+        "at": {
+          "format": "date-time",
+          "title": "At",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "node",
+            "tool"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "actor": {
+          "description": "Node id or agent name.",
+          "title": "Actor",
+          "type": "string"
+        },
+        "action": {
+          "description": "Tool name, or the node's phase.",
+          "title": "Action",
+          "type": "string"
+        },
+        "payload": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Payload",
+          "type": "object"
+        },
+        "is_write": {
+          "default": false,
+          "title": "Is Write",
+          "type": "boolean"
+        },
+        "failed": {
+          "default": false,
+          "title": "Failed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "at",
+        "run_id",
+        "kind",
+        "actor",
+        "action"
+      ],
+      "title": "AuditEntry",
+      "type": "object"
+    },
+    "CascadeResult": {
+      "description": "A long-horizon ambition, cashed into goals that can actually be worked.\n\n\"A billion-dollar company in fifteen years\" is not a task and pretending\notherwise produces a plan nobody believes. The Cascader walks it down one\nrung at a time until something lands at a horizon that can hold a calendar\nslot, and says honestly when it cannot.",
+      "properties": {
+        "goals": {
+          "description": "New goals, each with contributes_to set to the rung above it.",
+          "items": {
+            "$ref": "#/$defs/Goal"
+          },
+          "title": "Goals",
+          "type": "array"
+        },
+        "rationale": {
+          "description": "Why this decomposition and not another.",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "clarifying_questions": {
+          "description": "Ask rather than invent a plausible-sounding ladder. Empty when it was clear.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Clarifying Questions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "goals",
+        "rationale"
+      ],
+      "title": "CascadeResult",
+      "type": "object"
+    },
+    "CheckIn": {
+      "description": "The daily reconciliation. What actually happened, from the only source that knows.\n\n**This is not a notification.** It sits inside the brief the user is already\nlooking at, so it costs them nothing extra -- which is why it can be daily\nwithout breaking the promise that Second stays quiet.\n\nWithout it the system's picture drifts: slips get inferred that never\nhappened, honoured slots get recorded as abandoned, and every diagnosis\ndownstream is built on a guess.",
+      "properties": {
+        "on": {
+          "description": "The day being reconciled, usually yesterday.",
+          "format": "date",
+          "title": "On",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/CheckInItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "on"
+      ],
+      "title": "CheckIn",
+      "type": "object"
+    },
+    "CheckInItem": {
+      "description": "One thing to confirm, arriving with the answer already filled in.\n\nSecond does everything it can before asking. It knows what was scheduled, it\nhas looked for evidence, and it has formed a view. The user's job is one tap\nto confirm or correct -- not to remember and report.",
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "goal_title": {
+          "title": "Goal Title",
+          "type": "string"
+        },
+        "scheduled_for": {
+          "format": "date-time",
+          "title": "Scheduled For",
+          "type": "string"
+        },
+        "inferred": {
+          "enum": [
+            "likely_done",
+            "likely_missed",
+            "unknown"
+          ],
+          "title": "Inferred",
+          "type": "string"
+        },
+        "evidence": {
+          "default": "",
+          "description": "Why Second thinks so. Empty when it genuinely has nothing and is simply asking.",
+          "title": "Evidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "title",
+        "goal_title",
+        "scheduled_for",
+        "inferred"
+      ],
+      "title": "CheckInItem",
+      "type": "object"
+    },
+    "CompletionReport": {
+      "description": "The user's own answer about one task. Beats every inference.\n\nWhen this disagrees with the Observer, this wins and the inference is\ndiscarded -- not averaged, not weighed. The person was there.",
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "did_it": {
+          "title": "Did It",
+          "type": "boolean"
+        },
+        "note": {
+          "default": "",
+          "description": "Anything they said about why, in their words.",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "did_it"
+      ],
+      "title": "CompletionReport",
+      "type": "object"
+    },
+    "DailyBrief": {
+      "description": "What Second has for you today. The product's face.\n\nAssembled every day, whether or not anything needs you. **Existing is not\ninterrupting** -- ``notify`` is the separate, rarer decision about whether to\npush. Silence means ``notify`` is false and ``decisions`` is empty, not that\nthe brief is missing.\n\nThe order of the fields is the order of value: what you are doing, what has\nalready been done for you, what is slipping, what you forgot, and only then\nwhat Second needs from you.",
+      "properties": {
+        "on": {
+          "format": "date",
+          "title": "On",
+          "type": "string"
+        },
+        "blocks": {
+          "description": "Today's schedule, in time order.",
+          "items": {
+            "$ref": "#/$defs/ScheduledBlock"
+          },
+          "title": "Blocks",
+          "type": "array"
+        },
+        "prepared": {
+          "description": "Work carried to the last click while the user was elsewhere.",
+          "items": {
+            "$ref": "#/$defs/PreparedAction"
+          },
+          "title": "Prepared",
+          "type": "array"
+        },
+        "at_risk": {
+          "items": {
+            "$ref": "#/$defs/Risk"
+          },
+          "title": "At Risk",
+          "type": "array"
+        },
+        "reminders": {
+          "items": {
+            "$ref": "#/$defs/Reminder"
+          },
+          "title": "Reminders",
+          "type": "array"
+        },
+        "decisions": {
+          "description": "Usually empty. Each one costs the user attention, so earn it.",
+          "items": {
+            "$ref": "#/$defs/Decision"
+          },
+          "title": "Decisions",
+          "type": "array"
+        },
+        "check_in": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckIn"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Yesterday, pre-filled, awaiting confirmation. Does not trigger a notification."
+        },
+        "notify": {
+          "default": false,
+          "description": "Push this at the user. True only when a decision is needed or something was prepared.",
+          "title": "Notify",
+          "type": "boolean"
+        },
+        "silence_reason": {
+          "default": "",
+          "description": "When notify is false, why. Recorded for the audit, never shown to the user.",
+          "title": "Silence Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "on"
+      ],
+      "title": "DailyBrief",
+      "type": "object"
+    },
+    "Decision": {
+      "description": "The one kind of thing that is allowed to interrupt.\n\nSecond reaches here only when it genuinely cannot proceed alone. Options are\nincluded because a question with three researched answers costs five seconds\nand a bare question costs a round trip.",
+      "properties": {
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "evidence": {
+          "title": "Evidence",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Options",
+          "type": "array"
+        }
+      },
+      "required": [
+        "question",
+        "evidence"
+      ],
+      "title": "Decision",
+      "type": "object"
+    },
+    "Deprioritised": {
+      "description": "Something that lost the competition for a slot, and why it lost.",
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "wanted": {
+          "description": "The slot it wanted.",
+          "title": "Wanted",
+          "type": "string"
+        },
+        "lost_to": {
+          "description": "What took the slot instead.",
+          "title": "Lost To",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Deadline pressure, a person-layer constraint, or an honoured-slot record.",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "wanted",
+        "lost_to",
+        "reason"
+      ],
+      "title": "Deprioritised",
+      "type": "object"
+    },
+    "Diagnosis": {
+      "description": "Why a task slipped, and whether Second can act on it alone.\n\n``requires_user_decision`` routes the Daily Graph. It is a typed field read by\na conditional edge, not a prompt hoping for the best.\n\n**``evidence`` is nullable, and that is load-bearing.** Strands produces\nstructured output by *forcing* a tool call: if the model declines, it is\nre-asked with the choice forced, and on that pass it cannot refuse. A required\nnon-nullable ``evidence`` field would therefore compel the model to write\n*something* in it even when nothing in the calendar or inbox supports a cause\n-- which is how a real quote ends up attached to a conclusion it does not\nsupport. The rule this model is meant to encode, *no evidence no diagnosis*,\nis precisely the rule forced tool choice removes. So the schema has to give\nthe model somewhere honest to land.",
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "blocker_type": {
+          "enum": [
+            "MISSING_INFORMATION",
+            "UNDEFINED_SCOPE",
+            "UNMET_DEPENDENCY",
+            "CALENDAR_CONFLICT",
+            "UNKNOWN"
+          ],
+          "title": "Blocker Type",
+          "type": "string"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Quote the calendar entry or the email this rests on. Leave null if nothing in the evidence supports a structural cause. Never invent or paraphrase a quote to fill this field.",
+          "title": "Evidence"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "proposed_action": {
+          "title": "Proposed Action",
+          "type": "string"
+        },
+        "requires_user_decision": {
+          "description": "True when Second genuinely cannot resolve this without the user.",
+          "title": "Requires User Decision",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "task_id",
+        "blocker_type",
+        "confidence",
+        "proposed_action",
+        "requires_user_decision"
+      ],
+      "title": "Diagnosis",
+      "type": "object"
+    },
+    "ExtractionResult": {
+      "description": "What the Extractor heard in a spoken brain dump.",
+      "properties": {
+        "goals": {
+          "description": "One per distinct thing the user wants. Shallow: no routes yet.",
+          "items": {
+            "$ref": "#/$defs/Goal"
+          },
+          "title": "Goals",
+          "type": "array"
+        },
+        "clarifying_questions": {
+          "description": "Ask rather than guess. Empty when everything was clear.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Clarifying Questions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "goals"
+      ],
+      "title": "ExtractionResult",
+      "type": "object"
+    },
+    "FeedbackResult": {
+      "description": "Everything the Interpreter took from one thing the user said.\n\nCovers both directions of the daily loop: ``completions`` is the user\nreporting backwards on what actually happened, ``updates`` is everything else\n-- a preference, a time that does not work, a route that is too much.",
+      "properties": {
+        "completions": {
+          "description": "Answers to the check-in. Ground truth; overrides what was inferred.",
+          "items": {
+            "$ref": "#/$defs/CompletionReport"
+          },
+          "title": "Completions",
+          "type": "array"
+        },
+        "updates": {
+          "items": {
+            "$ref": "#/$defs/FeedbackUpdate"
+          },
+          "title": "Updates",
+          "type": "array"
+        },
+        "intentions": {
+          "description": "Things the user says they want to do today that are not yet in the plan.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Intentions",
+          "type": "array"
+        },
+        "acknowledgement": {
+          "default": "",
+          "description": "At most one line back to the user. Often empty.",
+          "title": "Acknowledgement",
+          "type": "string"
+        }
+      },
+      "title": "FeedbackResult",
+      "type": "object"
+    },
+    "FeedbackUpdate": {
+      "description": "One typed change derived from something the user said back.",
+      "properties": {
+        "target": {
+          "enum": [
+            "route",
+            "task",
+            "person_model"
+          ],
+          "title": "Target",
+          "type": "string"
+        },
+        "target_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Id"
+        },
+        "change": {
+          "description": "What to change, in terms the Adapter can act on.",
+          "title": "Change",
+          "type": "string"
+        },
+        "person_model_patch": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Merged into PersonModel.preferences. This is how Second learns.",
+          "title": "Person Model Patch",
+          "type": "object"
+        }
+      },
+      "required": [
+        "target",
+        "change"
+      ],
+      "title": "FeedbackUpdate",
+      "type": "object"
+    },
+    "Goal": {
+      "description": "Something the user said they want, at some distance from today.\n\nGoals form a ladder rather than a list. \"A billion-dollar company in fifteen\nyears\" is a real goal and it is not a task; it becomes a three-year goal,\nwhich becomes this year's, which becomes something that occupies Tuesday\nmorning. ``contributes_to`` is that ladder, and it is what lets Second answer\nthe only question that matters on a Tuesday morning: *why this, today?*",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "horizon": {
+          "default": "year",
+          "enum": [
+            "life",
+            "decade",
+            "three_year",
+            "year",
+            "quarter",
+            "month",
+            "week",
+            "day"
+          ],
+          "title": "Horizon",
+          "type": "string"
+        },
+        "contributes_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The id of the longer-horizon goal this serves. None for a top-level ambition.",
+          "title": "Contributes To"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deadline"
+        },
+        "status": {
+          "default": "active",
+          "enum": [
+            "active",
+            "paused",
+            "retired"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "routes": {
+          "items": {
+            "$ref": "#/$defs/Route"
+          },
+          "title": "Routes",
+          "type": "array"
+        },
+        "extraction_confidence": {
+          "default": 1.0,
+          "description": "How sure the Extractor was that this is a real, distinct goal.",
+          "title": "Extraction Confidence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "Goal",
+      "type": "object"
+    },
+    "GoalStatusChange": {
+      "description": "What pausing or retiring a goal actually did.\n\n``freed`` is the point. Retiring a goal releases the calendar time its routes\nwere holding, and the Goals screen has to be able to show that concretely --\nthese slots, this many hours, no longer spoken for.\n\nIt says *freed*, not *redistributed*, deliberately. The Scheduler has not run\nagain yet, so nothing has been reallocated. Claiming otherwise would have\nSecond describing a plan it has not made, which is the one thing this product\nmust never do. ``note`` says when the reallocation actually happens.",
+      "properties": {
+        "graph": {
+          "$ref": "#/$defs/LivingGraph"
+        },
+        "freed": {
+          "description": "Upcoming slots the goal was holding, now released. Empty when it held none.",
+          "items": {
+            "$ref": "#/$defs/ScheduledBlock"
+          },
+          "title": "Freed",
+          "type": "array"
+        },
+        "freed_minutes": {
+          "default": 0,
+          "title": "Freed Minutes",
+          "type": "integer"
+        },
+        "note": {
+          "default": "",
+          "description": "What becomes of the freed time, in plain words.",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "title": "GoalStatusChange",
+      "type": "object"
+    },
+    "IntakeResult": {
+      "description": "What one spoken brain dump produced.\n\n``clarifying_questions`` being non-empty means the Intake graph stopped after\nthe Extractor on purpose: it was not clear enough what the user wanted to\njustify putting anything in their calendar. ``schedule`` is ``None`` in that\ncase, and the caller asks rather than shows a plan.",
+      "properties": {
+        "graph": {
+          "$ref": "#/$defs/LivingGraph"
+        },
+        "clarifying_questions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Clarifying Questions",
+          "type": "array"
+        },
+        "schedule": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScheduleDecision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the Scheduler placed and what it deprioritised, when it ran."
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "title": "IntakeResult",
+      "type": "object"
+    },
+    "Link": {
+      "description": "An edge between the goals layer and the person layer.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "route_suits_preference",
+            "resource_served_for_goal",
+            "slot_honoured_for_task",
+            "slot_abandoned_for_task",
+            "blocker_recurs_for_goal"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "from_id": {
+          "description": "Goals-layer id: a goal, route or task.",
+          "title": "From Id",
+          "type": "string"
+        },
+        "to_ref": {
+          "description": "Person-layer reference: a preference key, slot or constraint.",
+          "title": "To Ref",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "from_id",
+        "to_ref"
+      ],
+      "title": "Link",
+      "type": "object"
+    },
+    "LivingGraph": {
+      "description": "One persistent structure per user. Written by every agent, read by every agent.\n\n``version`` backs the conditional write that stops two nodes in the same run\nclobbering each other. Read it, send it back with your update, and expect the\nwrite to be rejected if it moved underneath you.",
+      "properties": {
+        "user_id": {
+          "title": "User Id",
+          "type": "string"
+        },
+        "goals": {
+          "items": {
+            "$ref": "#/$defs/Goal"
+          },
+          "title": "Goals",
+          "type": "array"
+        },
+        "person": {
+          "$ref": "#/$defs/PersonModel"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/Link"
+          },
+          "title": "Links",
+          "type": "array"
+        },
+        "version": {
+          "default": 0,
+          "title": "Version",
+          "type": "integer"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        }
+      },
+      "required": [
+        "user_id"
+      ],
+      "title": "LivingGraph",
+      "type": "object"
+    },
+    "Observation": {
+      "description": "What the Observer could work out about one scheduled slot.\n\nInference only. The calendar can show an invite was declined and the inbox\ncan show a mail was never sent, but **nothing in either can tell you whether\nsomebody actually did the five-minute recording.** That is what the check-in\nis for, and it is why ``outcome`` is allowed to be ``\"unknown\"`` rather than\nbeing forced into a guess.",
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "scheduled_for": {
+          "format": "date-time",
+          "title": "Scheduled For",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "honoured",
+            "missed",
+            "unknown"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "evidence": {
+          "description": "Quote the calendar entry or the email. No evidence, no claim.",
+          "title": "Evidence",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "calendar",
+            "email",
+            "none"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "scheduled_for",
+        "outcome",
+        "evidence",
+        "source"
+      ],
+      "title": "Observation",
+      "type": "object"
+    },
+    "ObservationReport": {
+      "description": "The Observer's sanitised bundle. The only thing the Diagnostician sees.\n\nThis is the context-isolation boundary made concrete: the Observer reads raw\ncalendar entries and raw email, and hands on **this** -- task ids, outcomes\nand quoted evidence. Not inbox contents. The Diagnostician cannot reach\nGmail or Calendar itself, so this report is the whole of its world.",
+      "properties": {
+        "observations": {
+          "items": {
+            "$ref": "#/$defs/Observation"
+          },
+          "title": "Observations",
+          "type": "array"
+        },
+        "notes": {
+          "default": "",
+          "description": "Structural context not tied to one task, e.g. a standing meeting that moved.",
+          "title": "Notes",
+          "type": "string"
+        }
+      },
+      "title": "ObservationReport",
+      "type": "object"
+    },
+    "PersonModel": {
+      "description": "Observed facts about how this person actually operates.\n\nStructural only. Every field here is something the system watched happen, or\nsomething the user said outright. Nothing in this model is an inference about\nmotivation, discipline or mood, and no agent may write one.",
+      "properties": {
+        "preferences": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Stated or demonstrated, e.g. {\"learning_mode\": \"video\"}.",
+          "title": "Preferences",
+          "type": "object"
+        },
+        "constraints": {
+          "description": "Hard rules the Scheduler must honour, e.g. \"no work before 10am\".",
+          "items": {
+            "type": "string"
+          },
+          "title": "Constraints",
+          "type": "array"
+        },
+        "honoured_slots": {
+          "description": "Time slots this person actually keeps, e.g. \"Tue 07:00\".",
+          "items": {
+            "type": "string"
+          },
+          "title": "Honoured Slots",
+          "type": "array"
+        },
+        "abandoned_slots": {
+          "description": "Slots repeatedly scheduled and repeatedly missed.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Abandoned Slots",
+          "type": "array"
+        },
+        "recurring_blockers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Recurring Blockers",
+          "type": "array"
+        },
+        "resources_served": {
+          "description": "Already shown to the user. The Resource Finder never repeats one.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Resources Served",
+          "type": "array"
+        }
+      },
+      "title": "PersonModel",
+      "type": "object"
+    },
+    "Placement": {
+      "description": "One task placed into a real calendar slot.",
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        },
+        "duration_min": {
+          "title": "Duration Min",
+          "type": "integer"
+        },
+        "calendar_event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calendar Event Id"
+        }
+      },
+      "required": [
+        "task_id",
+        "start",
+        "duration_min"
+      ],
+      "title": "Placement",
+      "type": "object"
+    },
+    "PreparedAction": {
+      "description": "Work carried up to the last click, and stopped there.\n\nSecond never completes the irreversible step. A draft is created, never sent.\nOptions are assembled, never booked.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "email_draft",
+            "options",
+            "retrieved_fact",
+            "calendar_change"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "summary": {
+          "description": "What was prepared, in one line.",
+          "title": "Summary",
+          "type": "string"
+        },
+        "detail": {
+          "default": "",
+          "description": "The draft body, the compared options, the retrieved value.",
+          "title": "Detail",
+          "type": "string"
+        },
+        "external_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Gmail draft id, calendar event id.",
+          "title": "External Ref"
+        },
+        "awaiting": {
+          "description": "The single thing left for the user to do.",
+          "title": "Awaiting",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "summary",
+        "awaiting"
+      ],
+      "title": "PreparedAction",
+      "type": "object"
+    },
+    "Reminder": {
+      "description": "Something the user cares about and has probably forgotten.\n\nNot a nag and not a nudge. This exists because commitments get made in email\nand then never reach a plan -- a reply promised, a form nobody filled in, a\nbooking that closes. Every one cites where it came from, and a reminder with\nno evidence is a defect.",
+      "properties": {
+        "what": {
+          "title": "What",
+          "type": "string"
+        },
+        "evidence": {
+          "title": "Evidence",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "email",
+            "calendar",
+            "graph"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "what",
+        "evidence",
+        "source"
+      ],
+      "title": "Reminder",
+      "type": "object"
+    },
+    "Risk": {
+      "description": "Something with a deadline that will not be met on the current plan.",
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "goal_id": {
+          "title": "Goal Id",
+          "type": "string"
+        },
+        "what": {
+          "title": "What",
+          "type": "string"
+        },
+        "deadline": {
+          "format": "date",
+          "title": "Deadline",
+          "type": "string"
+        },
+        "days_left": {
+          "title": "Days Left",
+          "type": "integer"
+        },
+        "evidence": {
+          "description": "Why this is at risk. Cite the calendar or the graph.",
+          "title": "Evidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "goal_id",
+        "what",
+        "deadline",
+        "days_left",
+        "evidence"
+      ],
+      "title": "Risk",
+      "type": "object"
+    },
+    "Route": {
+      "description": "One concrete way of reaching a goal. Proposed by Second, approved by the user.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "goal_id": {
+          "title": "Goal Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "cadence": {
+          "description": "How often, in plain words. 'Weekly, Tuesday evenings'.",
+          "title": "Cadence",
+          "type": "string"
+        },
+        "rationale": {
+          "description": "Why this route suits THIS person, citing a person-layer fact.",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "status": {
+          "default": "proposed",
+          "enum": [
+            "proposed",
+            "approved",
+            "rejected",
+            "dropped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "tasks": {
+          "items": {
+            "$ref": "#/$defs/Task"
+          },
+          "title": "Tasks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "goal_id",
+        "title",
+        "cadence",
+        "rationale"
+      ],
+      "title": "Route",
+      "type": "object"
+    },
+    "RoutePlan": {
+      "description": "Concrete routes proposed for goals that are near enough to work on.\n\nShallow on purpose. The alternative was to carry whole ``Goal`` objects here,\nwhich means a Goal->Route->Task schema at every hop and nothing persisted at\nall if the Scheduler fails downstream. Instead the Cascader writes the goal\nladder to the graph as it goes, and this carries only what is new -- so a\nscheduling failure costs the routes, not the ladder.",
+      "properties": {
+        "routes": {
+          "description": "Proposed routes, each already bound to a goal_id.",
+          "items": {
+            "$ref": "#/$defs/Route"
+          },
+          "title": "Routes",
+          "type": "array"
+        },
+        "rationale": {
+          "description": "Why these routes suit THIS person, citing a person-layer fact.",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "clarifying_questions": {
+          "description": "Ask rather than invent a cadence the user will abandon in week two.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Clarifying Questions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "routes",
+        "rationale"
+      ],
+      "title": "RoutePlan",
+      "type": "object"
+    },
+    "ScheduleDecision": {
+      "description": "The Scheduler's verdict across ALL active goals at once.\n\n``deprioritised`` is not optional output. A scheduler that only reports what\nit placed is hiding the decision it actually made.",
+      "properties": {
+        "placed": {
+          "items": {
+            "$ref": "#/$defs/Placement"
+          },
+          "title": "Placed",
+          "type": "array"
+        },
+        "deprioritised": {
+          "items": {
+            "$ref": "#/$defs/Deprioritised"
+          },
+          "title": "Deprioritised",
+          "type": "array"
+        },
+        "rationale": {
+          "description": "How competition between goals was resolved.",
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rationale"
+      ],
+      "title": "ScheduleDecision",
+      "type": "object"
+    },
+    "ScheduledBlock": {
+      "description": "One piece of work occupying a real slot today, and what it is for.\n\n``goal_title`` and ``serves`` are denormalised onto the block on purpose. The\nday has to answer *why this, today?* without the reader following a chain of\nids, and \"Draft the pitch \u2014 45 min \u2014 serves: speak well \u2192 this year \u2192 the\ndecade\" is the whole product in one line.",
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "goal_id": {
+          "title": "Goal Id",
+          "type": "string"
+        },
+        "goal_title": {
+          "title": "Goal Title",
+          "type": "string"
+        },
+        "horizon": {
+          "enum": [
+            "life",
+            "decade",
+            "three_year",
+            "year",
+            "quarter",
+            "month",
+            "week",
+            "day"
+          ],
+          "title": "Horizon",
+          "type": "string"
+        },
+        "serves": {
+          "description": "Titles of the longer-horizon goals above this one, nearest first.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Serves",
+          "type": "array"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "start": {
+          "description": "Timezone-AWARE, in the user's own zone. Note the asymmetry, which is deliberate: Task.scheduled_slots are stored NAIVE because the Living Graph holds wall-clock time -- a plan is what the person reads off their own calendar, and storing it as UTC would move the plan when they travel. Anything crossing the API boundary is made aware by Clock.local() so a browser cannot guess wrong. Never compare a raw scheduled_slot against one of these without passing it through the clock first.",
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        },
+        "duration_min": {
+          "title": "Duration Min",
+          "type": "integer"
+        },
+        "resource_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Material attached to the slot, so the thing to watch is already there.",
+          "title": "Resource Url"
+        }
+      },
+      "required": [
+        "task_id",
+        "goal_id",
+        "goal_title",
+        "horizon",
+        "title",
+        "start",
+        "duration_min"
+      ],
+      "title": "ScheduledBlock",
+      "type": "object"
+    },
+    "Slip": {
+      "description": "One occasion on which a task did not happen as planned.",
+      "properties": {
+        "on": {
+          "format": "date",
+          "title": "On",
+          "type": "string"
+        },
+        "scheduled_for": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scheduled For"
+        },
+        "noticed_by": {
+          "default": "observer",
+          "description": "Which agent recorded this slip.",
+          "title": "Noticed By",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "on"
+      ],
+      "title": "Slip",
+      "type": "object"
+    },
+    "Task": {
+      "description": "A single concrete action inside a route.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "route_id": {
+          "title": "Route Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "depends_on": {
+          "description": "Task ids that must be done first. An UNMET_DEPENDENCY diagnosis reads this.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deadline"
+        },
+        "scheduled_slots": {
+          "items": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "title": "Scheduled Slots",
+          "type": "array"
+        },
+        "slip_count": {
+          "default": 0,
+          "title": "Slip Count",
+          "type": "integer"
+        },
+        "slips": {
+          "items": {
+            "$ref": "#/$defs/Slip"
+          },
+          "title": "Slips",
+          "type": "array"
+        },
+        "status": {
+          "default": "pending",
+          "enum": [
+            "pending",
+            "done",
+            "blocked"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "known_blocker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Written from the user's own answer. Once set, never ask about this task again.",
+          "title": "Known Blocker"
+        },
+        "resource_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Material attached to this task's slot, so it is already there at 7am.",
+          "title": "Resource Url"
+        }
+      },
+      "required": [
+        "id",
+        "route_id",
+        "title"
+      ],
+      "title": "Task",
+      "type": "object"
+    }
+  },
+  "title": "SecondContract",
+  "type": "object",
+  "properties": {
+    "audit_entry": {
+      "$ref": "#/$defs/AuditEntry"
+    },
+    "cascade_result": {
+      "$ref": "#/$defs/CascadeResult"
+    },
+    "check_in": {
+      "$ref": "#/$defs/CheckIn"
+    },
+    "check_in_item": {
+      "$ref": "#/$defs/CheckInItem"
+    },
+    "completion_report": {
+      "$ref": "#/$defs/CompletionReport"
+    },
+    "daily_brief": {
+      "$ref": "#/$defs/DailyBrief"
+    },
+    "decision": {
+      "$ref": "#/$defs/Decision"
+    },
+    "deprioritised": {
+      "$ref": "#/$defs/Deprioritised"
+    },
+    "diagnosis": {
+      "$ref": "#/$defs/Diagnosis"
+    },
+    "extraction_result": {
+      "$ref": "#/$defs/ExtractionResult"
+    },
+    "feedback_result": {
+      "$ref": "#/$defs/FeedbackResult"
+    },
+    "feedback_update": {
+      "$ref": "#/$defs/FeedbackUpdate"
+    },
+    "goal": {
+      "$ref": "#/$defs/Goal"
+    },
+    "goal_status_change": {
+      "$ref": "#/$defs/GoalStatusChange"
+    },
+    "intake_result": {
+      "$ref": "#/$defs/IntakeResult"
+    },
+    "link": {
+      "$ref": "#/$defs/Link"
+    },
+    "living_graph": {
+      "$ref": "#/$defs/LivingGraph"
+    },
+    "observation": {
+      "$ref": "#/$defs/Observation"
+    },
+    "observation_report": {
+      "$ref": "#/$defs/ObservationReport"
+    },
+    "person_model": {
+      "$ref": "#/$defs/PersonModel"
+    },
+    "placement": {
+      "$ref": "#/$defs/Placement"
+    },
+    "prepared_action": {
+      "$ref": "#/$defs/PreparedAction"
+    },
+    "reminder": {
+      "$ref": "#/$defs/Reminder"
+    },
+    "risk": {
+      "$ref": "#/$defs/Risk"
+    },
+    "route": {
+      "$ref": "#/$defs/Route"
+    },
+    "route_plan": {
+      "$ref": "#/$defs/RoutePlan"
+    },
+    "schedule_decision": {
+      "$ref": "#/$defs/ScheduleDecision"
+    },
+    "scheduled_block": {
+      "$ref": "#/$defs/ScheduledBlock"
+    },
+    "slip": {
+      "$ref": "#/$defs/Slip"
+    },
+    "task": {
+      "$ref": "#/$defs/Task"
+    }
+  },
+  "additionalProperties": false
+}

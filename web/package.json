@@ -1,0 +1,29 @@
+{
+  "name": "second-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:live": "vite --mode live",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "preview": "vite preview",
+    "fixtures": "python scripts/make_fixtures.py && node scripts/gen-types.mjs",
+    "types": "node scripts/gen-types.mjs"
+  },
+  "dependencies": {
+    "@xyflow/react": "12.11.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "json-schema-to-typescript": "16.0.0",
+    "typescript": "5.9.3",
+    "vite": "8.2.2"
+  }
+}

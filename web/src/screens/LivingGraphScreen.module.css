@@ -1,0 +1,143 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.count,
+.bands {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: var(--size-12);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.countSlipped {
+  color: var(--slip);
+}
+
+.bands {
+  gap: var(--space-1);
+  color: var(--text-ghost);
+}
+
+.bandArrow {
+  color: var(--ink-400);
+  margin: 0 var(--space-1);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  flex: none;
+}
+
+.run {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--rule-strong);
+  font-size: var(--size-13);
+  color: var(--text-dim);
+}
+
+.run:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--ink-600);
+}
+
+.ghost {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--size-12);
+  color: var(--text-ghost);
+}
+
+.ghost:hover {
+  color: var(--text);
+}
+
+/* What the run did. Stated, not animated -- a fading pulse is a claim nobody
+ * can check afterwards. */
+.changed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg-inset);
+}
+
+.changedWhat {
+  font-size: var(--size-13);
+  color: var(--text);
+}
+
+.learned {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--size-12);
+  color: var(--text-faint);
+}
+
+.canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.waiting {
+  padding: var(--space-7);
+  font-size: var(--size-13);
+  color: var(--text-ghost);
+}
+
+/* The selected node's reasoning. A strip along the bottom so the graph keeps
+ * the room; person-layer facts stay on the nodes where the brief put them. */
+.detail {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5);
+  background: var(--bg-raised);
+  border-top: 1px solid var(--rule-strong);
+  max-height: 30%;
+  overflow: auto;
+}
+
+.detailTitle {
+  font-size: var(--size-13);
+  color: var(--text);
+}
+
+.detailNone {
+  font-size: var(--size-12);
+  color: var(--text-ghost);
+}
+
+.slips {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

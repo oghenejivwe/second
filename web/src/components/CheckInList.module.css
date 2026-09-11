@@ -1,0 +1,120 @@
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) auto;
+  gap: var(--space-4);
+  align-items: start;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.row[data-answered='true'] {
+  color: var(--text-ghost);
+}
+
+.what {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--size-14);
+}
+
+.goal {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--size-12);
+  color: var(--text-faint);
+}
+
+.dot {
+  color: var(--ink-500);
+}
+
+.guess {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.guessLabel {
+  font-size: var(--size-12);
+}
+
+/* Second's own guess, coloured only by what it is: something it thinks held,
+ * something it thinks slipped, or -- the honest one -- no view at all. */
+.guessLabel[data-inferred='likely_done'] {
+  color: var(--held);
+}
+
+.guessLabel[data-inferred='likely_missed'] {
+  color: var(--slip);
+}
+
+.guessLabel[data-inferred='unknown'] {
+  color: var(--text-ghost);
+}
+
+/* An `unknown` row with empty evidence is Second saying plainly that it could
+ * not tell. It must not look like the rows it does have a view on, so it gets
+ * no monospace quote -- there is nothing to quote. */
+.noEvidence {
+  font-size: var(--size-12);
+  font-style: italic;
+  color: var(--ink-500);
+}
+
+/* The honest row, marked by ground rather than by colour: Second has no view
+ * here, so nothing about it should look like a verdict. */
+.row[data-unknown='true'] {
+  background: var(--bg-inset);
+}
+
+.answers {
+  display: flex;
+  gap: var(--space-1);
+  flex: none;
+}
+
+.did,
+.didnt {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-strong);
+  font-size: var(--size-12);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.did:hover:not(:disabled) {
+  color: var(--held);
+  border-color: var(--held-dim);
+}
+
+.didnt:hover:not(:disabled) {
+  color: var(--slip);
+  border-color: var(--slip-dim);
+}
+
+/* The answer is recorded, not celebrated. */
+.recorded {
+  flex: none;
+  font-size: var(--size-12);
+  color: var(--text-ghost);
+  white-space: nowrap;
+}
+
+.failed {
+  grid-column: 1 / -1;
+  font-family: var(--font-mono);
+  font-size: var(--size-12);
+  color: var(--slip);
+}

@@ -1,0 +1,286 @@
+[
+  {
+    "at": "2026-09-11T00:03:49.347652Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "node",
+    "actor": "graph",
+    "action": "run_end",
+    "payload": {},
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.347652Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "node",
+    "actor": "communicator",
+    "action": "node_end",
+    "payload": {
+      "produced": "BriefJudgement"
+    },
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.346501Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "communicator",
+    "action": "BriefJudgement",
+    "payload": {
+      "input": "{'reminders': [{'what': 'Your sister asked whether the flights are booked. You have not replied.', 'evidence': \"m-wedding, 'Wedding week - are you booked yet?', received 6 days ago.\", 'source': 'email'}], 'decisions': [], 'notify': True, 'silence_reason': ''}"
+    },
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.345500Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "node",
+    "actor": "communicator",
+    "action": "node_start",
+    "payload": {},
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.344500Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "node",
+    "actor": "preparer",
+    "action": "node_end",
+    "payload": {
+      "produced": "PreparedAction"
+    },
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.344500Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "preparer",
+    "action": "PreparedAction",
+    "payload": {
+      "input": "{'kind': 'email_draft', 'summary': 'Leave request for the wedding week, drafted and waiting in Gmail.', 'detail': \"To: manager@example.com\\nSubject: Annual leave request: wedding week\\n\\nHi,\\n\\nI'd like to request leave for the week of 28 September. My sister's wedding is in Lisbon that week and I …"
+    },
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.342500Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "preparer",
+    "action": "draft_email",
+    "payload": {
+      "input": "{'to': 'manager@example.com', 'subject': 'Annual leave request: wedding week', 'body': \"Hi,\\n\\nI'd like to request leave for the week of the wedding.\\n\\nThanks\"}"
+    },
+    "is_write": true,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.340502Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "preparer",
+    "action": "search_gmail",
+    "payload": {
+      "input": "{'query': 'in:sent leave', 'max_results': 5}"
+    },
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.337902Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "node",
+    "actor": "preparer",
+    "action": "node_start",
+    "payload": {},
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.336901Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "node",
+    "actor": "adapter",
+    "action": "node_end",
+    "payload": {},
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.334862Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "adapter",
+    "action": "write_graph",
+    "payload": {
+      "input": "{'user_id': 'demo', 'layer': 'links', 'patch': {'links': [{'kind': 'slot_abandoned_for_task', 'from_id': 't-gym', 'to_ref': 'Thu 18:00', 'note': 'Declined again today; moved to 07:00.'}]}}"
+    },
+    "is_write": true,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.280002Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "adapter",
+    "action": "write_graph",
+    "payload": {
+      "input": "{'user_id': 'demo', 'layer': 'goals', 'patch': {'goals': [{'id': 'g-fitness', 'title': 'Train three times a week', 'horizon': 'year', 'contributes_to': 'g-health', 'deadline': None, 'status': 'active', 'routes': [{'id': 'r-gym', 'goal_id': 'g-fitness', 'title': 'Gym after work', 'cadence': 'Mon/Wed…"
+    },
+    "is_write": true,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.220484Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "adapter",
+    "action": "reschedule_event",
+    "payload": {
+      "input": "{'event_id': 'gym000', 'new_start': '2026-09-10T07:00:00'}"
+    },
+    "is_write": true,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.218887Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "node",
+    "actor": "adapter",
+    "action": "node_start",
+    "payload": {},
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.218887Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "node",
+    "actor": "diagnostician",
+    "action": "node_end",
+    "payload": {
+      "produced": "Diagnosis"
+    },
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.217887Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "diagnostician",
+    "action": "Diagnosis",
+    "payload": {
+      "input": "{'task_id': 't-gym', 'blocker_type': 'CALENDAR_CONFLICT', 'evidence': \"18:00 gym declined 4 of 5 weekdays; each collided with 'Eng sync' (9 attendees, not owned).\", 'confidence': 0.92, 'proposed_action': 'Move the gym block to 07:00, which is free every weekday.', 'requires_user_decision': False}"
+    },
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.215921Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "diagnostician",
+    "action": "read_graph",
+    "payload": {
+      "input": "{'user_id': 'demo', 'layer': 'goals'}"
+    },
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.169754Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "node",
+    "actor": "diagnostician",
+    "action": "node_start",
+    "payload": {},
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.169754Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "node",
+    "actor": "observer",
+    "action": "node_end",
+    "payload": {
+      "produced": "ObservationReport"
+    },
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.169247Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "observer",
+    "action": "ObservationReport",
+    "payload": {
+      "input": "{'observations': [], 'notes': 'The 18:00 weekday slot has collided with a standing meeting for three weeks.'}"
+    },
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.166247Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "observer",
+    "action": "update_person_model",
+    "payload": {
+      "input": "{'user_id': 'demo', 'patch': {'abandoned_slots': ['Wed 18:00']}}"
+    },
+    "is_write": true,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.114238Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "observer",
+    "action": "search_gmail",
+    "payload": {
+      "input": "{'query': 'wedding', 'max_results': 5}"
+    },
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.112236Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "tool",
+    "actor": "observer",
+    "action": "get_calendar_events",
+    "payload": {
+      "input": "{'start': '2026-08-20T00:00:00', 'end': '2026-09-11T00:00:00'}"
+    },
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.109852Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "node",
+    "actor": "observer",
+    "action": "node_start",
+    "payload": {},
+    "is_write": false,
+    "failed": false
+  },
+  {
+    "at": "2026-09-11T00:03:49.109852Z",
+    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "kind": "node",
+    "actor": "graph",
+    "action": "run_start",
+    "payload": {},
+    "is_write": false,
+    "failed": false
+  }
+]
