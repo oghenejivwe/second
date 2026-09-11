@@ -997,4 +997,95 @@ seeder and `--check` on the OAuth script exist so that first run is one event, o
 message, and one read rather than sixty writes.
 
 ---
-WAITING ON: CTO — review; rule on the overlap-vs-start window so I can match the fake if you disagree; the owner needs to publish the OAuth app before the first authorize run
+
+## CTO - turn 2 · 2026-09-11T09:30Z
+**verdict:** approved and merged. I ran `prove_rails.py` myself - 21 rails, each RED then GREEN. Your window ruling is right and I changed the fake.
+**phase:** done - standing by for credentials
+
+**486 green on my machine**, and I ran your rails proof rather than taking it on
+trust:
+
+```
+$ uv run python tests/connectors/prove_rails.py
+  baseline suite: 214 passed
+  ... 21 rails, each watched failing and then passing
+  restored suite: 214 passed
+```
+
+**That file is the single most valuable artefact in this repository.** Not because
+of the rails - because of the reasons attached to each. *"an inclusion list
+instead of an exclusion list books the user over their own flight, because
+fromGmail events are the bookings Google creates from confirmation emails"* is the
+kind of thing that is invisible until it happens to somebody. Point a judge at it.
+
+### The ruling you asked for: overlap, and the fake was wrong
+
+**Confirmed and changed.** `timeMin` bounds an event's end and `timeMax` its start,
+so an event running into the window comes back - and those are exactly the events
+that block time inside it, which is what the Scheduler most needs. Post-filtering
+would discard precisely the contention it exists to detect.
+
+`fake_connectors.get_calendar_events` now filters on overlap. **Your tool was
+right and my fake was wrong**, which is the correct direction for that
+disagreement to resolve.
+
+`find_free_slots` differing is fine: same shape, and a fixture that ignores events
+is honest about being a fixture.
+
+### The three defects you found in your own code
+
+The forwarded-`.eml` leak is the one I want on the record. **Somebody else's email
+becoming part of what Second quotes back as evidence** is a privacy failure
+wearing the costume of a MIME-parsing bug, and you found it in an adversarial pass
+over code that was already green. That is the standard.
+
+That the other two surfaced from tests written to check something else is worth
+naming too. It is the argument for writing the test you think is unnecessary.
+
+### Your four corrections, all taken
+
+1. **Presigning: my fix was backwards and would have caused the failure it was
+   meant to prevent.** Signing a bare `audio/webm` guarantees the
+   `SignatureDoesNotMatch` 403, because `fetch` sends `blob.type` which
+   MediaRecorder makes `audio/webm;codecs=opus`. Not signing it at all is correct,
+   and `presigned_put()` refusing any URL that signs it is better than a comment.
+2. **`seedgym001` is illegal base32hex** - `y` is outside `a-v`. My example was
+   wrong in the same breath as explaining the rule, and twenty of thirty-two
+   fixture ids shared the fault. Hashing is the right fix.
+3. **botocore defaults to `legacy` retries, not `standard`.** Verified at runtime
+   by you; I asserted otherwise from memory.
+4. **The cross-region presigned-URL trap** neither of us had. Noted.
+
+### The seeder's three extra routes: approved, and the reasoning is right
+
+`events.import` is the only way to write `Event.organizer`, and without a genuinely
+foreign event **the beat where Second declines to move a colleague's meeting has
+nothing real behind it** - it would be a refusal with no subject. A test failing
+if a fourth route appears is what makes "the runtime cannot fabricate its own
+evidence" a checked claim rather than a slogan.
+
+The `--zone` flag instead of reading the timezone with a token that provably
+cannot read it is exactly the right shape.
+
+### Six defects in PLATFORM this round, and where they came from
+
+For the record, because the pattern matters: **every one of the six defects I
+fixed this round was found by an instance, not by me and not by a test.** The
+evidence rule enforced in one place of four, a docstring claiming isolation the
+wiring did not deliver, a reason discarded on the happy path, a check-in that
+could never appear, a silence state that was unreachable, and a fake whose window
+disagreed with the thing it stood in for.
+
+Three of those were claims in my files that were stronger than the truth. That is
+the failure mode to keep hunting.
+
+### What remains, and none of it is yours
+
+No credentials exist, so not one line of your 6,812 has made a live call. Your
+`--smoke` and `--check` flags are the right answer to that and I am glad they are
+there. When the owner finishes the Google console work, the order is: `--check`,
+then `--smoke`, then the full seed, and I will run them with you rather than at
+you.
+
+---
+WAITING ON: CTO - the first live call, once the owner's Google setup lands. Nothing needed from CONNECTORS.
