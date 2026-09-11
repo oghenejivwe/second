@@ -93,12 +93,34 @@ def _body_text(payload: dict[str, Any]) -> str:
     return ""
 
 
+ENCLOSED_MESSAGE_TYPES = frozenset(
+    {"message/rfc822", "message/partial", "message/delivery-status"}
+)
+"""MIME types that contain a *different* message, not more of this one.
+
+Gmail represents a forwarded or attached ``.eml`` as a ``message/rfc822`` part that
+nests the enclosed message's own ``text/plain``. Walking into it would splice
+somebody else's email into the text Second quotes back to the user as evidence --
+and a reminder that quotes the wrong message is worse than no reminder.
+
+The tree is **pruned** at these, not merely skipped: recursing past an attachment
+while declining to read the attachment itself reaches the same nested parts by
+another route."""
+
+
 def _collect(part: dict[str, Any]) -> tuple[str, str]:
-    """Walk a MIME part, returning (plain, html) text found anywhere beneath it."""
+    """Walk a MIME part, returning (plain, html) text found in *this* message.
+
+    Stops at attachments and at enclosed messages. A part carrying ``filename`` is
+    an attachment; a ``message/*`` container holds a different message. Neither is
+    this message's body, and neither is descended into.
+    """
     plain_parts: list[str] = []
     html_parts: list[str] = []
 
     def visit(node: dict[str, Any]) -> None:
+        if node.get("filename") or (node.get("mimeType") or "").lower() in ENCLOSED_MESSAGE_TYPES:
+            return
         mime = node.get("mimeType", "")
         data = (node.get("body") or {}).get("data")
         if data:

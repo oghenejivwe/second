@@ -207,6 +207,58 @@ def test_an_html_only_message_still_yields_quotable_text():
     assert "<p>" not in message["body"]
 
 
+def test_a_forwarded_message_does_not_leak_into_the_body():
+    """Gmail nests an attached ``.eml`` as a ``message/rfc822`` part carrying its own
+    ``text/plain``. Walking into it splices **somebody else's email** into the text
+    Second quotes back to the user as evidence.
+
+    The tree is pruned at the attachment rather than the attachment merely being
+    skipped: recursing past it while declining to read it reaches the same nested
+    parts by another route.
+    """
+    raw = _message("m1", "Fwd: leave policy", "colleague@example.com", "ignored")
+    raw["payload"] = {
+        "mimeType": "multipart/mixed",
+        "headers": [{"name": "Subject", "value": "Fwd: leave policy"}],
+        "parts": [
+            {"mimeType": "text/plain", "body": {"data": _b64("See the attached, it explains it.")}},
+            {
+                "mimeType": "message/rfc822",
+                "filename": "forwarded.eml",
+                "parts": [
+                    {
+                        "mimeType": "text/plain",
+                        "body": {"data": _b64("CONFIDENTIAL: salary review for another employee")},
+                    }
+                ],
+            },
+        ],
+    }
+    _install({("GET", MESSAGES): {"messages": [{"id": "m1"}]}, ("GET", f"{MESSAGES}/m1"): raw})
+
+    (message,) = search_gmail("anything")
+    assert message["body"] == "See the attached, it explains it."
+    assert "CONFIDENTIAL" not in message["body"]
+    assert "CONFIDENTIAL" not in message["snippet"]
+
+
+def test_an_attachment_part_is_not_read_as_body():
+    """A part carrying ``filename`` is an attachment, not this message's prose."""
+    raw = _message("m1", "Invoice", "a@b.c", "ignored")
+    raw["payload"] = {
+        "mimeType": "multipart/mixed",
+        "headers": [{"name": "Subject", "value": "Invoice"}],
+        "parts": [
+            {"mimeType": "text/plain", "body": {"data": _b64("Invoice attached.")}},
+            {"mimeType": "text/plain", "filename": "notes.txt", "body": {"data": _b64("attachment text")}},
+        ],
+    }
+    _install({("GET", MESSAGES): {"messages": [{"id": "m1"}]}, ("GET", f"{MESSAGES}/m1"): raw})
+
+    (message,) = search_gmail("anything")
+    assert message["body"] == "Invoice attached."
+
+
 def test_date_comes_from_internal_date_not_the_header():
     """``internalDate`` is always present and always a valid integer. The ``Date``
     header can be absent, malformed, or carry a ``-0000`` offset that makes

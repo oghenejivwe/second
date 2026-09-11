@@ -7,8 +7,8 @@ mocking the primitive that would have failed, by hand-building an object the
 framework never constructs, or by asserting at a line the input cannot reach.
 The only way to know a guard works is to break it and watch the test notice.
 
-This script does that mechanically: for each rail it edits
-``src/second/tools/_google.py``, runs the one test that should now fail, checks
+This script does that mechanically: for each rail it edits the source file the rail
+lives in, runs the one test that should now fail, checks
 that it **did** fail, and restores the file. Every mutation is a plausible change
 someone might actually make -- a route added to the allowlist "just for now", an
 anchor dropped, a check moved one line down.
@@ -27,19 +27,28 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-TARGET = ROOT / "src" / "second" / "tools" / "_google.py"
-SUITE = "tests/connectors/test_rails.py"
+GUARD = "src/second/tools/_google.py"
+GMAIL = "src/second/tools/gmail_tools.py"
+CALENDAR = "src/second/tools/calendar_tools.py"
+SUITES = "tests/connectors"
 
 
 @dataclass(frozen=True)
 class Mutation:
-    """One way to break a rail, and the test that must notice."""
+    """One way to break a rail, and the test that must notice.
+
+    ``target`` is repo-relative: the rails stopped living in one file once the tools
+    landed, and a harness that can only mutate the interlock would silently stop
+    covering the ones that moved.
+    """
 
     rail: str
     test: str
     find: str
     replace: str
     why: str
+    target: str = GUARD
+    suite: str = "tests/connectors/test_rails.py"
 
 
 MUTATIONS: tuple[Mutation, ...] = (
@@ -152,6 +161,103 @@ MUTATIONS: tuple[Mutation, ...] = (
         replace="        pass",
         why="a permissive __getattr__ hands out an unguarded transport to anyone holding the guard",
     ),
+    # --- rails that live in the tools, not in the interlock -----------------
+    Mutation(
+        rail="a forwarded message does not leak into quoted evidence",
+        target=GMAIL,
+        suite="tests/connectors/test_gmail.py",
+        test="test_a_forwarded_message_does_not_leak_into_the_body",
+        find='        if node.get("filename") or (node.get("mimeType") or "").lower() in ENCLOSED_MESSAGE_TYPES:\n            return\n',
+        replace="",
+        why=(
+            "walking into a message/rfc822 part splices somebody else's email into "
+            "the text Second quotes back to the user as evidence -- MUTATION"
+        ),
+    ),
+    Mutation(
+        rail="reschedule refuses an event the user does not organise",
+        target=CALENDAR,
+        suite="tests/connectors/test_calendar.py",
+        test="test_reschedule_refuses_someone_elses_meeting",
+        find='    organised = bool((event.get("organizer") or {}).get("self"))\n    return organised and not event.get("locked")',
+        replace='    return True  # MUTATION',
+        why="one permissive default here is an apology to eight colleagues",
+    ),
+    Mutation(
+        rail="reschedule refuses a locked copy",
+        target=CALENDAR,
+        suite="tests/connectors/test_calendar.py",
+        test="test_reschedule_refuses_a_locked_copy",
+        find='    return organised and not event.get("locked")',
+        replace="    return organised  # MUTATION",
+        why=(
+            "a locked copy has organizer.self true and still refuses start/end "
+            "changes, so without this the refusal happens at Google and lands "
+            "outside the audit trail"
+        ),
+    ),
+    Mutation(
+        rail="a declined event does not hold its time",
+        target=CALENDAR,
+        suite="tests/connectors/test_calendar.py",
+        test="test_a_declined_block_does_not_hold_its_time",
+        find='    if event["status"] == "cancelled" or event["response"] == "declined":\n        return False\n    if raw.get("transparency") == "transparent":',
+        replace='    if event["status"] == "cancelled":  # MUTATION\n        return False\n    if raw.get("transparency") == "transparent":',
+        why=(
+            "if a declined gym block counts as busy, 18:00 looks contended by the gym "
+            "rather than by the Eng sync that took it, and the diagnosis names the "
+            "wrong cause"
+        ),
+    ),
+    Mutation(
+        rail="an unknown eventType still holds its time",
+        target=CALENDAR,
+        suite="tests/connectors/test_calendar.py",
+        test="test_an_unknown_event_type_still_holds_its_time",
+        find='    if raw.get("eventType", "default") in FREE_EVENT_TYPES:\n        return False',
+        replace='    if raw.get("eventType", "default") not in ("default", "focusTime"):  # MUTATION\n        return False',
+        why=(
+            "an inclusion list instead of an exclusion list books the user over their "
+            "own flight, because fromGmail events are the bookings Google creates "
+            "from confirmation emails"
+        ),
+    ),
+    Mutation(
+        rail="an empty transcript raises rather than reading as success",
+        target="src/second/voice/transcribe.py",
+        suite="tests/connectors/test_voice.py",
+        test="test_an_empty_transcript_raises",
+        find="    text = _read_transcript(job, job_id)\n    if not text.strip():",
+        replace="    text = _read_transcript(job, job_id)\n    if False:  # MUTATION",
+        why=(
+            "a silent recording transcribes successfully to '', and returning it hands "
+            "an agent a valid-looking success to plan against"
+        ),
+    ),
+    Mutation(
+        rail="a presigned URL that signs content-type is refused",
+        target="src/second/voice/upload.py",
+        suite="tests/connectors/test_voice.py",
+        test="test_a_url_that_would_fail_in_a_browser_is_refused",
+        find='    if "content-type" in signed:',
+        replace="    if False:  # MUTATION",
+        why=(
+            "MediaRecorder sends audio/webm;codecs=opus, so a signed content-type is "
+            "a SignatureDoesNotMatch 403 that reads as CORS and eats an evening"
+        ),
+    ),
+    Mutation(
+        rail="a failed web search does not degrade to an empty list",
+        target="src/second/tools/search_tools.py",
+        suite="tests/connectors/test_search.py",
+        test="test_a_failure_never_degrades_to_an_empty_list",
+        find='    raise SearchError(f"could not search the web after {MAX_ATTEMPTS} attempt(s). Last: {last}")',
+        replace='    return {"results": []}  # MUTATION',
+        why=(
+            "the Resource Finder would report that no material exists when it could "
+            "not look, and the route gets planned on a confident nothing"
+        ),
+    ),
     Mutation(
         rail="a missing fixture raises instead of reading as empty",
         test="test_fixture_transport_fails_loudly_on_an_unrecorded_call",
@@ -162,12 +268,12 @@ MUTATIONS: tuple[Mutation, ...] = (
 )
 
 
-def run(test: str = "") -> tuple[bool, str]:
-    """Run one test, or the whole suite when ``test`` is empty.
+def run(test: str = "", suite: str = SUITES) -> tuple[bool, str]:
+    """Run one test, or a whole suite when ``test`` is empty.
 
     Returns (passed, last line of output).
     """
-    target = f"{SUITE}::{test}" if test else SUITE
+    target = f"{suite}::{test}" if test else suite
     completed = subprocess.run(
         [sys.executable, "-m", "pytest", target, "-q", "--no-header", "-p", "no:cacheprovider"],
         cwd=ROOT,
@@ -178,7 +284,7 @@ def run(test: str = "") -> tuple[bool, str]:
     return completed.returncode == 0, tail[-1] if tail else "(no output)"
 
 
-def _arm_restore(original: str) -> None:
+def _arm_restore(originals: dict[str, bytes]) -> None:
     """Put the file back even if this process is interrupted.
 
     ``finally`` does not run when the process is killed, and the mutation being
@@ -191,13 +297,20 @@ def _arm_restore(original: str) -> None:
     both exist.
     """
 
+    def dirty() -> list[str]:
+        return [
+            relative
+            for relative in originals
+            if b"MUTATION" in (ROOT / relative).read_bytes()
+        ]
+
     def restore(*_: object) -> None:
-        if "MUTATION" in TARGET.read_text(encoding="utf-8"):
-            TARGET.write_text(original, encoding="utf-8")
-            print("\n[restored] a mutation was still in place; the guard has been put back")
+        for relative in dirty():
+            (ROOT / relative).write_bytes(originals[relative])
+            print(f"\n[restored] a mutation was still in {relative}; it has been put back")
         sys.exit(1)
 
-    atexit.register(lambda: None if "MUTATION" not in TARGET.read_text(encoding="utf-8") else restore())
+    atexit.register(lambda: restore() if dirty() else None)
     for name in ("SIGINT", "SIGTERM", "SIGBREAK"):
         if (sig := getattr(signal, name, None)) is not None:
             try:
@@ -207,33 +320,51 @@ def _arm_restore(original: str) -> None:
 
 
 def main() -> int:
-    original = TARGET.read_text(encoding="utf-8")
-    assert "MUTATION" not in original, (
-        "the guard already contains a mutation -- an earlier run of this script was "
-        "interrupted. Inspect `git diff` and restore before proving anything."
-    )
-    _arm_restore(original)
+    targets = sorted({mutation.target for mutation in MUTATIONS})
+    # Bytes, not text. This script edits source files in place, and a text
+    # read/write round-trip rewrites every line ending on Windows -- turning a
+    # one-line mutation into a whole-file diff in the reviewer's face.
+    # Path.read_text has no newline= argument before Python 3.13.
+    originals = {relative: (ROOT / relative).read_bytes() for relative in targets}
+    for relative, source in originals.items():
+        assert b"MUTATION" not in source, (
+            f"{relative} already contains a mutation -- an earlier run of this script "
+            "was interrupted. Inspect `git diff` and restore before proving anything."
+        )
+    _arm_restore(originals)
     failures: list[str] = []
 
-    print(f"Proving {len(MUTATIONS)} rails in {TARGET.relative_to(ROOT)}\n")
+    print(f"Proving {len(MUTATIONS)} rails across {len(targets)} file(s)\n")
 
-    baseline_ok, baseline = run("")
+    baseline_ok, baseline = run()
     print(f"  baseline suite: {baseline}")
     if not baseline_ok:
         print("\nThe suite is not green to begin with. Fix that before trusting anything below.")
         return 1
 
     for mutation in MUTATIONS:
-        if mutation.find not in original:
+        path = ROOT / mutation.target
+        source = originals[mutation.target]
+        # The mutation literals are written with LF; the files on disk are CRLF on
+        # Windows. Translate to whatever the file actually uses, or every
+        # multi-line mutation silently fails to apply and gets reported as the
+        # code having "moved" -- which is a stale-harness warning for a harness
+        # that is fine.
+        eol = b"\r\n" if b"\r\n" in source else b"\n"
+        find = mutation.find.encode("utf-8").replace(b"\n", eol)
+        if find not in source:
             failures.append(f"{mutation.rail}: the mutation no longer applies -- the code moved")
-            print(f"  [STALE] {mutation.rail}\n          mutation target not found; this script needs updating")
+            print(f"  [STALE] {mutation.rail}\n          not found in {mutation.target}; update this script")
             continue
 
         try:
-            TARGET.write_text(original.replace(mutation.find, mutation.replace, 1), encoding="utf-8")
-            went_red, line = run(mutation.test)
+            mutated = source.replace(
+                find, mutation.replace.encode("utf-8").replace(b"\n", eol), 1
+            )
+            path.write_bytes(mutated)
+            went_red, line = run(mutation.test, mutation.suite)
         finally:
-            TARGET.write_text(original, encoding="utf-8")
+            path.write_bytes(source)
 
         if went_red:
             failures.append(f"{mutation.rail}: {mutation.test} still PASSED with the guard broken")

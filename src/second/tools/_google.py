@@ -105,11 +105,14 @@ honest one. One layer, well tested, with the bypasses written down.
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import os
 import random
 import re
+import socket
+import ssl
 import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
@@ -547,6 +550,10 @@ class RecordedHttp:
         # httplib2.Response is the real type googleapiclient receives, so the
         # fixture cannot pass by being shaped more conveniently than reality.
         response = httplib2.Response({"status": str(status), "content-type": "application/json"})
+        # httplib2.Response defaults .reason to the string "Ok". HttpError reads
+        # .reason to build its message, so an error fixture would print "Ok" as its
+        # explanation -- and HttpError construction requires the attribute to exist.
+        response.reason = "OK" if status < 300 else f"HTTP {status}"
         return response, json.dumps(payload).encode("utf-8")
 
     def close(self) -> None:  # pragma: no cover - symmetry with the real transport
@@ -600,8 +607,10 @@ def _secret_payload(secret_id: str) -> dict[str, Any]:
     import boto3  # noqa: PLC0415 - lazy, so importing this module needs no AWS
 
     from second.settings import AWS_REGION
+    from second.voice.upload import aws_config
 
-    client = boto3.client("secretsmanager", region_name=AWS_REGION)
+    # botocore defaults to legacy retries (five attempts, uncapped backoff).
+    client = boto3.client("secretsmanager", region_name=AWS_REGION, config=aws_config())
     return json.loads(client.get_secret_value(SecretId=secret_id)["SecretString"])
 
 
@@ -682,6 +691,28 @@ three attempts and then reports the wrong cause."""
 MAX_ATTEMPTS = 3
 """Matches settings.RETRY_MAX_ATTEMPTS. On a live demo, fail fast and say why."""
 
+TRANSIENT_ERRORS: tuple[type[BaseException], ...] = (
+    ssl.SSLError,
+    socket.timeout,
+    ConnectionError,
+    http.client.IncompleteRead,
+    http.client.BadStatusLine,
+    httplib2.ServerNotFoundError,
+    httplib2.HttpLib2Error,
+)
+"""Transport failures worth one more try.
+
+These are precisely the errors ``googleapiclient._retry_request`` handles itself
+(``http.py:191-222``) -- and :func:`call` passes ``num_retries=0``, which turns that
+off to stop the two retry loops compounding. So they are caught here instead.
+Without this, a dropped connection mid-demo raises where the library would have
+recovered, which is a regression dressed as a simplification.
+
+``socket.timeout`` is an alias of ``TimeoutError``, itself an ``OSError``, and
+``ConnectionError`` covers the reset/abort/refused family -- so a bare ``OSError``
+is not listed: a missing file or a permission error has nothing to do with the
+network and should not be retried three times before being reported."""
+
 
 def _error_reason(error: HttpError) -> str:
     """Google buries the machine-readable reason in the error body."""
@@ -729,9 +760,15 @@ def call(
     """
     from google.auth.exceptions import RefreshError  # noqa: PLC0415 - lazy
 
-    last: HttpError | None = None
+    last: BaseException | None = None
+    attempt = 0
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
+            # num_retries=0 so googleapiclient's own retry loop does not compound
+            # with this one: three attempts here times three there is nine attempts
+            # and close to a minute of silent waiting on a live demo. The cost is
+            # that its TRANSPORT retries go too, which is what TRANSIENT_ERRORS
+            # below puts back.
             return request.execute(num_retries=0)
         except RefreshError as error:
             raise GoogleAuthExpired(
@@ -744,23 +781,42 @@ def call(
             last = error
             if not _is_retryable(error) or attempt == MAX_ATTEMPTS:
                 break
-            delay = jitter() * 2**attempt
-            logger.warning(
-                "google %s failed with %s; retry %d/%d in %.2fs",
-                what,
-                getattr(error.resp, "status", "?"),
-                attempt,
-                MAX_ATTEMPTS,
-                delay,
-            )
-            sleep(delay)
+            _wait(what, f"HTTP {getattr(error.resp, 'status', '?')}", attempt, sleep, jitter)
+        except TRANSIENT_ERRORS as error:
+            last = error
+            if attempt == MAX_ATTEMPTS:
+                break
+            _wait(what, type(error).__name__, attempt, sleep, jitter)
 
-    status = getattr(last.resp, "status", "?") if last else "?"
-    reason = _error_reason(last) if last else ""
+    if isinstance(last, HttpError):
+        status: object = getattr(last.resp, "status", "?")
+        reason = _error_reason(last)
+        described = f"Google returned {status}{f' ({reason})' if reason else ''}"
+    elif last is not None:
+        described = f"the connection failed ({type(last).__name__}: {last})"
+    else:  # pragma: no cover - the loop always sets `last` before breaking
+        described = "no attempt was made"
+
+    # The real count, not MAX_ATTEMPTS: a 404 reported as "after 3 attempts" sends
+    # the next reader looking for a retry storm that never happened.
     raise GoogleCallFailed(
-        f"could not {what}: Google returned {status}"
-        f"{f' ({reason})' if reason else ''} after {MAX_ATTEMPTS} attempt(s)"
+        f"could not {what}: {described} after {attempt} attempt(s)"
     ) from last
+
+
+def _wait(
+    what: str,
+    because: str,
+    attempt: int,
+    sleep: Callable[[float], None],
+    jitter: Callable[[], float],
+) -> None:
+    """Back off with full jitter. Logged, so a slow call is explicable afterwards."""
+    delay = jitter() * 2**attempt
+    logger.warning(
+        "google %s failed with %s; retry %d/%d in %.2fs", what, because, attempt, MAX_ATTEMPTS, delay
+    )
+    sleep(delay)
 
 
 def paged(

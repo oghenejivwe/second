@@ -612,6 +612,30 @@ def _repo_root() -> Path:
     raise AssertionError("could not find the repository root")
 
 
+ARGUED_EXCEPTIONS: dict[str, frozenset[str]] = {
+    # events.import is the only route that can write Event.organizer, and a written
+    # organizer is the only way to seed a meeting the demo account does not own --
+    # without which reschedule_event never refuses anything on real data. Permitted
+    # to the seeder allowlist and to this one file; the runtime cannot reach it, which
+    # test_events_import_is_refused_for_the_runtime checks.
+    "scripts/seed_demo.py": frozenset({"import_"}),
+}
+"""Per-file exceptions to :data:`FORBIDDEN_CALLS`, each with its argument written out.
+
+A dict rather than inline ``noqa`` markers, so every exception in the codebase is
+visible in one place and adding one is a diff a reviewer will notice.
+:func:`test_the_exception_list_stays_short` fails if it grows."""
+
+
+def test_the_exception_list_stays_short():
+    """One exception, in one file, for one method.
+
+    This exists so the list cannot quietly become the place where the rails go to
+    die. If it needs a second entry, that is a conversation, not a commit.
+    """
+    assert ARGUED_EXCEPTIONS == {"scripts/seed_demo.py": frozenset({"import_"})}
+
+
 @pytest.mark.parametrize("relative", CONNECTOR_SOURCES)
 def test_no_connector_source_calls_a_destructive_method(relative):
     """Read the source this instance owns and check for the shapes, not the intent."""
@@ -619,10 +643,12 @@ def test_no_connector_source_calls_a_destructive_method(relative):
     if not path.exists():
         pytest.skip(f"{relative} not written yet")
 
+    allowed = ARGUED_EXCEPTIONS.get(relative, frozenset())
     offences = []
     for number, code in _code_lines(path):
         for shape in FORBIDDEN_CALLS:
-            if shape.search(code):
+            found = shape.search(code)
+            if found and not (found.groups() and found.group(1) in allowed):
                 offences.append(f"{relative}:{number} matches {shape.pattern}: {code.strip()}")
 
     assert not offences, "\n".join(offences)
