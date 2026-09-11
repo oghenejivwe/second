@@ -1,0 +1,124 @@
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--size-14);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+figure {
+  margin: 0;
+  font-weight: inherit;
+  font-size: inherit;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  color: var(--text-ghost);
+}
+
+/* Visible, quiet, and the same everywhere. A focus ring that only appears for
+ * keyboard users is the one piece of interaction polish worth the bytes. */
+:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--ink-400);
+}
+
+/* Scrollbars, so a projector does not show a bright grey slab down one side. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-400) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--ink-400);
+  border: 3px solid var(--bg);
+  border-radius: 6px;
+}
+
+/* --- shared primitives -------------------------------------------------- */
+
+/* Anything quoted from the calendar, the inbox or the audit log. Every claim
+ * Second makes cites its evidence, and evidence is never in Second's voice. */
+.evidence {
+  font-family: var(--font-mono);
+  font-size: var(--size-12);
+  color: var(--text-faint);
+  line-height: 1.55;
+}
+
+/* A section label. Small, uppercase, and it never competes with content. */
+.label {
+  font-size: var(--size-11);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-ghost);
+}
+
+.rule {
+  height: 1px;
+  background: var(--rule);
+  border: 0;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

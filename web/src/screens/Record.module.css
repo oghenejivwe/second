@@ -1,0 +1,403 @@
+.screen {
+  max-width: 940px;
+  padding: var(--space-7) var(--space-7) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.title {
+  font-size: var(--size-24);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.what {
+  max-width: var(--measure);
+  font-size: var(--size-13);
+  color: var(--text-faint);
+}
+
+/* One button, the signal, and the clock, on one baseline. The waveform takes
+ * the rest of the row so the line is long enough to read as a waveform rather
+ * than as a widget. */
+.capture {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.trigger {
+  flex: none;
+  min-width: 15ch;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--rule-strong);
+  font-size: var(--size-14);
+  color: var(--text-dim);
+  text-align: center;
+  transition: color var(--beat) var(--ease), border-color var(--beat) var(--ease);
+}
+
+.trigger:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--ink-600);
+}
+
+/* No pulse, no red dot, no ring that breathes. Recording is legible from the
+ * waveform moving and the clock counting, which are the signal itself. */
+.trigger:disabled {
+  border-color: var(--rule);
+}
+
+/* `color` rather than a stroke property, because a canvas has no cascade: the
+ * component reads this back with getComputedStyle and strokes with it. */
+.wave {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  display: block;
+  color: var(--ink-600);
+}
+
+.clock {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--size-13);
+  color: var(--text-ghost);
+}
+
+/* The live region stays in the tree, empty or not. A `role="status"` element
+ * that is `display: none`, or that appears in the same paint as its first
+ * child, is not announced -- and every note on this screen is a first note, so
+ * hiding it while it had nothing in it meant nothing was ever read out.
+ *
+ * There is therefore no `:empty` rule here. With no children this flex column
+ * is 0px tall, so the only space it costs is one of the parent's gaps, and the
+ * gap between the notes is this element's own. */
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.note {
+  max-width: var(--measure);
+  font-size: var(--size-13);
+  color: var(--text-faint);
+}
+
+.boxLabel {
+  display: block;
+  font-size: var(--size-12);
+  color: var(--text-ghost);
+}
+
+/* The transcript is a quote of the user, not Second's words, so it is set in
+ * mono: the same claim `.evidence` makes, at input size.
+ *
+ * Restated here rather than combining with the `.evidence` class, because
+ * main.tsx imports base.css after App and therefore after every CSS module --
+ * so `.evidence` wins on font-size and colour against anything a module says,
+ * and a transcript composed at 12px in --text-faint is not a usable field.
+ * `.optionFailed` in Today.module.css does the same for the same reason. */
+.box {
+  width: 100%;
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-inset);
+  border: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: var(--size-13);
+  line-height: 1.6;
+  color: var(--text);
+  resize: vertical;
+}
+
+.box::placeholder {
+  color: var(--ink-500);
+}
+
+.box:read-only {
+  color: var(--text-dim);
+}
+
+.send {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.primary {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--rule-strong);
+  font-size: var(--size-13);
+  color: var(--text-dim);
+  transition: color var(--beat) var(--ease), border-color var(--beat) var(--ease);
+}
+
+.primary:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--ink-600);
+}
+
+.offer {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--size-13);
+  color: var(--text-faint);
+}
+
+.link {
+  font-size: var(--size-13);
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link:hover {
+  color: var(--text);
+}
+
+/* A long call shows its work instead of a spinner. Nothing here moves. */
+.working {
+  max-width: var(--measure);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--size-13);
+  color: var(--text-faint);
+}
+
+.nothing {
+  font-size: var(--size-13);
+  color: var(--text-ghost);
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+/* --- asking back ------------------------------------------------------- */
+
+.stopped {
+  max-width: var(--measure);
+  font-size: var(--size-13);
+  color: var(--text-faint);
+}
+
+.questions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: var(--space-2) 0 var(--space-5);
+}
+
+/* The questions get the room the plan would have had. Second asking one thing
+ * back is the product working, so it is set at reading size, not as a warning. */
+.question {
+  max-width: 54ch;
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--rule-strong);
+  font-size: var(--size-19);
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.answer {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule);
+}
+
+.reply {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.replyLine {
+  font-size: var(--size-13);
+  color: var(--text-dim);
+}
+
+.updates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.update {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: var(--size-13);
+  color: var(--text-dim);
+}
+
+.updateTarget {
+  flex: none;
+  min-width: 11ch;
+  font-size: var(--size-11);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-ghost);
+}
+
+/* The user's own words about one task, beside the id they are about. It takes
+ * the shrink, because the id next to it must not be broken up. */
+.completionNote {
+  min-width: 0;
+}
+
+/* --- what was decided -------------------------------------------------- */
+
+.decided {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Placed and deprioritised rows are the same row. The only difference is the
+ * 1px edge: --held for a task that got its slot, --slip for one that lost it.
+ * Same type size, same spacing, same section shape, because the losses are half
+ * the decision and burying them would be the scheduler hiding its own work. */
+.held,
+.slipped {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-4);
+  align-items: baseline;
+  padding: var(--space-3) 0 var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--rule);
+}
+
+.held {
+  border-left: 1px solid var(--held-dim);
+}
+
+.slipped {
+  border-left: 1px solid var(--slip-dim);
+}
+
+.decidedTitle {
+  font-size: var(--size-14);
+  min-width: 0;
+}
+
+.when {
+  flex: none;
+  font-size: var(--size-13);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.dot {
+  margin: 0 var(--space-2);
+  color: var(--ink-500);
+}
+
+.lostTo {
+  grid-column: 1 / -1;
+  font-size: var(--size-13);
+  color: var(--text-dim);
+}
+
+.ref {
+  grid-column: 1 / -1;
+  font-size: var(--size-12);
+  color: var(--text-ghost);
+}
+
+/* The ladder line, in the same shape and at the same weight BlockRow gives it
+ * on Today: one label, then the chain of goals with an arrow between the rungs.
+ * The same relationship in the same row position on two screens has to look
+ * like the same relationship. */
+.serves {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--size-12);
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+.servesLabel {
+  margin-right: var(--space-1);
+  font-size: var(--size-11);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-ghost);
+}
+
+.rung {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.arrow {
+  color: var(--ink-500);
+}
+
+/* `.evidence` supplies the mono and the colour; this only spans the grid. */
+.reason {
+  grid-column: 1 / -1;
+}
+
+.rationale {
+  max-width: var(--measure);
+  font-size: var(--size-14);
+  color: var(--text-dim);
+}
+
+/* --- new in the graph -------------------------------------------------- */
+
+.goals {
+  display: flex;
+  flex-direction: column;
+}
+
+.goal {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--space-4);
+  align-items: baseline;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.goalTitle {
+  font-size: var(--size-14);
+  min-width: 0;
+}
+
+.horizon {
+  font-size: var(--size-12);
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.confidence {
+  font-family: var(--font-mono);
+  font-size: var(--size-11);
+  color: var(--text-ghost);
+  white-space: nowrap;
+}

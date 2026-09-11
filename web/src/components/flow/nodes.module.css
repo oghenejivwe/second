@@ -1,0 +1,235 @@
+/* One shape for all three node kinds: a 1px rule and some text. What varies is
+ * the emphasis, and the only colour is information. */
+.node {
+  position: relative;
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-family: var(--font);
+  cursor: default;
+}
+
+.node[data-kind='goal'] {
+  width: 248px;
+}
+
+.node[data-kind='route'] {
+  width: 216px;
+  background: var(--bg);
+}
+
+.node[data-kind='task'] {
+  width: 208px;
+  background: var(--bg);
+}
+
+/* A goal too far out to hold calendar work is drawn with a dashed rule: it is
+ * an ambition, not a plan, and the border says so before the label does. */
+.node[data-kind='goal'][data-schedulable='false'] {
+  border-style: dashed;
+  border-color: var(--rule-strong);
+}
+
+.node[data-status='paused'],
+.node[data-status='retired'] {
+  opacity: 0.5;
+}
+
+.node[data-selected='true'] {
+  border-color: var(--ink-600);
+}
+
+/* Slipped is a fact about the task, so it colours the task. */
+.node[data-slipped='true'] {
+  border-color: var(--slip-dim);
+  background: var(--slip-wash);
+}
+
+.node[data-blocked='true'] {
+  border-left-width: 2px;
+  border-left-color: var(--slip);
+}
+
+.node[data-status='done'] {
+  border-color: var(--held-dim);
+}
+
+/* Changed by the last run. A word, plus one pulse: the pulse catches the eye
+ * live, the word survives for anyone reading a still frame -- and a label beats
+ * a border, because a border cannot say which of the two marks it is. */
+.node[data-changed='true'] {
+  border-color: var(--ink-700);
+  animation: settle calc(var(--beat) * 5) var(--ease) 1;
+}
+
+.changed {
+  position: absolute;
+  top: -9px;
+  right: var(--space-2);
+  padding: 0 var(--space-1);
+  background: var(--bg);
+  font-size: var(--size-11);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+@keyframes settle {
+  from {
+    border-color: var(--ink-900);
+  }
+  to {
+    border-color: var(--ink-700);
+  }
+}
+
+.horizon,
+.cadence {
+  font-size: var(--size-11);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-ghost);
+}
+
+.title {
+  font-size: var(--size-13);
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.node[data-kind='goal'] .title {
+  font-size: var(--size-14);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--size-11);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.slips {
+  color: var(--slip);
+}
+
+.done {
+  color: var(--held);
+}
+
+.blocked {
+  font-size: var(--size-11);
+  color: var(--slip);
+}
+
+.stalled,
+.broken {
+  font-size: var(--size-11);
+  line-height: 1.35;
+  color: var(--text-ghost);
+}
+
+.broken {
+  color: var(--slip);
+}
+
+/* The user's own answer about what is in the way. Set in mono because it is
+ * quoted, and once set Second never asks about this task again. */
+.knownBlocker {
+  font-family: var(--font-mono);
+  font-size: var(--size-11);
+  line-height: 1.4;
+  color: var(--text-faint);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--ink-200);
+}
+
+/* Person-layer facts, hung off the right edge of the node. Context, not
+ * content: they sit outside the box so they never compete with the title. */
+.annotations {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: var(--space-2);
+  width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  pointer-events: none;
+}
+
+.annotation {
+  display: flex;
+  flex-direction: column;
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--ink-400);
+  font-size: var(--size-11);
+  line-height: 1.3;
+}
+
+.annotation[data-tone='held'] {
+  border-left-color: var(--held-dim);
+}
+
+.annotation[data-tone='slipped'] {
+  border-left-color: var(--slip-dim);
+}
+
+.annotationText {
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+}
+
+.annotationNote {
+  color: var(--text-ghost);
+}
+
+/* --- edges --------------------------------------------------------------- */
+
+.dep {
+  stroke: var(--ink-400);
+  stroke-width: 1;
+}
+
+/* Dashed as well as coloured, so the dependency reads in a grayscale still and
+ * for anyone who cannot separate the two hues. */
+.depBlocked {
+  stroke: var(--slip);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  animation: crawl 1.6s linear infinite;
+}
+
+@keyframes crawl {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .depBlocked {
+    animation: none;
+  }
+
+  .node[data-changed='true'] {
+    animation: none;
+  }
+}
+
+.edgeLabel {
+  position: absolute;
+  padding: 1px var(--space-1);
+  background: var(--bg);
+  font-size: var(--size-11);
+  color: var(--text-ghost);
+  pointer-events: none;
+}
+
+.edgeLabel[data-blocked='true'] {
+  color: var(--slip);
+}

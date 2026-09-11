@@ -1,0 +1,107 @@
+{
+  "on": "2026-09-10",
+  "blocks": [
+    {
+      "task_id": "t-recording",
+      "goal_id": "g-speaking",
+      "goal_title": "Get comfortable speaking to a room",
+      "horizon": "year",
+      "serves": [
+        "Raise a Series A",
+        "Build a company that outlives me"
+      ],
+      "title": "Record five minutes and listen back",
+      "start": "2026-09-10T08:00:00+01:00",
+      "duration_min": 60,
+      "resource_url": null
+    },
+    {
+      "task_id": "t-pitch",
+      "goal_id": "g-speaking",
+      "goal_title": "Get comfortable speaking to a room",
+      "horizon": "year",
+      "serves": [
+        "Raise a Series A",
+        "Build a company that outlives me"
+      ],
+      "title": "Draft the talk pitch",
+      "start": "2026-09-10T17:00:00+01:00",
+      "duration_min": 60,
+      "resource_url": null
+    },
+    {
+      "task_id": "t-gym",
+      "goal_id": "g-fitness",
+      "goal_title": "Train three times a week",
+      "horizon": "year",
+      "serves": [
+        "Still be climbing at sixty"
+      ],
+      "title": "Gym session",
+      "start": "2026-09-10T18:00:00+01:00",
+      "duration_min": 60,
+      "resource_url": null
+    }
+  ],
+  "prepared": [],
+  "at_risk": [
+    {
+      "task_id": "t-leave",
+      "goal_id": "g-lisbon",
+      "what": "Request leave for the wedding week",
+      "deadline": "2026-09-15",
+      "days_left": 5,
+      "evidence": "Due in 5 day(s) with nothing booked before then."
+    },
+    {
+      "task_id": "t-flights",
+      "goal_id": "g-lisbon",
+      "what": "Book flights to Lisbon",
+      "deadline": "2026-09-24",
+      "days_left": 14,
+      "evidence": "Due in 14 day(s) with nothing booked before then."
+    }
+  ],
+  "reminders": [
+    {
+      "what": "Your sister asked whether the flights are booked. You have not replied.",
+      "evidence": "m-wedding, 'Wedding week - are you booked yet?', received 6 days ago.",
+      "source": "email"
+    }
+  ],
+  "decisions": [
+    {
+      "question": "The 08:00 recording has not happened three weeks running. What is in the way?",
+      "task_id": "t-recording",
+      "evidence": "Three slips at 08:00 and nothing in the calendar or the inbox explains any of them. Second has no evidence either way.",
+      "options": [
+        "Too early -- move it later",
+        "I do not want to hear myself back",
+        "Nothing in the way, I just did not do it"
+      ]
+    }
+  ],
+  "check_in": {
+    "on": "2026-09-09",
+    "items": [
+      {
+        "task_id": "t-recording",
+        "title": "Record five minutes and listen back",
+        "goal_title": "Get comfortable speaking to a room",
+        "scheduled_for": "2026-09-09T08:00:00+01:00",
+        "inferred": "unknown",
+        "evidence": ""
+      },
+      {
+        "task_id": "t-gym",
+        "title": "Gym session",
+        "goal_title": "Train three times a week",
+        "scheduled_for": "2026-09-09T18:00:00+01:00",
+        "inferred": "likely_missed",
+        "evidence": "18:00 invite declined; 'Eng sync' (9 attendees) ran at the same time."
+      }
+    ]
+  },
+  "notify": true,
+  "silence_reason": ""
+}

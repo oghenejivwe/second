@@ -1,0 +1,342 @@
+/* The indent is the only ornament, because the indent is the argument.
+ *
+ * Nesting is 24px and a left rule, repeated. No cards: a card says each goal is
+ * a thing to be collected, and these are rungs on one chain. Routes and tasks
+ * step in again and drop a type size each, so depth reads as "closer to
+ * Tuesday" without an icon, a badge or a second hue.
+ */
+
+.screen {
+  max-width: 940px;
+  padding: var(--space-7) var(--space-7) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+.title {
+  font-size: var(--size-24);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.counts {
+  font-size: var(--size-13);
+  color: var(--text-faint);
+}
+
+/* Waiting is a sentence, not a spinner. A spinner says "wait"; this says what
+ * is being waited on, and it is the same line that says when nothing is there. */
+.absent {
+  font-size: var(--size-13);
+  color: var(--text-ghost);
+}
+
+/* --- the ladder --------------------------------------------------------- */
+
+.ladder {
+  display: flex;
+  flex-direction: column;
+}
+
+.rung {
+  min-width: 0;
+}
+
+.goalRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-4);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.goalMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.goalTitle {
+  font-size: var(--size-16);
+  color: var(--text);
+}
+
+/* Out of the plan, still in the graph. Dimmed rather than hidden: a goal
+ * retired last week is something the user may want to see they retired. */
+.rung[data-status='paused'] > .goalRow .goalTitle {
+  color: var(--text-dim);
+}
+
+.rung[data-status='retired'] > .goalRow .goalTitle {
+  color: var(--text-faint);
+}
+
+.meta,
+.routeHead,
+.taskHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* A middot between facts. Cheaper than a pipe, quieter than a rule, and it
+ * disappears when a row wraps to one item. */
+.meta > span + span::before,
+.routeHead > span + span::before,
+.taskHead > span + span::before {
+  content: '·';
+  margin-right: var(--space-2);
+  color: var(--ink-500);
+}
+
+.meta {
+  font-size: var(--size-12);
+  color: var(--text-faint);
+}
+
+/* The stalled line and the broken-parent line. Grey, deliberately: models.py
+ * calls an ambition with nothing under it a wish, and a wish is a fact about
+ * the plan, not an alarm about the person. */
+.annotation {
+  font-size: var(--size-12);
+  color: var(--text-faint);
+  max-width: 54ch;
+}
+
+.controls {
+  display: flex;
+  gap: var(--space-2);
+  flex: none;
+}
+
+.action {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--rule);
+  font-size: var(--size-12);
+  color: var(--text-faint);
+  white-space: nowrap;
+  transition: color var(--beat) var(--ease), border-color var(--beat) var(--ease);
+}
+
+.action:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--ink-600);
+}
+
+.action:disabled {
+  border-color: var(--ink-200);
+}
+
+/* Armed, waiting for the second click. The label already says what the next
+ * press does; the hue is here so the state change is visible on a recording at
+ * twelve pixels, and it is --slip, the same hue Problem uses -- the app's one
+ * colour for bad news, not a third one invented for a button. */
+.action[data-armed] {
+  color: var(--slip);
+  border-color: var(--slip-dim);
+  background: var(--slip-wash);
+}
+
+/* --- routes and tasks --------------------------------------------------- */
+
+.routes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 var(--space-4);
+  padding-left: var(--space-5);
+}
+
+.route {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.routeHead {
+  font-size: var(--size-14);
+  color: var(--text-faint);
+}
+
+.routeTitle {
+  color: var(--text-dim);
+}
+
+.cadence {
+  font-size: var(--size-13);
+}
+
+/* Second's reason for this route, resting on a person-layer fact. `.evidence`
+ * in base.css does the mono; this only stops the line running the full width,
+ * because a reason nobody finishes reading is a reason nobody read. */
+.rationale {
+  max-width: 56ch;
+}
+
+.tasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  padding-left: var(--space-5);
+}
+
+.task {
+  min-width: 0;
+}
+
+.taskHead {
+  font-size: var(--size-13);
+  color: var(--text-faint);
+}
+
+.taskTitle {
+  color: var(--text-dim);
+}
+
+.slots {
+  color: var(--text-ghost);
+}
+
+.slips {
+  color: var(--slip);
+}
+
+.blocker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--size-12);
+  color: var(--text-ghost);
+}
+
+/* The rung below. The rule is the ladder: it is the only thing on the page
+ * saying that what follows serves what came before. */
+.children {
+  display: flex;
+  flex-direction: column;
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--rule);
+}
+
+/* --- freed -------------------------------------------------------------- */
+
+/* The one band on this screen with a background, for the reason Today gives one
+ * to a decision: it is the only thing here that just happened. Still no hue --
+ * freed time is neither a slip nor a win. */
+.freedBand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--bg-inset);
+  border-left: 2px solid var(--ink-600);
+}
+
+.freedBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.freedList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Struck through: these are still the same slots, the calendar held them, and
+ * now nothing does. One glyph says what a sentence would need a clause for.
+ * Columns rather than a wrapped line, so three freed slots read as three. */
+.freedSlot {
+  display: grid;
+  grid-template-columns: 15.5rem 3.5rem 1fr;
+  gap: var(--space-3);
+  align-items: baseline;
+  font-size: var(--size-14);
+  color: var(--text-dim);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-500);
+}
+
+@media (max-width: 760px) {
+  .freedSlot {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+.freedWhen {
+  color: var(--text-faint);
+}
+
+.freedFor {
+  color: var(--text-ghost);
+}
+
+.freedTitle {
+  color: var(--text);
+}
+
+.serves {
+  margin-top: var(--space-1);
+  font-size: var(--size-12);
+  color: var(--text-faint);
+}
+
+/* The number, at a size that survives a recording. It says what was released
+ * and stops: where the time goes next is the Scheduler's to say, and it has
+ * not run. */
+.total {
+  font-size: var(--size-16);
+  color: var(--text);
+}
+
+/* The server's own sentence, verbatim, about when the reallocation happens. */
+.note {
+  font-size: var(--size-13);
+  color: var(--text-dim);
+  max-width: 58ch;
+}
+
+.dismiss {
+  width: fit-content;
+  font-size: var(--size-12);
+  color: var(--text-ghost);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dismiss:hover {
+  color: var(--text);
+}
+
+/* A paused or retired goal takes its whole subtree down with it. Scoped to the
+ * direct children so a nested active goal is not dimmed by an ancestor -- the
+ * ladder is recursive and a rung inside a retired one keeps its own status. */
+.rung[data-status='paused'] > .routes,
+.rung[data-status='retired'] > .routes {
+  opacity: 0.55;
+}
+
+/* The slots a released task was holding. Struck through, not hidden: those
+ * occurrences were real and the Freed band above has just said they are free,
+ * so printing them plainly would have the screen contradict itself. */
+.slots[data-released='true'] {
+  text-decoration: line-through;
+  color: var(--text-ghost);
+}

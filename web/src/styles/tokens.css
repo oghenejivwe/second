@@ -1,0 +1,98 @@
+/* The visual identity is quietness, so the palette is mostly greys.
+ *
+ * Three rules this file exists to enforce:
+ *
+ * 1. **Colour is information, never decoration.** There are exactly two hues in
+ *    the whole app -- one for something that slipped, one for something that
+ *    held -- and both are desaturated so that neither reads as alarm or as
+ *    praise. Everything else is a grey. If a screen needs a third hue, the
+ *    screen is saying too much.
+ *
+ * 2. **Evidence is set in mono.** Anything quoted from the calendar, the inbox
+ *    or the audit log uses --font-mono. It is a typographic way of saying "these
+ *    are not our words", and it does the job an italic or a quotation mark would
+ *    do more loudly.
+ *
+ * 3. **Rules, not cards.** Separation comes from 1px borders and whitespace.
+ *    No shadows, no elevation, no rounded panels floating on a backdrop. A
+ *    card implies a thing to be collected; a rule implies a list to be read.
+ *
+ * There is no success green and no celebration anywhere in this file, and that
+ * is deliberate. Second does not perform at the user.
+ */
+
+:root {
+  /* Greys, dark to light. Not pure black and not pure white -- both are harsh
+   * on a projector, and this gets watched on a recording. */
+  --ink-000: #0a0b0c;
+  --ink-050: #0e1012;
+  --ink-100: #14161a;
+  --ink-200: #1b1e23;
+  --ink-300: #24282e;
+  --ink-400: #32373f;
+  --ink-500: #4a515b;
+  --ink-600: #6b737d;
+  --ink-700: #8f979f;
+  --ink-800: #b9c0c6;
+  --ink-900: #e4e7ea;
+
+  --bg: var(--ink-000);
+  --bg-raised: var(--ink-050);
+  --bg-inset: var(--ink-100);
+  --bg-hover: var(--ink-200);
+
+  --rule: var(--ink-300);
+  --rule-strong: var(--ink-400);
+
+  --text: var(--ink-900);
+  --text-dim: var(--ink-700);
+  --text-faint: var(--ink-600);
+  --text-ghost: var(--ink-500);
+
+  /* The only two hues. Both muted on purpose: a slip is a fact, not an alarm. */
+  --slip: #c0655c;
+  --slip-dim: #6e3a36;
+  --slip-wash: rgba(192, 101, 92, 0.09);
+
+  --held: #7f9b7a;
+  --held-dim: #46543f;
+  --held-wash: rgba(127, 155, 122, 0.09);
+
+  /* Used only for the thing the user is currently pointing at. */
+  --focus: var(--ink-800);
+
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", Menlo, monospace;
+
+  --size-11: 0.6875rem;
+  --size-12: 0.75rem;
+  --size-13: 0.8125rem;
+  --size-14: 0.875rem;
+  --size-16: 1rem;
+  --size-19: 1.1875rem;
+  --size-24: 1.5rem;
+  --size-32: 2rem;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --rail-width: 168px;
+  --measure: 62ch;
+
+  /* One duration, used for everything. Long enough to be seen on a recording,
+   * short enough not to be waited on. */
+  --beat: 240ms;
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --beat: 1ms;
+  }
+}

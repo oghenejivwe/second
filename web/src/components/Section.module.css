@@ -1,0 +1,32 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+.label {
+  font-size: var(--size-11);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-ghost);
+}
+
+.count {
+  margin-left: var(--space-2);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-500);
+}
+
+.aside {
+  font-size: var(--size-12);
+  color: var(--text-faint);
+}
