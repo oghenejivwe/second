@@ -175,15 +175,14 @@ async def test_every_reminder_that_reaches_the_user_cites_its_source(store, rout
         assert reminder.source in ("email", "calendar", "graph")
 
 
-async def test_an_unevidenced_reminder_is_not_rejected_by_the_contract(store, router):
-    """A finding, asserted so it cannot quietly stop being true.
+async def test_an_unevidenced_reminder_is_dropped(store, router):
+    """The gap AGENTS found, now closed, asserted from the other side.
 
-    ``Reminder.evidence`` is a plain required ``str`` with no minimum length, so
-    an empty one validates and reaches the brief. The rule "a reminder with no
-    evidence is a defect" lives in a docstring and in this package's prompts --
-    nothing in the type system enforces it, unlike ``Diagnosis.evidence``, which
-    coerces. Handed to PLATFORM; this test records the gap rather than papering
-    over it.
+    "A reminder with no evidence is a defect" used to live only in a docstring
+    and in this package's prompts. ``assemble()`` now enforces it: an
+    unsupported reminder is an assertion about the user's life with nothing
+    behind it, which is a nag, and this product does not nag. Dropped, and the
+    drop is recorded in ``silence_reason`` so it is auditable rather than silent.
     """
     _, model = router(
         {
@@ -196,9 +195,9 @@ async def test_an_unevidenced_reminder_is_not_rejected_by_the_contract(store, ro
         USER, today=demo_scenario.TODAY, model=model, registry=REGISTRY
     )
 
-    assert brief.reminders[0].evidence == "", (
-        "if this now fails, the contract gained a guard and this test should become "
-        "an assertion that the reminder was dropped"
+    assert brief.reminders == [], "an unsupported reminder must not reach the user"
+    assert "dropped for citing no evidence" in brief.silence_reason, (
+        "the drop is recorded, so a judge can see the rule being applied"
     )
 
 
@@ -314,17 +313,16 @@ async def test_a_task_the_user_did_not_do_keeps_its_history(store, router):
     assert after.slip_count >= before.slip_count, "a slip was reversed on a 'no'"
 
 
-async def test_a_reason_given_alongside_a_yes_is_currently_discarded(store, router):
-    """A finding, recorded so it cannot quietly stop being true.
+async def test_a_reason_given_alongside_a_yes_is_kept(store, router):
+    """The gap AGENTS found, now closed.
 
-    ``record_completion`` writes ``known_blocker`` only on the ``did_it=False``
-    branch; the ``True`` branch returns before reaching it. So "I did it, I just
-    never opened the calendar" -- which is precisely the explanation for a task
-    that keeps looking missed while being done -- is taken in and dropped.
+    ``record_completion`` used to write ``known_blocker`` only on the
+    ``did_it=False`` branch, so "I did it, I just never opened the calendar" --
+    precisely the explanation for a task that keeps looking missed while being
+    done -- was taken in and discarded. It is kept on both branches now.
 
-    That note is the one thing the system could not have inferred. Handed to
-    PLATFORM; this test asserts the current behaviour so the handoff is a fact
-    rather than a recollection.
+    That note is the one thing the system could not have inferred for itself, and
+    it is the explanation behind the seeded world's fourth beat.
     """
     _, model = router(
         {
@@ -335,10 +333,11 @@ async def test_a_reason_given_alongside_a_yes_is_currently_discarded(store, rout
     await feedback(store, model).run("yeah I did it, just never opened the calendar")
 
     after = store.load(USER).task_by_id("t-recording")
-    assert after.known_blocker is None, (
-        "if this now fails, record_completion learned to keep the reason on a yes, "
-        "and this test should assert the note was stored instead"
+    assert after.known_blocker == "did it, just never opened the calendar", (
+        "the reason survives a yes; being asked the same question twice is how a "
+        "system tells you it was not listening"
     )
+    assert after.status == "done"
 
 
 async def test_the_node_that_interprets_speech_cannot_write(store, router):

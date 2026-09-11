@@ -79,10 +79,16 @@ def get_calendar_events(start: str, end: str, tool_context: ToolContext) -> list
         FakeConnectorError: If either bound is not an ISO 8601 datetime.
     """
     lower, upper = _parse(start, "start"), _parse(end, "end")
+    # OVERLAP, not start-within. Google's timeMin bounds an event's END and
+    # timeMax its START, so an event that began before the window and runs into
+    # it comes back -- and those are exactly the events that block time inside
+    # the window, which is what the Scheduler most needs to know about. The fake
+    # filtered on start and was the one that was wrong. CONNECTORS found it.
     return [
         event
         for event in demo_scenario.calendar_events()
-        if lower <= datetime.fromisoformat(event["start"]) < upper
+        if datetime.fromisoformat(event["start"]) < upper
+        and datetime.fromisoformat(event["end"]) > lower
     ]
 
 

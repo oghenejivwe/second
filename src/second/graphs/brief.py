@@ -29,6 +29,8 @@ from second.core.models import (
     ObservationReport,
     LivingGraph,
     PreparedAction,
+    Decision,
+    Reminder,
     Risk,
     ScheduledBlock,
     Task,
@@ -219,6 +221,52 @@ def _risk_reason(
     return None
 
 
+NO_EVIDENCE = "Second could not point to anything supporting this."
+
+
+def _evidenced(judgement: BriefJudgement) -> tuple[list[Reminder], list[Decision], list[str]]:
+    """Apply the product's own rule to the model's output.
+
+    "Every message cites its evidence" was asserted in four places and enforced in
+    one. AGENTS found that ``Reminder``, ``Decision``, ``Observation`` and
+    ``Deprioritised`` all validate with an empty ``evidence``, so an unsupported
+    claim reached the user wearing the same confidence as a supported one.
+
+    The two cases are not symmetric, and treating them the same would be wrong:
+
+    * **A reminder is an assertion about the user's life.** Unsupported, it is a
+      nag, and this product does not nag. Dropped.
+    * **A decision is a request for help.** Dropping it would be worse than
+      showing it -- the user never gets asked, and Second goes quiet on something
+      it genuinely could not resolve. Kept, with the missing evidence replaced by
+      an explicit admission, because "I need you to choose, and I cannot say why"
+      is honest where silence is not.
+
+    Enforced here rather than in a validator, on AGENTS' recommendation and for
+    the reason already established on ``Diagnosis``: raising inside a forced
+    structured-output call starts a loop whose cheapest escape is a fabricated
+    quote.
+
+    Returns:
+        The surviving reminders, the decisions, and a note of what was dropped.
+    """
+    kept_reminders = [r for r in judgement.reminders if (r.evidence or "").strip()]
+    dropped = len(judgement.reminders) - len(kept_reminders)
+
+    decisions = [
+        d if (d.evidence or "").strip() else d.model_copy(update={"evidence": NO_EVIDENCE})
+        for d in judgement.decisions
+    ]
+
+    notes: list[str] = []
+    if dropped:
+        notes.append(f"{dropped} reminder(s) dropped for citing no evidence")
+    unsupported = sum(1 for d in decisions if d.evidence == NO_EVIDENCE)
+    if unsupported:
+        notes.append(f"{unsupported} decision(s) kept but marked unsupported")
+    return kept_reminders, decisions, notes
+
+
 def assemble(
     *,
     graph: LivingGraph,
@@ -236,7 +284,9 @@ def assemble(
     typed result -- and a user who opens the app to an error learns not to open
     the app.
     """
-    prepared = prepared or []
+    # "nothing" is the Preparer saying there was nothing to carry. It must not
+    # count as prepared work, or every autonomous day forces a notification.
+    prepared = [item for item in (prepared or []) if item.is_real]
     blocks = todays_blocks(graph, clock)
     risks = deadline_risks(graph, clock)
     check_in = build_check_in(graph, clock, observations)
@@ -252,13 +302,18 @@ def assemble(
             silence_reason="No judgement was produced this run; showing the schedule only.",
         )
 
+    reminders, decisions, dropped_notes = _evidenced(judgement)
+    silence_reason = judgement.silence_reason
+    if dropped_notes:
+        silence_reason = "; ".join([silence_reason, *dropped_notes]).lstrip("; ")
+
     return DailyBrief(
         on=on or clock.today,
         blocks=blocks,
         prepared=prepared,
         at_risk=risks,
-        reminders=judgement.reminders,
-        decisions=judgement.decisions,
+        reminders=reminders,
+        decisions=decisions,
         # The check-in never triggers a notification. It sits inside a brief the
         # user is already looking at, which is what lets it be daily without
         # breaking the promise that Second stays quiet.
@@ -266,6 +321,6 @@ def assemble(
         # A decision or a prepared action always earns a notification, whatever
         # the model concluded. It cannot talk itself out of telling the user
         # about something it is waiting on them for.
-        notify=judgement.notify or bool(judgement.decisions) or bool(prepared),
-        silence_reason=judgement.silence_reason,
+        notify=judgement.notify or bool(decisions) or bool(prepared),
+        silence_reason=silence_reason,
     )
