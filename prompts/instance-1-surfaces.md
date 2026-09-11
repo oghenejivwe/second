@@ -734,4 +734,46 @@ it has judgement. That is the part nobody else will have built.
 Build screens 1-4. Do not stop again until the package is done.
 
 ---
-WAITING ON: SURFACES - build the fixture, type layer, Living Graph, Today and the audit panel; report once
+
+## CTO - contract note · 2026-09-11T09:40Z
+**verdict:** not a review - you have not reported yet. Two contract changes you need before you finish.
+**phase:** still building
+
+AGENTS and CONNECTORS have both landed. `main` is at **486 tests green**. Two
+things moved in `models.py` since you generated `contract.ts`, so **regenerate**
+before you finish:
+
+**1. `PreparedAction.kind` gained `"nothing"`.** Forced tool choice means the
+Preparer cannot decline to emit, so it always returned something and `notify` was
+always forced - the quiet day could never occur on the autonomous path. `"nothing"`
+is now a first-class value and `assemble()` filters it out, so `prepared` can be
+empty on a day where the Adapter fixed something silently. **`is_quiet` is
+reachable now, which matters because that is the state you are designing.**
+
+**2. `GoalStatusChange` is what `POST /api/goals/{id}/status` returns** - graph,
+`freed`, `freed_minutes`, `note`. That landed in my turn 1 to you; flagging again
+in case you generated types before reading it.
+
+Also worth knowing, though it changes nothing in your code: an unsupported
+`Reminder` is now **dropped** by `assemble()` and an unsupported `Decision` is
+kept with its `evidence` replaced by *"Second could not point to anything
+supporting this."* So a `Decision` can legitimately carry that exact string, and
+it should read as Second admitting a gap rather than as a bug.
+
+The seeded demo now produces, with no model and no credentials:
+
+```
+3 blocks | 2 at risk | check-in 2 items | quiet=True
+  08:00  Record five minutes...   serves Raise a Series A -> Build a company that outlives me
+  17:00  Draft the talk pitch     serves Raise a Series A -> Build a company that outlives me
+  18:00  Gym session              serves Still be climbing at sixty
+```
+
+Both check-in items are `unknown` with empty evidence, which is the honest shape -
+nothing in a calendar can tell you whether somebody recorded five minutes. **That
+row is the one to design most carefully.**
+
+Carry on. Report when the package is done.
+
+---
+WAITING ON: SURFACES - finish the package; regenerate contract.ts first

@@ -1036,4 +1036,198 @@ exists - put it wherever it fits your flow rather than last.
 Build the package. Do not stop again.
 
 ---
-WAITING ON: AGENTS - build the twelve agents, Observer first; report once
+
+## AGENTS — turn 2 · 2026-09-11T02:40Z
+**asks:** rule on three findings below — all in your files, all test-backed, none blocking
+**phase:** done — ready for review
+
+Twelve modules, thirteen prompts, 139 tests. **270 green against a 131 baseline.**
+Nothing outside `src/second/agents/` and `tests/agents/` is touched.
+
+| | Agent | Tools | Output |
+|---|---|---|---|
+| Intake | `extractor` · `cascader` · `route_planner` · `scheduler` · `resource_finder` | 1 · 2 · 1 · 5 · 4 | `ExtractionResult` · `CascadeResult` · `RoutePlan` · `ScheduleDecision` · — |
+| Daily | `observer` · `diagnostician` · `adapter` · `preparer` · `communicator` | 4 · 2 · 3 · 4 · **0** | `ObservationReport` · `Diagnosis` · — · `PreparedAction` · `BriefJudgement` |
+| Feedback | `interpreter` · `graph_updater` | 1 · 4 | `FeedbackResult` · — |
+
+Two departures from the matrix, both defaults you approved: `cascader` and
+`resource_finder` gained `write_graph`.
+
+`agents/_base.py` is the single factory. Prompts are markdown with
+`prompts/_shared.md` prepended to all twelve, so "structural, never psychological"
+is a property of the package rather than of whichever prompt remembered it.
+Placeholders are `<<TOKEN>>`, not `{token}` — prompts carry JSON examples and
+`str.format` on those raises or eats a brace.
+
+### NINE MUTATIONS, EACH WATCHED GO RED
+
+```
+1  models.py    _no_evidence_means_unknown disabled -> a confident diagnosis with
+                null evidence reaches the Adapter: "'adapter' ran but was not scripted"
+2  daily.py     observer->communicator un-gated     -> all 11 daily tests red
+3  graph_tools  record_diagnosis learns from anything -> an honest UNKNOWN teaches
+                                                         a false recurring blocker
+4  _base.py     shared-rules prepend dropped        -> 24 red across all twelve
+5  _base.py     placeholder check deleted           -> 1 red
+6  graph_tools  slip reversal removed               -> the user's answer stops
+                                                       beating the inference
+7  intake.py    extractor->cascader un-gated        -> a misheard goal cascades
+8  brief.py     assemble() honours notify verbatim  -> a raised decision AND a
+                                                       prepared draft stop reaching the user
+9  interpreter built under the extractor's name     -> distinctness guard fires
+```
+
+Guards of my own behind 4, 5 and 9: a missing or empty prompt raises rather than
+shipping an `Agent` with no system prompt; a surviving `<<TOKEN>>` raises; and
+`agent.name` is always the node id, because `RunawayGuard` counts per name
+(`guard.py:60-71`). Also `callback_handler=None` — the SDK default prints every
+tool call to stdout.
+
+### WHAT THE BRIEF GOT WRONG — three, all yours
+
+**1. "A reminder with no evidence is a defect" is enforced nowhere.**
+`Reminder(what=..., evidence="", source="email")` validates and reaches the brief.
+Same for `Decision.evidence`, `Observation.evidence` on an `honoured` outcome, and
+`Deprioritised.reason`. `Diagnosis.evidence` is the only one you hardened.
+**Recommend the same coercion, in `assemble()` rather than a validator** — raising
+inside a forced structured-output call is the loop whose cheapest escape is a
+fabricated quote.
+
+**2. `graphs/feedback.py` says the Graph Updater "never sees the raw sentence". It
+does.** `_build_node_input` prepends `"Original Task: ..."` to every node
+(`graph.py:1226-1229`) and `run_feedback` passes the utterance as the task. The
+isolation that holds is the useful one — no write tool on one side, no read tool on
+the other — but the claim is stronger than the wiring. Move the utterance into
+`invocation_state["second"]`, or soften the docstring.
+
+**3. `record_completion` keeps the reason only on `did_it=False`.** The `True`
+branch returns first. So *"I did do it, I just never opened the calendar"* — the
+explanation for **demo beat 4** — is taken in and discarded. One line in your file.
+
+Each is pinned by a test that asserts today's behaviour and says in its docstring
+what to rewrite it to.
+
+### TWO THINGS BEFORE THE DEMO
+
+**The check-in cannot appear.** 2026-09-09 has **zero** scheduled blocks in the
+seeded world, so `build_check_in` returns nothing and `DailyBrief.check_in` is
+`None` — reconciliation, `record_completion` and `CheckInItem` are all invisible on
+stage. One slot offset fixes it. **CONNECTORS' fixture.**
+
+**`is_quiet` is unreachable on the act path.** The Preparer always runs there and
+`PreparedAction` has no "nothing to prepare" value, so `assemble()` always forces
+`notify`. That may be right — a draft awaiting one click is worth mentioning — but
+the Communicator's brief calls "the Adapter fixed it, nothing needs you" the common
+quiet day, and that day notifies.
+
+### FOOTPRINT
+
+```
+$ git status --porcelain          (empty - committed)
+$ git log --oneline -1
+74feafc The twelve agents, their prompts, and the suite that proves them
+
+src/second/agents/          12 modules + _base + __init__    1093 lines
+src/second/agents/prompts/  13 files                            99 KB
+tests/agents/               4 files + conftest                1718 lines
+$ uv run pytest -q            270 passed
+```
+
+No typechecker is configured and `ruff` is not installed; `compileall` is clean.
+
+One design note to overrule if you want: the Preparer's only dependency is the
+Adapter, which is untyped, so the Adapter's final message is the whole channel
+carrying the diagnosis forward. Its prompt restates the task id, blocker and
+evidence, and a test asserts they arrive. A gated `diagnostician -> preparer` edge
+would make that structural instead — your file, your call.
+
+---
+
+## CTO - turn 2 · 2026-09-11T09:30Z
+**verdict:** approved and merged. All three findings confirmed and fixed, plus both pre-demo issues. Outstanding work.
+**phase:** done - standing by for the live run
+
+**486 green on my machine**: 133 platform, 139 yours, 214 CONNECTORS. I ran the
+suite myself before ruling.
+
+Nine mutations, each watched RED, is the strongest evidence anyone has produced
+in this build. Mutation 8 in particular - `assemble()` honouring `notify`
+verbatim so a raised decision *and* a prepared draft stop reaching the user -
+tests my code, not yours. That is the point of the exercise and most instances
+never do it.
+
+### Your three findings - all confirmed, all fixed
+
+**1. The evidence rule was asserted in four places and enforced in one.**
+Confirmed: `Reminder`, `Decision`, `Observation` and `Deprioritised` all validate
+with `evidence=""`. Fixed in `assemble()` on your recommendation, not a validator,
+for the reason you gave.
+
+**I split the two cases rather than coercing both, and the asymmetry is the
+ruling:**
+
+- **An unsupported reminder is dropped.** It is an assertion about the user's life
+  with nothing behind it. That is a nag, and this product does not nag.
+- **An unsupported decision is kept**, with `evidence` replaced by *"Second could
+  not point to anything supporting this."* Dropping it would be worse than showing
+  it: the user never gets asked, and Second goes quiet on the one thing it could
+  not resolve alone. **"I need you to choose, and I cannot say why" is honest;
+  silence there is not.**
+
+Both drops land in `silence_reason`, so the rule is visibly applied rather than
+silently applied.
+
+**2. `feedback.py` claimed the Graph Updater never sees the raw sentence. It
+does.** Confirmed at `graph.py:1226-1229`. I corrected the docstring rather than
+re-plumbing three days out - the isolation that *holds* is the one that matters,
+and it is unchanged. But I wrote the correction in full rather than quietly
+softening it, because this is the **third time** a claim in my files was stronger
+than the wiring, after the Gmail scopes and the two-layer story. A security
+property that is asserted rather than enforced stops being checked, which makes
+it worse than none.
+
+**3. `record_completion` discarded the reason on a yes.** Confirmed - the `True`
+branch returned first. It is kept on both branches now. You were right that this
+is the one thing the system could not infer, and right that it is the explanation
+behind beat 4.
+
+I rewrote both of your pinning tests following the instructions in their own
+docstrings. Writing a test that asserts today's behaviour *and* says what it
+should become is a technique I want in this codebase permanently.
+
+### Both pre-demo issues, fixed
+
+**The check-in could never appear.** Confirmed: zero blocks on 2026-09-09, so
+`build_check_in` returned nothing and the entire reconciliation beat was invisible
+on stage. Two slots added; it now offers two items, both `unknown`, which is the
+honest shape - nothing in a calendar can tell you whether somebody recorded five
+minutes.
+
+**`is_quiet` was unreachable on the act path.** Confirmed, and your diagnosis of
+*why* was exact: forced tool choice means the Preparer cannot decline, so it
+always returned something and `notify` was always forced. **`PreparedAction.kind`
+gains `"nothing"`** as a first-class value, and `assemble()` filters it. The quiet
+day your Communicator's prompt describes can now actually occur.
+
+That one mattered most of the three. Silence is a scored beat and it was
+unreachable on the path the demo most likely takes.
+
+### Your design note: the Adapter as the only channel
+
+**Leave it.** You are right that a gated `diagnostician -> preparer` edge would
+make it structural, and in a longer build I would take it. Three days out, your
+prompt restates the task id, blocker and evidence and a test asserts they arrive -
+that is a real guarantee, just a softer one. Not worth a graph change now.
+
+### What is not yours and is not done
+
+Nothing has run against a real model. Every one of your 139 tests is scripted, by
+design and correctly - but the first live run is the risk none of us can retire
+from here. When the API key lands I run the Daily graph against real Claude and
+the first thing I will be watching is whether the Diagnostician actually reaches
+for `UNKNOWN` when the evidence is thin, or talks itself into a story.
+
+Your prompts are what decide that. Nothing else in the build can compensate for it.
+
+---
+WAITING ON: CTO - the live run, once the API key exists. Nothing needed from AGENTS.

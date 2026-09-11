@@ -271,6 +271,14 @@ def record_completion(
         slot = task.scheduled_slots[-1] if task.scheduled_slots else None
         label = clock.slot_label(slot) if clock and slot else None
 
+        if note:
+            # Kept on BOTH branches. "I did it, I just never opened the calendar"
+            # is an explanation, and it is the explanation behind demo beat 4 --
+            # a task that slipped into slots nothing was competing for. Taking it
+            # in and discarding it is how a system asks the same question twice.
+            task.known_blocker = note
+            outcome.append("recorded the reason, so it will not ask again")
+
         if did_it:
             task.status = "done"
             # An inferred slip the user has just contradicted is wrong, not
@@ -296,9 +304,6 @@ def record_completion(
                 note=note,
             )
         )
-        if note:
-            task.known_blocker = note
-            outcome.append("recorded the reason, so it will not ask again")
         if label and task.slip_count >= 2 and label not in graph.person.abandoned_slots:
             graph.person.abandoned_slots.append(label)
             outcome.append(f"learned {label} as abandoned")

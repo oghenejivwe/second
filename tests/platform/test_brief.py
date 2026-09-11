@@ -390,3 +390,37 @@ def test_an_unknown_goal_raises_rather_than_silently_doing_nothing(store, today)
 
     with pytest.raises(ValueError):
         service.set_goal_status("demo", "g-nope", "retired", today=today)
+
+
+def test_the_preparer_having_nothing_to_do_does_not_force_a_notification(graph, clock):
+    """The quiet day the product promises, now reachable on the autonomous path.
+
+    Forced tool choice means the Preparer cannot decline to emit. Without a
+    "nothing" value it always returned something, so assemble() always saw
+    prepared work and always notified -- and "the Adapter fixed it, nothing needs
+    you" could never happen. AGENTS found it.
+    """
+    from second.core.models import BriefJudgement, PreparedAction
+
+    nothing = PreparedAction(kind="nothing", summary="Nothing needed carrying today.")
+    brief = assemble(
+        graph=graph,
+        clock=clock,
+        judgement=BriefJudgement(notify=False, silence_reason="The gym moved itself. Nothing needs you."),
+        prepared=[nothing],
+    )
+
+    assert brief.is_quiet, "an autonomous day with nothing prepared is a quiet day"
+    assert brief.prepared == [], "'nothing' is not prepared work"
+    assert brief.blocks, "quiet still shows the day"
+
+
+def test_real_prepared_work_still_notifies(graph, clock):
+    from second.core.models import BriefJudgement, PreparedAction
+
+    draft = PreparedAction(
+        kind="email_draft", summary="Leave request drafted.", awaiting="Read it and press send."
+    )
+    brief = assemble(graph=graph, clock=clock, judgement=BriefJudgement(notify=False), prepared=[draft])
+    assert brief.notify is True
+    assert len(brief.prepared) == 1

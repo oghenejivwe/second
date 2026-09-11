@@ -448,11 +448,23 @@ class PreparedAction(BaseModel):
     Options are assembled, never booked.
     """
 
-    kind: Literal["email_draft", "options", "retrieved_fact", "calendar_change"]
+    kind: Literal["email_draft", "options", "retrieved_fact", "calendar_change", "nothing"]
+    """``"nothing"`` is a first-class outcome and it is why silence is reachable.
+
+    Forced tool choice means the Preparer cannot decline to emit, so without this
+    value it always returned *something*, ``assemble()`` always saw prepared work,
+    and ``notify`` was always forced. The quiet day the Communicator's own brief
+    calls the common case -- the Adapter fixed it, nothing needs you -- could
+    never occur on the autonomous path. AGENTS found it."""
     summary: str = Field(description="What was prepared, in one line.")
     detail: str = Field(default="", description="The draft body, the compared options, the retrieved value.")
     external_ref: str | None = Field(default=None, description="Gmail draft id, calendar event id.")
-    awaiting: str = Field(description="The single thing left for the user to do.")
+    awaiting: str = Field(default="", description="The single thing left for the user to do.")
+
+    @property
+    def is_real(self) -> bool:
+        """Whether anything was actually prepared."""
+        return self.kind != "nothing"
 
 
 class ScheduledBlock(BaseModel):

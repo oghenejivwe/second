@@ -9,7 +9,18 @@ The Interpreter reads the graph and turns "too much", "that time doesn't work",
 "I prefer reading" into typed ``FeedbackUpdate`` entries. It has no write tools,
 so a misheard instruction cannot reach the calendar directly. The Graph Updater
 receives those typed updates -- already validated, already constrained to the
-three legal targets -- and applies them. It never sees the raw sentence.
+three legal targets -- and applies them.
+
+**Correction, 2026-09-11.** This docstring used to claim the Graph Updater "never
+sees the raw sentence". It does: ``_build_node_input`` prepends
+``"Original Task: ..."`` to every node (``graph.py:1226-1229``) and the utterance
+is the task. AGENTS found it.
+
+The isolation that actually holds is the useful one and it is unchanged -- no
+write tool on the interpreting side, no read tool on the writing side, and only
+typed ``FeedbackUpdate`` entries crossing between them. But the claim was
+stronger than the wiring, and a security property that is asserted rather than
+enforced is worse than none, because it stops being checked.
 
 This is the same isolation principle as the Daily graph's Diagnostician, applied
 to the one flow where the user's own words become mutations.
