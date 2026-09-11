@@ -12,9 +12,18 @@
  * `new Date('2026-09-10T08:00:00')` is interpreted in the *browser's* timezone,
  * which is not necessarily the user's. So a naive slot and an aware block can
  * describe the same moment and compare unequal, and the Living Graph would show
- * a task at 09:00 that Today shows at 08:00. **This module never converts
- * between the two.** Naive strings are formatted by reading their characters;
- * aware strings go through `Date`. Nothing here can silently shift an hour.
+ * a task at 09:00 that Today shows at 08:00.
+ *
+ * **So nothing here parses a datetime. Every formatter reads the characters.**
+ * Both shapes already carry the wall-clock time the person will read off their
+ * own calendar -- the naive one because that is how the graph stores it, the
+ * aware one because PLATFORM puts everything crossing the API boundary through
+ * `Clock.local()` first. The offset on an aware string says which zone that
+ * was; it is not an instruction to convert.
+ *
+ * The one remaining `Date` is `Date.UTC(y, m, d)` for a weekday name, which
+ * takes no time and no zone. Nothing in this module can shift an hour, and
+ * nothing in it behaves differently depending on where the viewer is.
  */
 
 /** An ISO string carrying an offset, e.g. `2026-09-10T08:00:00+01:00`. */
@@ -45,19 +54,29 @@ const MONTHS = [
   'December',
 ]
 
-/** `08:00` from either shape, without moving the clock.
+const WALL_CLOCK = /^\d{4}-\d{2}-\d{2}T(\d{2}:\d{2})/
+
+/** `08:00` from either shape, read off the characters and never parsed.
  *
- * A naive string is sliced, not parsed: the characters already say what the
- * person will read off their calendar, and handing them to `Date` would
- * reinterpret them in whatever zone the browser happens to be in.
+ * **Both shapes are sliced, including the timezone-aware one, and that is the
+ * correction that matters here.** The first version handed an aware string to
+ * `Date` and read `getHours()`, which is the *browser's* zone -- so Today's
+ * 08:00 block rendered as 00:00 for a viewer in US-Pacific, and the Goals
+ * screen printed a date sliced from the characters beside an hour parsed in
+ * another zone: `Friday 11 September, 11:00` for a moment that was 19:00.
+ *
+ * Slicing is correct because of what the contract guarantees. `ScheduledBlock.
+ * start` is already in the user's own zone -- PLATFORM puts everything crossing
+ * the API boundary through `Clock.local()` -- so the characters after the `T`
+ * are the wall-clock time the person reads off their calendar, and the offset
+ * is there to say which zone that was, not to be converted out of.
+ *
+ * So there is one rule for both shapes: the hour on screen is the hour in the
+ * string. Nothing in this module depends on where the browser is.
  */
 export function clockTime(iso: string): string {
-  const naive = NAIVE.exec(iso)
-  if (naive) return `${naive[4]}:${naive[5]}`
-
-  const at = new Date(iso)
-  if (Number.isNaN(at.getTime())) return '--:--'
-  return `${pad(at.getHours())}:${pad(at.getMinutes())}`
+  const match = WALL_CLOCK.exec(iso)
+  return match ? match[1] : '--:--'
 }
 
 /** `Thursday 10 September` from a date or datetime string. */
@@ -119,8 +138,4 @@ function dateParts(iso: string): { year: number; month: number; day: number } | 
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
   if (!match) return null
   return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) }
-}
-
-function pad(value: number): string {
-  return String(value).padStart(2, '0')
 }

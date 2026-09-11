@@ -1,29 +1,40 @@
-"""The seam CONNECTORS fills. Until then, it refuses legibly.
+"""The voice seam, resolved at call time.
 
-``src/second/voice/`` does not exist yet. SURFACES sends the bytes and does not
-talk to S3 or Transcribe, so rather than approximate either, this resolves the
-real module at call time and -- when it is absent -- raises the same shape of
-error PLATFORM uses for a missing agent: one that names the module and its
-owner.
+CONNECTORS owns the upload, the transcription and the job lifecycle. SURFACES
+owns the microphone, the live transcript and the HTTP shape. This module is the
+join, and it is deliberately thin -- two functions and an error mapping.
 
-That matters more than it looks. A temporary approximation on a critical path is
-how a defect reaches a demo wearing a comment that says it is temporary; and a
-503 reading *second.voice does not exist yet (owned by CONNECTORS)* tells
-everyone -- including a judge -- exactly where the edge of the build is. The
-alternative, a route that silently returns a fake transcript, would make the
-Record screen look finished and be a lie.
+**The seam, as CONNECTORS publishes it:**
 
-The contract expected of ``second.voice``, agreed in the brief:
+    start_transcription(audio_bytes, content_type, *, name_seed=None) -> str
+    get_transcription(job_id) -> ("running", None) | ("done", transcript)
 
-    async def transcribe(audio: bytes, *, content_type: str) -> str
+**Two things that do not line up, and both are the HTTP layer's job to fix.**
 
-Anything else it exposes is CONNECTORS' business.
+*It raises where the route promises a status.* ``get_transcription`` never
+returns ``"failed"`` -- a failed job raises ``TranscriptionError`` carrying
+Transcribe's own ``FailureReason``, which CONNECTORS argues is the only
+explanation that exists, and they are right. But the route's contract is
+``{"status": "running|done|failed", "transcript": str | null}``, and a browser
+polling a dead job needs an answer rather than a 500. So the exception is caught
+here and becomes ``failed`` with its message attached. CONNECTORS offered to
+return the tuple instead; converting is better, because the reason survives
+either way and their version keeps the cause attached for the audit log.
+
+*It caps the upload twice.* ``store_audio`` enforces its own maximum, so the
+route reads CONNECTORS' constant rather than declaring a second one. Two caps
+that can disagree is worse than one in the wrong place.
+
+Resolved per call rather than at import, so the API starts and serves the rest
+of its routes when this package is missing -- and says so on this one route
+instead of failing to boot on all nine.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Protocol
+from dataclasses import dataclass
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -35,33 +46,80 @@ which is what ``MediaRecorder.mimeType`` reports -- fails the signature check
 and returns an opaque 403 that reads like a CORS error. The browser re-wraps the
 blob; this is the server-side half of the same agreement."""
 
+FALLBACK_MAX_BYTES = 25 * 1024 * 1024
+"""Only used if CONNECTORS' own constant ever disappears. Theirs wins."""
+
 
 class MissingVoice(RuntimeError):
-    """The voice seam has not been built yet, and says who owns it."""
+    """The voice package is not importable, and this says who owns it."""
 
 
-class Transcriber(Protocol):
-    async def __call__(self, audio: bytes, *, content_type: str) -> str: ...
+@dataclass(frozen=True)
+class VoiceSeam:
+    """CONNECTORS' voice functions, plus the exceptions they raise."""
+
+    start: Callable[..., str]
+    get: Callable[[str], tuple[str, str | None]]
+    max_bytes: int
+    rejected: type[Exception]
+    """Raised when the recording itself is unusable -- empty, or too large."""
+    broke: type[Exception]
+    """Raised when transcription could not start, or failed, or went missing."""
 
 
-def resolve_transcriber() -> Transcriber:
-    """Find CONNECTORS' transcriber, or explain its absence.
+def resolve_voice() -> VoiceSeam:
+    """Find CONNECTORS' voice seam, or explain its absence.
 
-    Resolved per call rather than at import, so the API starts, serves the
-    fixture-backed screens and reports the gap on one route instead of failing
-    to boot on all nine.
+    Raises:
+        MissingVoice: The package is absent, or does not export the seam.
     """
     try:
-        from second.voice import transcribe  # type: ignore[attr-defined]
+        from second import voice
     except ImportError as error:
         raise MissingVoice(
             "second.voice does not exist yet (owned by CONNECTORS). "
             "The browser's live transcript still works; the accurate one needs this."
         ) from error
-    except AttributeError as error:  # pragma: no cover - module exists, symbol does not
+
+    try:
+        return VoiceSeam(
+            start=voice.start_transcription,
+            get=voice.get_transcription,
+            max_bytes=int(getattr(voice, "MAX_AUDIO_BYTES", FALLBACK_MAX_BYTES)),
+            rejected=voice.VoiceError,
+            broke=voice.TranscriptionError,
+        )
+    except AttributeError as error:
         raise MissingVoice(
-            "second.voice exists but does not export transcribe(audio, *, content_type) "
-            "(owned by CONNECTORS)."
+            "second.voice is missing part of its seam "
+            "(start_transcription, get_transcription, VoiceError, TranscriptionError) "
+            "-- owned by CONNECTORS."
         ) from error
 
-    return transcribe
+
+def read_job(seam: VoiceSeam, job_id: str) -> dict[str, Any]:
+    """One poll, in the shape the route promised.
+
+    **Failure direction: answer, with the reason.** A transcription that died
+    has to come back as ``failed`` and not as a 500, because the browser is in a
+    polling loop and a 500 tells it nothing about whether to keep going. The
+    live transcript the Web Speech API already painted is unaffected either way,
+    so a failure here costs the user the accurate version, not the intake.
+    """
+    try:
+        status, transcript = seam.get(job_id)
+    except seam.broke as error:
+        logger.warning("transcription %s failed", job_id, exc_info=True)
+        return {"status": "failed", "transcript": None, "detail": str(error)}
+
+    if status not in ("running", "done"):
+        # The seam documents exactly two, so a third means it changed underneath
+        # us. Saying that is more useful than passing an unknown string through
+        # to a screen that switches on it.
+        return {
+            "status": "failed",
+            "transcript": None,
+            "detail": f"second.voice returned an unrecognised status {status!r}.",
+        }
+
+    return {"status": status, "transcript": transcript}

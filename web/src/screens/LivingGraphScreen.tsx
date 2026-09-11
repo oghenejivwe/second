@@ -42,6 +42,12 @@ import styles from './LivingGraphScreen.module.css'
 const nodeTypes: NodeTypes = { goal: GoalNode, route: RouteNode, task: TaskNode }
 const edgeTypes: EdgeTypes = { dependency: DependencyEdge }
 
+/** One fit spec for both triggers, so a change to one cannot drift from the
+ * other. `minZoom` here is deliberately higher than the canvas minimum: a fit
+ * that has to clamp should still be readable, and the user can zoom further out
+ * by hand if they want to. */
+const FIT = { padding: 0.14, duration: 320, minZoom: 0.35, maxZoom: 1 } as const
+
 const defaultEdgeOptions: DefaultEdgeOptions = {
   type: 'smoothstep',
   markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
@@ -170,10 +176,10 @@ function Canvas({ graph, changed }: { graph: LivingGraph; changed: Set<string> }
   const initialized = useNodesInitialized()
 
   /**
-   * Re-fit when the SET of nodes changes, not on every render and not on a
-   * drag. Keyed off a sorted id signature, and deferred one frame so the
-   * measured node dimensions have landed -- fitting before measurement zooms to
-   * the wrong rectangle.
+   * Re-fit when the SET of nodes changes, not on every render and not on a drag.
+   * Keyed off a sorted id signature, and deferred one frame so the measured node
+   * dimensions have landed -- fitting before measurement zooms to the wrong
+   * rectangle.
    */
   const signature = useMemo(() => flowNodes.map((node) => node.id).sort().join('|'), [flowNodes])
   const lastFitted = useRef('')
@@ -182,36 +188,72 @@ function Canvas({ graph, changed }: { graph: LivingGraph; changed: Set<string> }
     if (!initialized || lastFitted.current === signature) return
     lastFitted.current = signature
     const frame = requestAnimationFrame(() => {
-      void fitView({ padding: 0.16, duration: 320, maxZoom: 1, minZoom: 0.15 })
+      void fitView(FIT)
     })
     return () => cancelAnimationFrame(frame)
   }, [initialized, signature, fitView])
+
+  /**
+   * Re-fit when the CONTAINER resizes, which is a separate problem and a real
+   * one: `fitView` solves for the viewport it can see at the moment it runs, and
+   * it never runs again. Caught by watching it happen -- the graph fitted itself
+   * to a 500px-tall pane, the window was resized to 880, and every node stayed
+   * at the zoom the smaller box needed, clamped flat against `minZoom`. Nothing
+   * about that recovers on its own, and the first thing anyone does with a graph
+   * is make the window bigger.
+   *
+   * The observer fires once on attach, so the initial fit is covered here too;
+   * the effect above still exists because a new node set needs a re-fit at an
+   * unchanged size.
+   */
+  const canvas = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const host = canvas.current
+    if (!host || !initialized) return
+
+    let frame = 0
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame)
+      // One frame late, so the fit solves against the size after layout rather
+      // than the size that triggered the callback.
+      frame = requestAnimationFrame(() => void fitView({ ...FIT, duration: 0 }))
+    })
+
+    observer.observe(host)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
+  }, [initialized, fitView])
 
   const detail = selected ? model.nodes.find((node) => node.id === selected) : undefined
 
   return (
     <>
-      <ReactFlow<SecondFlowNode, SecondFlowEdge>
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        defaultEdgeOptions={defaultEdgeOptions}
-        colorMode="dark"
-        fitView
-        fitViewOptions={{ padding: 0.16, maxZoom: 1 }}
-        minZoom={0.15}
-        maxZoom={1.5}
-        nodesConnectable={false}
-        elevateEdgesOnSelect
-        onNodeClick={(_, node) => setSelected(node.id)}
-        onPaneClick={() => setSelected(null)}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
-        <Controls showInteractive={false} position="bottom-right" />
-      </ReactFlow>
+      <div ref={canvas} className={styles.flow}>
+        <ReactFlow<SecondFlowNode, SecondFlowEdge>
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          defaultEdgeOptions={defaultEdgeOptions}
+          colorMode="dark"
+          fitView
+          fitViewOptions={FIT}
+          minZoom={0.2}
+          maxZoom={1.5}
+          nodesConnectable={false}
+          elevateEdgesOnSelect
+          onNodeClick={(_, node) => setSelected(node.id)}
+          onPaneClick={() => setSelected(null)}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
+          <Controls showInteractive={false} position="bottom-right" />
+        </ReactFlow>
+      </div>
 
       {/* A strip rather than a side panel, so the graph keeps the room. Person
         * facts stay on the nodes; this carries the reasoning that is too long

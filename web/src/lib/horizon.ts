@@ -15,10 +15,19 @@ import type { Goal } from '../types/contract'
 
 export type Horizon = Goal['horizon']
 
-/** In words. `year` is a field name; "this year" is what a person says. */
+/** In words, and they have to read as one scale.
+ *
+ * `year` is a field name; "this year" is what a person says. Two of these were
+ * originally the field name itself -- `life: 'life'`, `decade: 'decade'` -- which
+ * put "life - active" at the top of the very screen whose argument is that a
+ * life-shaped ambition is a different kind of thing from a Tuesday. Read down
+ * the list now and it is a scale: a lifetime, ten years, three years, this
+ * year, and eventually today. "ten years" rather than "a decade" because it
+ * sits directly above "three years" and the two should be comparable at a
+ * glance. */
 export const HORIZON_LABEL: Record<Horizon, string> = {
-  life: 'life',
-  decade: 'decade',
+  life: 'a lifetime',
+  decade: 'ten years',
   three_year: 'three years',
   year: 'this year',
   quarter: 'this quarter',

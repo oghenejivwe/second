@@ -110,6 +110,13 @@ export type VoiceStatus = 'running' | 'done' | 'failed'
 export interface VoiceJob {
   status: VoiceStatus
   transcript: string | null
+  /** Why it failed, in Transcribe's own words.
+   *
+   * `second.voice.get_transcription` never returns `failed` -- it raises, with
+   * Amazon Transcribe's `FailureReason` attached -- and the HTTP layer converts
+   * that into this field. So a failed job always has something to say, and the
+   * screen should say it rather than reporting that no reason exists. */
+  detail?: string | null
 }
 
 export const api = {
@@ -166,8 +173,10 @@ export const api = {
   startVoice(audio: Blob): Promise<string> {
     if (USING_FIXTURES) return fixture('fixture-job', 200)
     const form = new FormData()
-    // The filename matters: Transcribe picks the media format from the
-    // extension when the job is created.
+    // The filename is for the S3 object and the logs, not for format detection:
+    // `start_transcription` passes MediaFormat to Transcribe explicitly. What
+    // has to be right is the blob's type -- bare `audio/webm`, no codecs
+    // parameter -- because a presigned PUT signs the content type.
     form.append('audio', audio, 'intake.webm')
     return call<{ job_id: string }>('/api/voice', { method: 'POST', body: form }).then(
       (body) => body.job_id,
@@ -176,6 +185,8 @@ export const api = {
 
   voiceJob(jobId: string): Promise<VoiceJob> {
     if (USING_FIXTURES) {
+      // A done job with a null transcript, which is a real case: the accurate
+      // version has nothing to add, so the live one stands.
       return fixture({ status: 'done', transcript: null } satisfies VoiceJob, 400)
     }
     return call<VoiceJob>(`/api/voice/${encodeURIComponent(jobId)}`)

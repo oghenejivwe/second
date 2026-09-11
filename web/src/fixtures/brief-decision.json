@@ -81,7 +81,27 @@
       ]
     }
   ],
-  "check_in": null,
+  "check_in": {
+    "on": "2026-09-09",
+    "items": [
+      {
+        "task_id": "t-recording",
+        "title": "Record five minutes and listen back",
+        "goal_title": "Get comfortable speaking to a room",
+        "scheduled_for": "2026-09-09T08:00:00+01:00",
+        "inferred": "unknown",
+        "evidence": ""
+      },
+      {
+        "task_id": "t-gym",
+        "title": "Gym session",
+        "goal_title": "Train three times a week",
+        "scheduled_for": "2026-09-09T18:00:00+01:00",
+        "inferred": "likely_missed",
+        "evidence": "18:00 invite declined; 'Eng sync' (9 attendees) ran at the same time."
+      }
+    ]
+  },
   "notify": true,
   "silence_reason": ""
 }

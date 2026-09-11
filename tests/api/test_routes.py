@@ -14,19 +14,18 @@ were written by watching them fail first:
 
 * the SPA catch-all refuses ``/api``, so a mistyped route 404s instead of
   quietly returning ``index.html`` with a 200;
-* a voice job that raises ends up ``failed`` with the reason attached, rather
-  than leaving the browser polling a dead job forever.
+* a transcription that raises comes back as ``failed`` with the reason attached,
+  rather than as a 500 that leaves the browser polling a dead job forever.
 """
 
 from __future__ import annotations
 
-import asyncio
 import re
 
 import pytest
 from fastapi.testclient import TestClient
 
-from second.api import jobs
+from second.api import voice as api_voice
 from second.api.app import create_app
 from second.graphs import service
 from second.settings import DEMO_USER_ID
@@ -45,13 +44,33 @@ def client(store):  # noqa: ARG001 - the fixture wires the store into the servic
         yield testing
 
 
-@pytest.fixture(autouse=True)
-def fresh_jobs():
-    """Each test gets its own registry; jobs are process-global otherwise."""
-    original = jobs.registry
-    jobs.registry = jobs.JobRegistry()
-    yield
-    jobs.registry = original
+class Rejected(Exception):
+    """Stands in for ``second.voice.VoiceError``."""
+
+
+class Broke(Exception):
+    """Stands in for ``second.voice.TranscriptionError``."""
+
+
+def seam(*, start=None, get=None, max_bytes=1024) -> api_voice.VoiceSeam:
+    """A voice seam with CONNECTORS' shape and none of its AWS calls.
+
+    Faked at this boundary rather than deeper because what is under test is the
+    mapping the HTTP layer performs: the seam raises where the route promises a
+    status, and that conversion is SURFACES' to get right.
+    """
+    return api_voice.VoiceSeam(
+        start=start or (lambda payload, content_type, **_: "job-1"),
+        get=get or (lambda job_id: ("running", None)),
+        max_bytes=max_bytes,
+        rejected=Rejected,
+        broke=Broke,
+    )
+
+
+def use(monkeypatch, **kwargs) -> None:
+    """Point the routes at a fake seam."""
+    monkeypatch.setattr("second.api.routes.resolve_voice", lambda: seam(**kwargs))
 
 
 # --- the graph --------------------------------------------------------------
@@ -182,11 +201,18 @@ def test_an_unbuilt_daily_run_is_a_503_that_says_what_is_missing(client, monkeyp
     assert "Something went wrong" not in detail
 
 
-def test_voice_upload_without_the_connector_is_a_503_that_names_its_owner(client):
-    response = client.post("/api/voice", files={"audio": ("intake.webm", b"x" * 64, "audio/webm")})
+def test_voice_upload_without_the_connector_is_a_503_that_names_its_owner(client, monkeypatch):
+    """An absent package is explained, not turned into a 500 on an ImportError."""
 
-    if response.status_code == 200:
-        pytest.skip("CONNECTORS has landed; the seam resolves")
+    def absent():
+        raise api_voice.MissingVoice(
+            "second.voice does not exist yet (owned by CONNECTORS). "
+            "The browser live transcript still works; the accurate one needs this."
+        )
+
+    monkeypatch.setattr("second.api.routes.resolve_voice", absent)
+
+    response = client.post("/api/voice", files={"audio": ("intake.webm", b"x" * 64, "audio/webm")})
 
     assert response.status_code == 503
     detail = response.json()["detail"]
@@ -194,18 +220,105 @@ def test_voice_upload_without_the_connector_is_a_503_that_names_its_owner(client
     assert "CONNECTORS" in detail
 
 
-def test_an_empty_upload_is_refused_before_the_seam_is_touched(client):
+def test_the_upload_is_sent_on_as_bare_audio_webm(client, monkeypatch):
+    """An S3 presigned PUT signs the content type.
+
+    ``MediaRecorder.mimeType`` reports ``audio/webm;codecs=opus`` and that fails
+    the signature with an opaque 403 that reads like CORS. The browser re-wraps
+    the blob; this asserts the server half of the same agreement rather than
+    trusting whatever the client happened to send.
+    """
+    seen = {}
+
+    def start(payload, content_type, **_):
+        seen["content_type"] = content_type
+        seen["bytes"] = len(payload)
+        return "job-9"
+
+    use(monkeypatch, start=start)
+
+    response = client.post(
+        "/api/voice",
+        files={"audio": ("intake.webm", b"x" * 40, "audio/webm;codecs=opus")},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"job_id": "job-9"}
+    assert seen["content_type"] == "audio/webm", "the codecs parameter must not reach S3"
+    assert seen["bytes"] == 40
+
+
+def test_an_empty_upload_is_refused_before_the_seam_is_touched(client, monkeypatch):
+    def start(*_args, **_kwargs):
+        raise AssertionError("the seam must not be called for an empty upload")
+
+    use(monkeypatch, start=start)
+
     response = client.post("/api/voice", files={"audio": ("intake.webm", b"", "audio/webm")})
 
     assert response.status_code == 400
     assert "empty" in response.json()["detail"].lower()
 
 
-def test_an_unknown_job_is_a_404(client):
-    response = client.get("/api/voice/not-a-job")
+def test_an_oversized_upload_is_refused_against_the_connectors_own_limit(client, monkeypatch):
+    """One cap, theirs. Two that can disagree is worse than one in the wrong place."""
+    use(monkeypatch, max_bytes=32)
 
-    assert response.status_code == 404
-    assert "not-a-job" in response.json()["detail"]
+    response = client.post("/api/voice", files={"audio": ("intake.webm", b"x" * 64, "audio/webm")})
+
+    assert response.status_code == 413
+    assert "limit" in response.json()["detail"]
+
+
+def test_a_recording_the_seam_rejects_is_a_400_carrying_its_reason(client, monkeypatch):
+    def start(*_args, **_kwargs):
+        raise Rejected("audio is 0 bytes")
+
+    use(monkeypatch, start=start)
+
+    response = client.post("/api/voice", files={"audio": ("intake.webm", b"x" * 40, "audio/webm")})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "audio is 0 bytes"
+
+
+def test_a_job_that_will_not_start_is_a_502_carrying_its_reason(client, monkeypatch):
+    def start(*_args, **_kwargs):
+        raise Broke("could not start transcribing: AccessDenied")
+
+    use(monkeypatch, start=start)
+
+    response = client.post("/api/voice", files={"audio": ("intake.webm", b"x" * 40, "audio/webm")})
+
+    assert response.status_code == 502
+    assert "AccessDenied" in response.json()["detail"]
+
+
+def test_a_running_job_reports_running_with_no_transcript(client, monkeypatch):
+    use(monkeypatch, get=lambda job_id: ("running", None))
+
+    response = client.get("/api/voice/job-1")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "running", "transcript": None}
+
+
+def test_a_finished_job_reports_the_transcript(client, monkeypatch):
+    use(monkeypatch, get=lambda job_id: ("done", "I want to speak to a room."))
+
+    response = client.get("/api/voice/job-1")
+
+    assert response.json() == {"status": "done", "transcript": "I want to speak to a room."}
+
+
+def test_an_unrecognised_status_is_reported_as_failed_not_passed_through(client, monkeypatch):
+    """The seam documents exactly two statuses, so a third means it moved."""
+    use(monkeypatch, get=lambda job_id: ("queued", None))
+
+    body = client.get("/api/voice/job-1").json()
+
+    assert body["status"] == "failed"
+    assert "queued" in body["detail"]
 
 
 # --- the two guards ---------------------------------------------------------
@@ -236,48 +349,32 @@ def test_the_spa_catch_all_does_not_swallow_the_api(tmp_path, store, monkeypatch
         assert missing.json()["detail"] == "No route /api/nonsense."
 
 
-def test_a_failed_transcription_becomes_a_failed_job_not_a_lost_exception():
-    """The reason has to survive, or the browser polls a dead job forever.
+def test_a_failed_transcription_is_a_200_saying_failed_not_a_500(client, monkeypatch):
+    """The reason has to reach the browser, or it polls a dead job forever.
 
-    Watched fail first: re-raising inside ``JobRegistry.start`` instead of
-    capturing leaves ``status == "running"`` and puts the traceback in the event
-    loop's exception handler, where nothing the user can see will ever mention
-    it.
+    ``get_transcription`` never returns ``"failed"``: CONNECTORS raises
+    ``TranscriptionError`` carrying Transcribe's own FailureReason, and argues
+    correctly that it is the only explanation that exists. But the route promises
+    a status, and a browser in a polling loop needs to be told to stop.
+    Converting is the HTTP layer's job.
+
+    Watched fail first: removing the ``except seam.broke`` in
+    ``api/voice.read_job`` makes this a 500 with a generic detail, and the Record
+    screen polls a dead job forever.
     """
 
-    async def scenario() -> jobs.Job:
-        async def boom() -> str:
-            raise RuntimeError("Transcribe refused the media format")
+    def get(job_id):
+        raise Broke("transcription failed: The media format is not supported")
 
-        job = jobs.registry.start(boom())
-        assert job.status == "running", "it is running until it is not"
-        await asyncio.gather(job.task, return_exceptions=True)
-        return job
+    use(monkeypatch, get=get)
 
-        # (unreachable) - kept explicit so the awaited task is never orphaned
+    response = client.get("/api/voice/job-1")
 
-    job = asyncio.run(scenario())
-
-    assert job.status == "failed"
-    assert job.transcript is None
-    assert "Transcribe refused the media format" in (job.error or "")
-
-
-def test_a_successful_transcription_lands_on_the_job():
-    async def scenario() -> jobs.Job:
-        async def transcribe() -> str:
-            await asyncio.sleep(0)
-            return "I want to get better at speaking to a room."
-
-        job = jobs.registry.start(transcribe())
-        await job.task
-        return job
-
-    job = asyncio.run(scenario())
-
-    assert job.status == "done"
-    assert job.transcript == "I want to get better at speaking to a room."
-    assert job.error is None
+    assert response.status_code == 200, "a dead job is an answer, not a server error"
+    body = response.json()
+    assert body["status"] == "failed"
+    assert body["transcript"] is None
+    assert "media format is not supported" in body["detail"]
 
 
 # --- the happy path for the day, once AGENTS lands --------------------------

@@ -894,7 +894,8 @@
             "email_draft",
             "options",
             "retrieved_fact",
-            "calendar_change"
+            "calendar_change",
+            "nothing"
           ],
           "title": "Kind",
           "type": "string"
@@ -924,6 +925,7 @@
           "title": "External Ref"
         },
         "awaiting": {
+          "default": "",
           "description": "The single thing left for the user to do.",
           "title": "Awaiting",
           "type": "string"
@@ -931,8 +933,7 @@
       },
       "required": [
         "kind",
-        "summary",
-        "awaiting"
+        "summary"
       ],
       "title": "PreparedAction",
       "type": "object"

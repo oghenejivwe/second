@@ -72,14 +72,18 @@ USER = demo_scenario.USER_ID
 TODAY = demo_scenario.TODAY
 
 NEXT_MORNING = TODAY + timedelta(days=1)
-"""The second day of the scenario, and the only one on which the check-in has rows.
+"""The second day of the scenario.
 
-``build_check_in`` reconciles ``clock.today - 1``, and the seeded world has no
-scheduled work on 2026-09-09 -- so on the scenario's own TODAY the check-in comes
-back empty and ``DailyBrief.check_in`` is ``None``. Handed back to PLATFORM as a
-seed gap; until it lands, the check-in is generated one day later, where
-yesterday is the demo day itself and carries three items with mixed evidence.
-Nothing here is hand-edited: this is the same ``run_daily`` on a different date."""
+Originally a workaround: ``build_check_in`` reconciles ``clock.today - 1``, and
+the seeded world had nothing scheduled on 2026-09-09, so the check-in came back
+empty and ``DailyBrief.check_in`` was always ``None`` on the demo day. Reported
+to PLATFORM, who seeded the day before; TODAY now yields two items, one of them
+the honest ``unknown``.
+
+Kept anyway, because the two days show different shapes and both are worth
+being able to put on screen: TODAY has three blocks and a two-item check-in,
+this one has a single block and three items. Nothing is hand-edited either way
+-- it is the same ``run_daily`` on a different date."""
 
 WINDOW_START = demo_scenario.HISTORY_START.isoformat() + "T00:00:00"
 WINDOW_END = (TODAY + timedelta(days=1)).isoformat() + "T00:00:00"
@@ -302,6 +306,15 @@ def daily_specs(
         "adapter": spec(
             "adapter",
             [
+                # The refusal comes first, and it is the most important row in the
+                # audit panel: the Eng sync has nine attendees and the user does
+                # not own it, so the tool refuses rather than the prompt talking
+                # the model out of it. A rail nobody can see working is a rail a
+                # judge has to take on trust.
+                ToolUse(
+                    "reschedule_event",
+                    {"event_id": "engsync000", "new_start": f"{TODAY}T07:00:00"},
+                ),
                 ToolUse("reschedule_event", {"event_id": "gym000", "new_start": f"{TODAY}T07:00:00"}),
                 # Both writes, deliberately. The calendar move is what the user
                 # sees in Google; this is what the Living Graph screen sees.
@@ -442,10 +455,50 @@ MUDDY_EXTRACTION = {
         }
     ],
     "clarifying_questions": [
-        "When you said fitter -- did you mean running, climbing, or the gym?",
+        "When you said fitter, did you mean running, climbing, or the gym?",
         "Is there a date you want to be ready by?",
     ],
 }
+
+def writing_goal() -> dict[str, Any]:
+    """The goal one clear intake produces, complete with its route and task.
+
+    A scripted Route Planner that only talks writes nothing, which left the
+    Scheduler placing ``t-writing-1`` into a graph that had never heard of it --
+    and the Record screen said so, correctly, on screen. The screen was right;
+    the fixture was wrong. So the node writes the goal it planned, exactly as a
+    real one would, and the placement then refers to something that exists.
+    """
+    return {
+        "id": "g-writing",
+        "title": "Write in public every week",
+        "horizon": "year",
+        "contributes_to": "g-raise",
+        "status": "active",
+        "extraction_confidence": 0.93,
+        "routes": [
+            {
+                "id": "r-writing",
+                "goal_id": "g-writing",
+                "title": "One short piece, Friday mornings",
+                "cadence": "Weekly, Friday 07:00",
+                "rationale": (
+                    "07:00 is the only slot this person has actually kept, and they said they "
+                    "learn by making something rather than by reading about it."
+                ),
+                "status": "proposed",
+                "tasks": [
+                    {
+                        "id": "t-writing-1",
+                        "route_id": "r-writing",
+                        "title": "Draft and publish one short piece",
+                        "scheduled_slots": [f"{TODAY + timedelta(days=2)}T07:00:00"],
+                    }
+                ],
+            }
+        ],
+    }
+
 
 PLACED = {
     "placed": [
@@ -477,7 +530,16 @@ def intake_specs(extraction: dict, *, plan: bool) -> dict[str, AgentSpec]:
         "cascader": spec("cascader", [Text("Nothing longer than a year needed walking down.")]),
         "route_planner": spec(
             "route_planner",
-            [Text("One route: Tuesday mornings, 60 minutes, publish on Friday.")],
+            [
+                ToolUse(
+                    "write_graph",
+                    {"user_id": USER, "layer": "goals", "patch": {"goals": [writing_goal()]}},
+                )
+                if plan
+                else Text("nothing to plan against"),
+                Text("One route: a short piece every Friday at 07:00."),
+            ],
+            tools=("read_graph", "write_graph"),
         ),
         "scheduler": spec(
             "scheduler",

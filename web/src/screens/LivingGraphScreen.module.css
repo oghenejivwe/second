@@ -105,6 +105,11 @@
   min-height: 0;
 }
 
+.flow {
+  position: absolute;
+  inset: 0;
+}
+
 .waiting {
   padding: var(--space-7);
   font-size: var(--size-13);

@@ -297,7 +297,7 @@ export interface ScheduledBlock {
  * via the `definition` "PreparedAction".
  */
 export interface PreparedAction {
-  kind: 'email_draft' | 'options' | 'retrieved_fact' | 'calendar_change'
+  kind: 'email_draft' | 'options' | 'retrieved_fact' | 'calendar_change' | 'nothing'
   /**
    * What was prepared, in one line.
    */

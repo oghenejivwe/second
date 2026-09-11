@@ -27,8 +27,7 @@ from fastapi import APIRouter, File, Path, Query, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from second.api import jobs
-from second.api.voice import WEBM, resolve_transcriber
+from second.api.voice import WEBM, read_job, resolve_voice
 from second.core.models import GoalStatus
 from second.graphs import service
 from second.settings import DEMO_USER_ID
@@ -36,14 +35,6 @@ from second.settings import DEMO_USER_ID
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
-
-MAX_AUDIO_BYTES = 25 * 1024 * 1024
-"""About twenty minutes of Opus at the bitrate MediaRecorder defaults to.
-
-A cap exists because ``UploadFile`` spools to disk and an unbounded upload is an
-unbounded disk write. This is a demo with one user, so the number only has to be
-larger than any honest intake and smaller than a mistake."""
-
 
 def sent(model: BaseModel) -> JSONResponse:
     """Serialise exactly as the contract promises, and not a second time."""
@@ -173,13 +164,19 @@ def set_goal_status(body: GoalStatusIn, goal_id: str = Path(min_length=1)) -> JS
 
 
 @router.post("/voice")
-async def start_voice(audio: UploadFile = File()) -> JSONResponse:
+def start_voice(audio: UploadFile = File()) -> JSONResponse:
     """Take the recorded audio and start transcribing it.
 
-    Read fully before the job starts, on purpose: ``UploadFile`` is tied to the
-    request, and a background task holding it would be reading from a file
-    Starlette has already closed. Twenty-five megabytes in memory once is the
-    cheaper mistake.
+    A **sync** route on purpose. CONNECTORS' ``start_transcription`` is
+    blocking -- it puts the object in S3 and calls Transcribe -- and calling it
+    from an ``async def`` would stall the event loop for the whole round trip,
+    stopping every other request including the poll that follows. FastAPI runs a
+    sync route in a worker thread, which is the idiom for exactly this, and it is
+    why ``audio.file.read()`` appears here rather than ``await audio.read()``.
+
+    Read fully before starting, also on purpose: ``UploadFile`` is tied to the
+    request, and anything holding it afterwards would be reading from a file
+    Starlette has already closed.
 
     The content type is forced to bare ``audio/webm``. The browser sends that
     too -- an S3 presigned PUT signs the content type, and
@@ -187,41 +184,48 @@ async def start_voice(audio: UploadFile = File()) -> JSONResponse:
     like CORS. Both halves of that agreement are written down where someone
     tempted to "fix" either will see it.
     """
-    payload = await audio.read()
+    seam = resolve_voice()
+    payload = audio.file.read()
+
     if not payload:
         return JSONResponse(status_code=400, content={"detail": "The upload was empty."})
-    if len(payload) > MAX_AUDIO_BYTES:
+    if len(payload) > seam.max_bytes:
+        # Checked against CONNECTORS' own constant, so the two cannot drift. They
+        # check it again inside store_audio; this one exists to refuse before the
+        # bytes are handed on.
         return JSONResponse(
             status_code=413,
             content={
                 "detail": (
                     f"That recording is {len(payload) // 1_000_000} MB; the limit is "
-                    f"{MAX_AUDIO_BYTES // 1_000_000} MB."
+                    f"{seam.max_bytes // 1_000_000} MB."
                 )
             },
         )
 
-    transcribe = resolve_transcriber()
-    job = jobs.registry.start(transcribe(payload, content_type=WEBM))
-    return JSONResponse(content={"job_id": job.id})
+    try:
+        job_id = seam.start(payload, WEBM)
+    except seam.rejected as error:
+        # The recording itself is unusable. The user can do something about that.
+        return JSONResponse(status_code=400, content={"detail": str(error)})
+    except seam.broke as error:
+        # Transcribe would not take the job. Nothing the user can do, and the
+        # live transcript is still on screen, so this is not fatal to the intake.
+        logger.warning("could not start transcription", exc_info=True)
+        return JSONResponse(status_code=502, content={"detail": str(error)})
+
+    return JSONResponse(content={"job_id": job_id})
 
 
 @router.get("/voice/{job_id}")
 def read_voice(job_id: str = Path(min_length=1)) -> JSONResponse:
     """Where that transcription got to.
 
-    ``failed`` carries the reason in ``detail`` alongside the status, because
-    the screen shows what failed rather than that something did. The live
-    transcript the browser already painted is unaffected either way.
-    """
-    job = jobs.registry.get(job_id)
-    if job is None:
-        return JSONResponse(
-            status_code=404,
-            content={"detail": f"No transcription job {job_id!r}. It may have expired."},
-        )
+    Sync for the same reason as the POST: the seam makes a blocking AWS call.
 
-    body: dict[str, object] = {"status": job.status, "transcript": job.transcript}
-    if job.error:
-        body["detail"] = job.error
-    return JSONResponse(content=body)
+    Always 200 with a status, including for a job that died -- see
+    ``api/voice.read_job``. A browser in a polling loop needs to be told to stop,
+    and a 500 does not tell it that.
+    """
+    seam = resolve_voice()
+    return JSONResponse(content=read_job(seam, job_id))

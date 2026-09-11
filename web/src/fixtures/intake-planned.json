@@ -86,6 +86,7 @@
                   "2026-08-22T08:00:00",
                   "2026-08-29T08:00:00",
                   "2026-09-05T08:00:00",
+                  "2026-09-09T08:00:00",
                   "2026-09-10T08:00:00"
                 ],
                 "slip_count": 3,
@@ -194,6 +195,7 @@
                   "2026-08-24T18:00:00",
                   "2026-08-27T18:00:00",
                   "2026-08-29T18:00:00",
+                  "2026-09-09T18:00:00",
                   "2026-09-10T18:00:00"
                 ],
                 "slip_count": 4,
@@ -296,6 +298,42 @@
           }
         ],
         "extraction_confidence": 0.97
+      },
+      {
+        "id": "g-writing",
+        "title": "Write in public every week",
+        "horizon": "year",
+        "contributes_to": "g-raise",
+        "deadline": null,
+        "status": "active",
+        "routes": [
+          {
+            "id": "r-writing",
+            "goal_id": "g-writing",
+            "title": "One short piece, Friday mornings",
+            "cadence": "Weekly, Friday 07:00",
+            "rationale": "07:00 is the only slot this person has actually kept, and they said they learn by making something rather than by reading about it.",
+            "status": "proposed",
+            "tasks": [
+              {
+                "id": "t-writing-1",
+                "route_id": "r-writing",
+                "title": "Draft and publish one short piece",
+                "depends_on": [],
+                "deadline": null,
+                "scheduled_slots": [
+                  "2026-09-12T07:00:00"
+                ],
+                "slip_count": 0,
+                "slips": [],
+                "status": "pending",
+                "known_blocker": null,
+                "resource_url": null
+              }
+            ]
+          }
+        ],
+        "extraction_confidence": 0.93
       }
     ],
     "person": {
@@ -339,8 +377,8 @@
         "note": "Recording and listening back suits someone who learns by video."
       }
     ],
-    "version": 1,
-    "updated_at": "2026-09-11T00:03:51.324165Z"
+    "version": 2,
+    "updated_at": "2026-09-11T09:13:31.943933Z"
   },
   "clarifying_questions": [],
   "schedule": {

@@ -113,6 +113,18 @@ export interface FlowModel {
 const NODE_WIDTH: Record<NodeKind, number> = { goal: 248, route: 216, task: 208 }
 const ROW_HEIGHT = 132
 
+const ANNOTATION_GUTTER = 178
+/** Space reserved to the right of a node that carries person-layer facts.
+
+ * The annotations are absolutely positioned outside the node box, so the
+ * browser does not measure them and the layout has no idea they are there.
+ * Caught by looking at the screen: "Tue 19:00, attended every week" was
+ * printed across the top of the task in the next column. Reserving the gutter
+ * in the layout input is the fix -- 170px of annotation plus its 8px gap --
+ * because the alternative, moving the facts inside the node, would make them
+ * content, and the brief is right that they are context.
+ */
+
 const TONE: Partial<Record<Link['kind'], Annotation['tone']>> = {
   slot_honoured_for_task: 'held',
   slot_abandoned_for_task: 'slipped',
@@ -137,6 +149,17 @@ export function buildFlowModel(graph: LivingGraph): FlowModel {
   const inputs: TreeInput<SecondNodeData>[] = []
   const horizonRow = new Map<string, number>()
 
+  // Reserved width per node, which is the node plus its annotation gutter. The
+  // layout centres nodes inside their reserved box, so positioning has to use
+  // the same number or an annotated node drifts right by half a gutter.
+  const reserved = new Map<string, number>()
+
+  const reserve = (id: string, kind: NodeKind, facts: Annotation[]): number => {
+    const width = NODE_WIDTH[kind] + (facts.length > 0 ? ANNOTATION_GUTTER : 0)
+    reserved.set(id, width)
+    return width
+  }
+
   // Goals, deepest-horizon-last so a parent's row is known before its child's.
   for (const goal of sortedByLadder(graph.goals)) {
     const parentRow = goal.contributes_to ? horizonRow.get(goal.contributes_to) : undefined
@@ -144,10 +167,11 @@ export function buildFlowModel(graph: LivingGraph): FlowModel {
     horizonRow.set(goal.id, row)
 
     const schedulable = isSchedulable(goal.horizon)
+    const goalFacts = annotations.get(goal.id) ?? []
     inputs.push({
       id: goal.id,
       parent: goal.contributes_to && goalIds.has(goal.contributes_to) ? goal.contributes_to : null,
-      width: NODE_WIDTH.goal,
+      width: reserve(goal.id, 'goal', goalFacts),
       payload: {
         kind: 'goal',
         goal,
@@ -159,7 +183,7 @@ export function buildFlowModel(graph: LivingGraph): FlowModel {
           !graph.goals.some((other) => other.contributes_to === goal.id) &&
           goal.routes.length === 0,
         broken: Boolean(goal.contributes_to) && !goalIds.has(goal.contributes_to as string),
-        annotations: annotations.get(goal.id) ?? [],
+        annotations: goalFacts,
       },
     })
   }
@@ -169,11 +193,12 @@ export function buildFlowModel(graph: LivingGraph): FlowModel {
   for (const goal of graph.goals) {
     for (const route of goal.routes) {
       if (!LIVE_ROUTE_STATUSES.includes(route.status)) continue
+      const routeFacts = annotations.get(route.id) ?? []
       inputs.push({
         id: route.id,
         parent: goal.id,
-        width: NODE_WIDTH.route,
-        payload: { kind: 'route', route, annotations: annotations.get(route.id) ?? [] },
+        width: reserve(route.id, 'route', routeFacts),
+        payload: { kind: 'route', route, annotations: routeFacts },
       })
 
       for (const task of route.tasks) {
@@ -181,16 +206,17 @@ export function buildFlowModel(graph: LivingGraph): FlowModel {
           const upstream = tasks.get(id)
           return !upstream || upstream.status !== 'done'
         })
+        const taskFacts = annotations.get(task.id) ?? []
         inputs.push({
           id: task.id,
           parent: route.id,
-          width: NODE_WIDTH.task,
+          width: reserve(task.id, 'task', taskFacts),
           payload: {
             kind: 'task',
             task,
             slipped: task.slip_count > 0,
             blockedBy,
-            annotations: annotations.get(task.id) ?? [],
+            annotations: taskFacts,
           },
         })
       }
@@ -212,7 +238,9 @@ export function buildFlowModel(graph: LivingGraph): FlowModel {
       id: node.id,
       type: node.payload.kind,
       data: node.payload,
-      position: { x: node.x - NODE_WIDTH[node.payload.kind] / 2, y: row * ROW_HEIGHT },
+      // Left edge of the reserved box, so the gutter lands to the node's right
+      // -- exactly where the annotations are drawn.
+      position: { x: node.x - (reserved.get(node.id) ?? NODE_WIDTH[node.payload.kind]) / 2, y: row * ROW_HEIGHT },
     }
   })
 

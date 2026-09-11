@@ -40,6 +40,7 @@ interface State {
   runDaily: () => Promise<void>
   setGoalStatus: (goalId: string, status: Goal['status']) => Promise<void>
   clearDiff: () => void
+  clearStatusChange: () => void
   /** Fixture mode only: step Today through its states without a live run. */
   showBrief: (brief: DailyBrief) => void
 }
@@ -155,5 +156,11 @@ export const useSecond = create<State>((set, get) => ({
   },
 
   clearDiff: () => set({ diff: null }),
+
+  // Dismissing the freed band has to outlive the screen. It was component state
+  // in Goals, and App.tsx unmounts Goals on navigation -- so leaving and coming
+  // back resurrected a band the user had already dismissed, for a status change
+  // from minutes ago.
+  clearStatusChange: () => set({ lastStatusChange: null }),
   showBrief: (brief) => set({ brief }),
 }))

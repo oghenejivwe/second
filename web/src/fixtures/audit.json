@@ -1,7 +1,7 @@
 [
   {
-    "at": "2026-09-11T00:03:49.347652Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.368110Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "node",
     "actor": "graph",
     "action": "run_end",
@@ -10,8 +10,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.347652Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.368110Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "node",
     "actor": "communicator",
     "action": "node_end",
@@ -22,8 +22,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.346501Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.368110Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "communicator",
     "action": "BriefJudgement",
@@ -34,8 +34,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.345500Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.352403Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "node",
     "actor": "communicator",
     "action": "node_start",
@@ -44,8 +44,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.344500Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.352403Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "node",
     "actor": "preparer",
     "action": "node_end",
@@ -56,8 +56,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.344500Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.352403Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "preparer",
     "action": "PreparedAction",
@@ -68,8 +68,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.342500Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.352403Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "preparer",
     "action": "draft_email",
@@ -80,8 +80,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.340502Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.352403Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "preparer",
     "action": "search_gmail",
@@ -92,8 +92,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.337902Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.352403Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "node",
     "actor": "preparer",
     "action": "node_start",
@@ -102,8 +102,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.336901Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.352403Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "node",
     "actor": "adapter",
     "action": "node_end",
@@ -112,8 +112,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.334862Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.352403Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "adapter",
     "action": "write_graph",
@@ -124,8 +124,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.280002Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.291715Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "adapter",
     "action": "write_graph",
@@ -136,8 +136,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.220484Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.081341Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "adapter",
     "action": "reschedule_event",
@@ -148,8 +148,20 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.218887Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.081341Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "kind": "tool",
+    "actor": "adapter",
+    "action": "reschedule_event",
+    "payload": {
+      "input": "{'event_id': 'engsync000', 'new_start': '2026-09-10T07:00:00'}"
+    },
+    "is_write": true,
+    "failed": true
+  },
+  {
+    "at": "2026-09-11T09:13:30.078631Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "node",
     "actor": "adapter",
     "action": "node_start",
@@ -158,8 +170,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.218887Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.078631Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "node",
     "actor": "diagnostician",
     "action": "node_end",
@@ -170,8 +182,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.217887Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.065258Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "diagnostician",
     "action": "Diagnosis",
@@ -182,8 +194,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.215921Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.065258Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "diagnostician",
     "action": "read_graph",
@@ -194,8 +206,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.169754Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.003778Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "node",
     "actor": "diagnostician",
     "action": "node_start",
@@ -204,8 +216,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.169754Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.003778Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "node",
     "actor": "observer",
     "action": "node_end",
@@ -216,20 +228,20 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.169247Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.003778Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "observer",
     "action": "ObservationReport",
     "payload": {
-      "input": "{'observations': [], 'notes': 'The 18:00 weekday slot has collided with a standing meeting for three weeks.'}"
+      "input": "{'observations': [{'task_id': 't-recording', 'scheduled_for': '2026-09-09T08:00:00+01:00', 'outcome': 'unknown', 'evidence': '', 'source': 'none'}, {'task_id': 't-gym', 'scheduled_for': '2026-09-09T18:00:00+01:00', 'outcome': 'missed', 'evidence': \"18:00 invite declined; 'Eng sync' (9 attendees) ra…"
     },
     "is_write": false,
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.166247Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:30.002673Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "observer",
     "action": "update_person_model",
@@ -240,8 +252,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.114238Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:29.926264Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "observer",
     "action": "search_gmail",
@@ -252,8 +264,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.112236Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:29.926264Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "tool",
     "actor": "observer",
     "action": "get_calendar_events",
@@ -264,8 +276,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.109852Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:29.926264Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "node",
     "actor": "observer",
     "action": "node_start",
@@ -274,8 +286,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T00:03:49.109852Z",
-    "run_id": "8d937e2f-a27a-401d-b532-0248a0cd1c33",
+    "at": "2026-09-11T09:13:29.926264Z",
+    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
     "kind": "node",
     "actor": "graph",
     "action": "run_start",
