@@ -38,12 +38,18 @@ by a system that is merely fluent.
 
 from __future__ import annotations
 
+import os
 from datetime import date, datetime, timedelta
 
 from second.core.models import Goal, Link, LivingGraph, PersonModel, Route, Slip, Task
 
-TODAY = date(2026, 9, 10)
-"""The scenario's "now". Injected everywhere as ``deps.today``."""
+TODAY = date.fromisoformat(os.environ.get("SECOND_DEMO_TODAY", "2026-09-10"))
+"""The scenario's "now". Injected everywhere as ``deps.today``.
+
+Frozen by default so tests reproduce, and overridable by ``SECOND_DEMO_TODAY`` so
+the demo world can be moved to whatever day you are recording. Everything here is
+relative to this date, so shifting it shifts the whole world -- the three weeks of
+history, the slots today, the day the check-in reconciles."""
 
 HISTORY_START = TODAY - timedelta(days=21)
 USER_ID = "demo"

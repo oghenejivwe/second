@@ -14,6 +14,21 @@ answers that take two minutes.
 
 ---
 
+## ⚠️ ON DEMO DAY, BEFORE YOU RECORD
+
+Add one line to `.env` with that day's date:
+
+```
+SECOND_DEMO_TODAY=2026-09-14
+```
+
+The seeded demo world is built relative to a single date. Without this the
+"upcoming" slots are in the past, retiring a goal frees nothing, and the check-in
+has nothing to reconcile. Three tests caught it when the date rolled over; the
+demo would have caught it on stage.
+
+---
+
 ## A. Five answers I need (2 minutes, no console)
 
 Reply to these in chat. Three of them change what I build.

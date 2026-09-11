@@ -29,6 +29,19 @@ REGION = "us-west-2"
 TABLE = "second_graph"
 
 
+@pytest.fixture(autouse=True)
+def _pin_the_date(monkeypatch):
+    """Make the whole system agree with the seeded world's date.
+
+    The demo scenario is built relative to one date. Left to the real clock, a
+    test that goes through HTTP -- and so cannot pass ``today`` -- reads the
+    actual date, and every seeded "upcoming" slot is in the past the moment the
+    day rolls over. Three API tests started failing overnight for exactly that
+    reason, which is the cheap version of the same thing happening on stage.
+    """
+    monkeypatch.setenv("SECOND_DEMO_TODAY", demo_scenario.TODAY.isoformat())
+
+
 @pytest.fixture
 def today() -> date:
     """The scenario's fixed "now".

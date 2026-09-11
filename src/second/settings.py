@@ -84,6 +84,43 @@ the one to test first."""
 
 GEMINI_API_KEY_ENV = "GEMINI_API_KEY"
 
+
+# --- OpenAI-compatible providers -------------------------------------------
+
+OPENAI_COMPATIBLE = {
+    # name: (base_url, default model, env var holding the key)
+    "groq": ("https://api.groq.com/openai/v1", "openai/gpt-oss-120b", "GROQ_API_KEY"),
+    "mistral": ("https://api.mistral.ai/v1", "mistral-small-latest", "MISTRAL_API_KEY"),
+    "qwen": (
+        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        "qwen-plus",
+        "DASHSCOPE_API_KEY",
+    ),
+    "openrouter": ("https://openrouter.ai/api/v1", "z-ai/glm-4.6:free", "OPENROUTER_API_KEY"),
+    "local": ("http://localhost:8080/v1", "local", "LLAMACPP_API_KEY"),
+}
+"""Every other provider is reached through Strands' ``openai`` provider.
+
+**Never through its own dedicated Strands provider.** Six of them --
+``mistral``, ``ollama``, ``llamacpp``, ``llamaapi``, ``writer`` and
+``sagemaker`` -- call ``warn_on_tool_choice_not_supported`` and then **discard
+the tool choice**, emitting a Python warning and nothing else. Verified by
+grepping the installed source.
+
+That is the most expensive trap in this whole area because it looks like the
+obvious path: ``strands-agents[mistral]`` plus ``MistralModel(...)`` installs
+clean, runs clean, and silently un-forces every structured output in the build.
+Second's Daily graph routes on a typed field, so the failure is not an error --
+it is a routing decision quietly made on a field that was never filled in.
+
+``anthropic``, ``bedrock``, ``gemini``, ``litellm``, ``openai`` and
+``openai_responses`` honour it. Those are the only providers this build uses."""
+
+TOOL_CHOICE_DISCARDING_PROVIDERS = frozenset(
+    {"mistral", "ollama", "llamacpp", "llamaapi", "writer", "sagemaker"}
+)
+"""Strands providers that accept a forced tool choice and throw it away."""
+
 GEMINI_NODE_MODELS: dict[str, str] = {
     # Daily -- the five that run every morning
     "observer": "gemini-3.5-flash-lite",
@@ -135,6 +172,18 @@ and diagnosis stay on Sonnet."""
 
 TABLE_NAME = os.environ.get("SECOND_TABLE", "second_graph")
 S3_BUCKET = os.environ.get("SECOND_BUCKET", "second-voice-demo")
+
+DEMO_TODAY_ENV = "SECOND_DEMO_TODAY"
+"""Pins what the whole system thinks today is. An ISO date, or unset for the real one.
+
+The seeded demo world is built relative to one date. Left to the real clock, that
+world goes stale the moment the date rolls over -- on 2026-09-12 a scenario frozen
+at 2026-09-10 has every "upcoming" slot in the past, the retire beat frees nothing,
+and the check-in has nothing to reconcile. Three API tests caught it; the demo
+would have caught it on stage.
+
+Setting this makes the clock, the seeded world and every agent agree. Set it on
+demo day to that day's date and the whole world moves with it."""
 
 DEMO_USER_ID = "demo"
 """Single hardcoded user. No auth in this build."""

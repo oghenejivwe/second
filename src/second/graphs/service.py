@@ -12,6 +12,7 @@ ImportError three frames deep.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -39,7 +40,7 @@ from second.graphs.feedback import build_feedback_graph
 from second.graphs.intake import build_intake_graph
 from second.persistence.serde import decimals_to_native
 from second.persistence.store import LivingGraphStore
-from second.settings import DEMO_USER_ID
+from second.settings import DEMO_TODAY_ENV, DEMO_USER_ID
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,9 @@ def _clock_for(today: date | None) -> Clock:
     """
     resolved = resolve_clock()
     if today is None:
+        pinned = os.environ.get(DEMO_TODAY_ENV)
+        if pinned:
+            return Clock.fixed(date.fromisoformat(pinned), zone_name=resolved.name)
         return resolved
     return Clock.fixed(today, zone_name=resolved.name)
 

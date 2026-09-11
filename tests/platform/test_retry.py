@@ -84,3 +84,59 @@ def test_the_real_gemini_503_shape_is_retried(strategy):
         '"This model is currently experiencing high demand."}}\'}'
     )
     assert strategy.is_retryable(real) is True
+
+
+# -- the trap that looks like the obvious path ------------------------------
+
+
+def test_a_provider_that_discards_forced_tool_choice_is_refused():
+    """Six Strands providers accept a tool choice and throw it away.
+
+    mistral, ollama, llamacpp, llamaapi, writer and sagemaker all call
+    warn_on_tool_choice_not_supported and then drop it -- a Python warning and
+    nothing else. `strands-agents[mistral]` plus MistralModel(...) installs
+    clean, runs clean, and silently un-forces every structured output.
+
+    Second routes on a typed field, so that failure is not an error. It is a
+    routing decision made on a field nothing filled in. Refusing at construction
+    is the only place it can be caught.
+    """
+    from second.graphs.composition import ModelProviderNotConfigured, build_model
+    from second.settings import TOOL_CHOICE_DISCARDING_PROVIDERS
+
+    for provider in sorted(TOOL_CHOICE_DISCARDING_PROVIDERS):
+        with pytest.raises(ModelProviderNotConfigured) as excinfo:
+            build_model(provider=provider)
+        assert "discards forced tool choice" in str(excinfo.value)
+
+
+def test_the_discard_list_matches_the_installed_sdk():
+    """Pinned to reality, so an SDK upgrade that fixes one of these shows up here."""
+    import pathlib
+
+    from second.settings import TOOL_CHOICE_DISCARDING_PROVIDERS
+
+    models_dir = pathlib.Path("src").resolve().parent / ".venv/Lib/site-packages/strands/models"
+    if not models_dir.exists():
+        pytest.skip("installed SDK not found")
+
+    discarding = {
+        path.stem
+        for path in models_dir.glob("*.py")
+        if not path.stem.startswith("_")
+        and "warn_on_tool_choice_not_supported" in path.read_text(encoding="utf-8")
+    }
+    assert discarding == set(TOOL_CHOICE_DISCARDING_PROVIDERS), (
+        f"the SDK changed: installed={sorted(discarding)} "
+        f"expected={sorted(TOOL_CHOICE_DISCARDING_PROVIDERS)}"
+    )
+
+
+def test_an_openai_compatible_provider_needs_its_key():
+    from second.graphs.composition import ModelProviderNotConfigured, build_model
+
+    import os
+    os.environ.pop("GROQ_API_KEY", None)
+    with pytest.raises(ModelProviderNotConfigured) as excinfo:
+        build_model(provider="groq")
+    assert "GROQ_API_KEY" in str(excinfo.value)

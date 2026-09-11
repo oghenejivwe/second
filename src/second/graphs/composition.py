@@ -44,6 +44,8 @@ from second.settings import (
     GEMINI_API_KEY_ENV,
     GEMINI_MODEL_ID,
     GEMINI_NODE_MODELS,
+    OPENAI_COMPATIBLE,
+    TOOL_CHOICE_DISCARDING_PROVIDERS,
     MODEL_PROVIDER,
     RETRY_INITIAL_DELAY,
     RETRY_MAX_ATTEMPTS,
@@ -271,6 +273,34 @@ def build_model(
             client_args=dict(ANTHROPIC_CLIENT_ARGS),
             model_id=model_id or ANTHROPIC_MODEL_ID,
             max_tokens=8192,
+        )
+
+    if chosen in TOOL_CHOICE_DISCARDING_PROVIDERS:
+        raise ModelProviderNotConfigured(
+            f"Strands' {chosen!r} provider discards forced tool choice -- it calls "
+            f"warn_on_tool_choice_not_supported and drops it, so structured output "
+            f"stops being forced and every routing decision in the Daily graph is "
+            f"made on a field nothing filled in. Reach it through the openai "
+            f"provider instead: SECOND_MODEL_PROVIDER={chosen} is handled that way "
+            f"if it is in OPENAI_COMPATIBLE."
+        )
+
+    if chosen in OPENAI_COMPATIBLE:
+        import os
+
+        base_url, default_model, key_env = OPENAI_COMPATIBLE[chosen]
+        key = os.environ.get(key_env)
+        if not key and chosen != "local":
+            raise ModelProviderNotConfigured(
+                f"{key_env} is not set for provider {chosen!r} ({base_url})."
+            )
+
+        from strands.models.openai import OpenAIModel
+
+        return OpenAIModel(
+            client_args={"api_key": key or "not-needed", "base_url": base_url},
+            model_id=model_id or default_model,
+            params={"max_tokens": 8192},
         )
 
     if chosen == "gemini":
