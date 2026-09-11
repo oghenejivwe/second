@@ -776,4 +776,167 @@ row is the one to design most carefully.**
 Carry on. Report when the package is done.
 
 ---
-WAITING ON: SURFACES - finish the package; regenerate contract.ts first
+
+## SURFACES — turn 2 · 2026-09-11T09:55Z
+**asks:** none blocking. Six handoffs below, all small, none of which stopped me.
+**phase:** done — ready for review
+
+The package is complete. Four screens, the audit panel, nine routes, the type
+layer and the fixture generator. **507 tests green (21 mine), `tsc -b` clean,
+`npm run build` clean**, and FastAPI serves the built bundle without swallowing
+`/api`. Contract regenerated after your note: `PreparedAction.kind` carries
+`"nothing"`.
+
+**I verified every screen in a browser rather than asserting it.** The quiet
+day, the check-in's `unknown` row, the retire beat, intake asking back, and the
+graph changing after a run — all driven and inspected live. That is how four of
+the defects below were found.
+
+### What is on screen
+
+| Screen | State |
+|---|---|
+| **Today** | 3 blocks, each with its `serving` chain; at-risk with days left; the check-in; the audit as a panel. `is_quiet` reads *"Nothing needs you today. / The day below is planned. Second speaks when something changes."* |
+| **Living Graph** | 17 nodes in horizon bands, slipped red, `t-leave → t-flights` dashed and labelled *waiting on this*, person facts in a reserved gutter, and a persistent `changed` mark after a run. |
+| **Goals** | The ladder by `contributes_to`, route rationale in mono, and the retire beat: 3 slots struck through with their ladders, **3 slots · 3h, no longer spoken for**, then your `note` verbatim. |
+| **Record** | One button, waveform, live Web Speech transcript, Transcribe swapping in. Both intake outcomes: questions back, or placed **and** deprioritised with the rationale. |
+| **Audit** | 26 entries grouped by `run_id`, oldest-first inside the run, writes marked — and one **refused** row. |
+
+`silence_reason` appears in the audit panel and nowhere else. Checked on the
+running app, not just in the source.
+
+### The voice seam — I rebuilt it against what you shipped
+
+I had written an in-process `JobRegistry` against the seam my brief described.
+CONNECTORS shipped a different and better one: `start_transcription` /
+`get_transcription`, with Transcribe owning the job. **So the registry is
+deleted.** It was infrastructure for a problem that turned out to be theirs.
+
+What the HTTP layer does still owe is a conversion, and CONNECTORS flagged it
+themselves: `get_transcription` **raises** where my route promises
+`"running|done|failed"`. A browser in a polling loop needs to be told to stop,
+so `TranscriptionError` becomes `{"status": "failed"}` carrying Transcribe's own
+`FailureReason`. **They offered to return the tuple instead — they should not.**
+Their version keeps the cause attached for the audit log, and converting costs
+me four lines. Both voice routes are `def` rather than `async def` so FastAPI
+runs the blocking AWS call in a worker thread, and the upload cap reads
+`voice.MAX_AUDIO_BYTES` rather than declaring a second one.
+
+### Guards, each watched RED before it passed
+
+| Mutation | What broke |
+|---|---|
+| Drop the `api/` check in the SPA catch-all | `GET /api/nonsense` returns `index.html` with a **200**; the browser parses HTML as JSON and reports a syntax error far from the mistake |
+| Remove `except seam.broke` in `api/voice.read_job` | A dead transcription becomes a **500** and the Record screen polls it forever |
+
+### WHAT I GOT WRONG, and it was the worst thing found
+
+**`clockTime` handed a timezone-aware string to `Date` and read `getHours()`.**
+Today's 08:00 block rendered as **00:00** for a viewer in US-Pacific, and Goals
+printed a date sliced from the characters beside an hour parsed in another zone
+— `Friday 11 September, 11:00` for a moment that was 19:00. A date and an hour
+that never coexisted, on the screen whose whole claim is that the plan is true.
+
+I wrote the header warning about exactly this and then did it anyway, one
+function below.
+
+**Nothing in `lib/datetime.ts` parses a datetime now.** Both shapes already
+carry the wall clock the person reads off their own calendar — the naive one
+because that is how the graph stores it, the aware one because you put
+everything crossing the boundary through `Clock.local()`. The offset says which
+zone that was; it is not an instruction to convert. The module is now
+independent of where the viewer is.
+
+Three more of mine, all found by driving the app:
+
+- **`fitView` solved for a stale container and never ran again.** The graph
+  fitted a 500px pane, the window grew to 880, and every node stayed clamped
+  flat against `minZoom`. A `ResizeObserver` re-fits now. The first thing anyone
+  does with a graph is make the window bigger.
+- **The annotation gutter was not reserved**, so "Tue 19:00, attended every
+  week" printed across the task in the next column. The facts are positioned
+  outside the node box, so the browser never measured them.
+- **A gradient and a `box-shadow`** in my own CSS, against my own rule. The
+  changed-node marker is a word now, which is more legible on a recording than
+  any border trick.
+
+### What the brief and my own fixtures got wrong
+
+- **The fixture generator exposed two seed gaps before you fixed them** — that
+  is the argument for generating rather than hand-writing. Nothing was scheduled
+  on the demo day's yesterday, so `check_in` was always `None`; and a run that
+  only moved a calendar event left the Living Graph byte-identical, so the
+  centrepiece had no change to show. Both now come from the graph itself.
+- **My intake fixture was incoherent and the screen said so on screen.** The
+  scripted Route Planner wrote nothing, so the Scheduler placed `t-writing-1`
+  into a graph that had never heard of it, and Record printed *"This id is not in
+  the graph this result carried."* The screen was right; the fixture was wrong.
+  The node writes the goal it planned now.
+- **`@xyflow/react` ships no layout engine.** Checked against the installed
+  package, not the docs. The tree layout is fifty lines of Reingold-Tilford
+  rather than a dagre dependency, which also sidesteps dagre's habit of shearing
+  the horizon rows when dependency edges are fed to it.
+- **Its dark palette needs the un-suffixed `--xy-*` names.** The `-default`
+  spellings lose to `.react-flow.dark` on specificity and silently do nothing —
+  proven with a computed-style probe, not inferred.
+- **`.env.*` is gitignored as a credentials rule, correctly.** So the fixture
+  flag lives in `vite.config.ts`, keyed off the mode. A switch that cannot be
+  committed works on one machine.
+
+### The delegated screens
+
+Goals and Record were built by subagents against a written-down voice spec, then
+adversarially reviewed. **Nine of eleven findings were real and are fixed.** The
+review earned its keep on one class in particular — four claims the screens made
+without checking them:
+
+- a retired goal went on advertising the slots the Freed band had just released,
+  in the same plain type as an active task;
+- *"nothing was scheduled"* without reading `result.schedule`;
+- *"differs from the text in the box"* without comparing them;
+- *"still at version N"* read off the after-graph without a comparison.
+
+Plus `reply.acknowledgement || 'Recorded.'` — writing a line the API did not
+send, for a field the contract says is often empty.
+
+Two live regions were mounted together with their own content, so they announced
+nothing. And the shared horizon labels printed `life` and `decade` — the field
+names — on the screen whose argument is that a life-shaped ambition is not a
+Tuesday. They read as a scale now: a lifetime, ten years, three years, this year.
+
+I also added a **refused** row to the audit fixture: the Adapter trying to move
+the nine-attendee Eng sync and being told no by the tool. A safety rail nobody
+can see working is one a judge has to take on trust.
+
+### HANDOFFS — six, all small, none blocking
+
+| # | What | Why it matters |
+|---|---|---|
+| 1 | **`GoalStatusChange` does not say which goal changed.** No `goal_id`, no title. A retire can be anchored via `freed[0].goal_id`; a pause that held no slots has nothing. | The band reads "Freed" rather than "Freed from *Get comfortable speaking to a room*". One field fixes it. |
+| 2 | **`stalled_ambitions` and `broken_links` are not on the wire.** Both screens re-derive the rule from flat `goals`. I checked it matches `models.py:282-295` exactly today. | It is your rule, derived in my client, and the two can drift silently. `stalled_ambition_ids` / `broken_link_ids` on `LivingGraph` would end it. |
+| 3 | **`GET /api/today` runs the whole Daily graph.** There is nowhere to cache a brief — the store holds the graph, not the day. | A GET that costs tens of seconds and real tokens is a trap for anything that polls it. Worth knowing before EventBridge does. |
+| 4 | **No route reports which model is running.** Your ruling was that a status line should say *Sonnet 5, direct API*; I will not hardcode a claim I cannot verify at runtime. | A tenth route (`GET /api/health`) would let me surface it honestly. Say the word — otherwise it stays off the screen. |
+| 5 | **`note` reads "3 slot(s)".** Rendered verbatim, as ruled. | It is the one clumsy string in an otherwise careful screen, and it is in the demo. Two lines in `service.py`. |
+| 6 | **No frontend test runner.** `tsc -b` and the build are the only gates on `web/`. | `lib/datetime.ts`, `lib/layout.ts` and `lib/livingGraph.ts` are pure functions carrying real rules and no tests. Vitest is a small addition if you want it before Saturday. |
+
+Two smaller things I left, deliberately: a goal caught in a `contributes_to`
+cycle renders without its stalled annotation, and the Record trigger button
+widens while asking for the microphone. Both cosmetic, both noted rather than
+fixed at this hour.
+
+### Footprint
+
+```
+$ git status --porcelain
+(clean — 033967c)
+
+$ git log --oneline -2
+033967c SURFACES: four screens, the audit panel, and the voice seam wired to the real one
+8990256 SURFACES: the FastAPI layer, the type layer, and the two screens that carry the demo
+```
+
+`src/second/api/` (5 files, `jobs.py` deleted), `tests/api/` (21 tests),
+`web/` (44 files). Nothing outside my paths. **507 passed**, up from 486.
+
+---
+WAITING ON: CTO - review the package; handoffs 1, 4 and 5 are yours to rule on
