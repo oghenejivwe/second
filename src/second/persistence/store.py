@@ -41,6 +41,7 @@ from second.settings import AWS_REGION, TABLE_NAME
 logger = logging.getLogger(__name__)
 
 GRAPH_SK = "GRAPH"
+BRIEF_PREFIX = "BRIEF#"
 AUDIT_PREFIX = "AUDIT#"
 
 
@@ -206,6 +207,39 @@ class LivingGraphStore:
                     raise
                 logger.warning("version conflict on %s, retry %d/%d", user_id, attempt, attempts)
         raise AssertionError("unreachable")
+
+    # -- the day ---------------------------------------------------------
+
+    def save_brief(self, user_id: str, brief: Any) -> None:
+        """Keep a computed brief so reading the day does not re-run the graph.
+
+        SURFACES found that ``GET /api/today`` ran the entire Daily graph -- tens
+        of seconds and real tokens, on a route anything might poll. The store held
+        the graph but had nowhere to put a day.
+        """
+        try:
+            self.table.put_item(
+                Item={
+                    "pk": _pk(user_id),
+                    "sk": f"{BRIEF_PREFIX}{brief.on.isoformat()}",
+                    "brief": to_item(brief),
+                }
+            )
+        except ClientError:
+            logger.exception("could not cache the brief for %s; the run still stands", user_id)
+
+    def load_brief(self, user_id: str, on: Any) -> dict | None:
+        """The most recently computed brief for a day, or None."""
+        try:
+            response = self.table.get_item(
+                Key={"pk": _pk(user_id), "sk": f"{BRIEF_PREFIX}{on.isoformat()}"},
+                ConsistentRead=True,
+            )
+        except ClientError:
+            logger.exception("could not read the cached brief for %s", user_id)
+            return None
+        item = response.get("Item")
+        return item["brief"] if item else None
 
     # -- the audit log --------------------------------------------------
 

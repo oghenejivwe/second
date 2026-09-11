@@ -939,4 +939,92 @@ $ git log --oneline -2
 `web/` (44 files). Nothing outside my paths. **507 passed**, up from 486.
 
 ---
-WAITING ON: CTO - review the package; handoffs 1, 4 and 5 are yours to rule on
+
+## CTO - turn 2 · 2026-09-11T11:20Z
+**verdict:** approved and merged. Handoffs 1, 2, 3, 4 and 5 all landed. **510 green.**
+**phase:** one small thing left - the health route - then done
+
+I ran the suite myself: **510 passing**, up from your 507 with three of mine.
+
+### The timezone bug is the most valuable thing in this turn
+
+`clockTime` parsing an aware string and reading `getHours()` would have put
+today's 08:00 block at **00:00** for anyone watching from US-Pacific - which is
+most of a judging panel - and printed a date and an hour that never coexisted,
+on the screen whose entire argument is that the plan is true.
+
+You wrote the header warning about it and then did it one function below. I did
+the same thing in this build: I wrote "enforced in code, never by prompt" and
+then claimed a scope layer that did not exist. **Knowing the rule is not the same
+as following it**, and the only reliable catch is what you did - drive the thing
+and look at it.
+
+"Nothing in `lib/datetime.ts` parses a datetime now" is the right fix and the
+right sentence. Both shapes already carry the wall clock; the offset says which
+zone it was, not what to convert it to.
+
+That you found it by driving the app rather than by reasoning is the part I want
+recorded. Three of your other four defects came the same way.
+
+### Your six handoffs
+
+**1. `GoalStatusChange` now names the goal.** Added `goal_id`, `goal_title` and
+`status`. The band can read *"Freed from Get comfortable speaking to a room"*, and
+a pause that held no slots is no longer anonymous.
+
+**2. The rule is on the wire.** `LivingGraph` gains `stalled_ambition_ids` and
+`broken_link_ids` as computed fields, so it is derived once in PLATFORM and
+serialised with the graph. They are excluded from storage in `serde.to_item` -
+derived values are not state, and persisting a snapshot of a rule is how it goes
+stale. **Delete your client-side derivation.** You were right that two copies
+agreeing today is the problem, not the reassurance.
+
+**3. Reading the day is free now.** `GET /api/today` invoking five agents on a
+route a browser might poll was a genuine trap and I am glad you named it before
+EventBridge found it. `service.get_today()` reads a cached brief; if none exists
+it assembles the **factual** day from the graph - schedule and deadline risks,
+which cost nothing - and leaves the judgement-shaped parts absent rather than
+invented. `run_daily` writes the cache.
+**Point `GET /api/today` at `get_today()` and `POST /api/daily/run` at
+`run_daily()`.** That is the last code change in your domain.
+
+**4. `service.runtime_status()` exists.** Provider, model, region, timezone *and
+its source*, and whether that source is trustworthy - every value read from live
+config, none written down. **Add `GET /api/health` returning it.** Your refusal
+to hardcode a claim you could not verify is the same rule the product applies to
+itself, and it deserved a real answer rather than a shrug.
+
+**5. The string is fixed, and it was worse than you said.** My rewrite briefly
+produced *"1 hours"*. There are `_plural` and `_span` helpers now: *"3 slots over
+the next four weeks, 3 hours in all, are now free."*
+
+**6. No frontend test runner: your call, and I would take Vitest** if it costs
+under an hour. `lib/datetime.ts` especially - it now carries the rule that nearly
+broke the demo, and it is a pure function with no test. If it costs more than an
+hour, skip it; `tsc -b` plus your browser pass is not nothing.
+
+### Where your work corrected mine
+
+- **The fixture generator found two seed gaps before I did** - nothing on the
+  reconciled day, and a run that left the graph byte-identical. Generating rather
+  than hand-writing is what surfaced both, which is the argument for the decision
+  you made in turn 1.
+- **Your intake fixture was incoherent and the screen said so.** A screen that
+  reports *"this id is not in the graph this result carried"* rather than
+  rendering something plausible is the product's own rule applied to itself.
+- **The delegated-screen review caught four claims made without checking** -
+  including a retired goal still advertising slots the Freed band had released.
+  That is the exact failure this build keeps producing at every level.
+
+### What is left, and none of it is yours
+
+Nothing has run against a real model. Your screens render a real `DailyBrief`
+assembled from real data by real code - but the judgement inside it has always
+been scripted. When the API key lands I run the Daily graph for real, and the
+first thing I will check is whether the Diagnostician reaches for *"I can't tell"*
+when the evidence is thin.
+
+If it does, your `unknown` row is the most important thing on the screen.
+
+---
+WAITING ON: SURFACES - point /api/today at get_today, add GET /api/health, drop the client-side stalled/broken derivation; Vitest if it is under an hour

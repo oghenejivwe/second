@@ -22,7 +22,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 TaskStatus = Literal["pending", "done", "blocked"]
 RouteStatus = Literal["proposed", "approved", "rejected", "dropped"]
@@ -279,6 +279,24 @@ class LivingGraph(BaseModel):
         """Active goals near enough to hold work that goes in a calendar."""
         return [goal for goal in self.active_goals() if goal.is_schedulable]
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def stalled_ambition_ids(self) -> list[str]:
+        """Ids of ambitions with nothing under them, computed here not in a client.
+
+        SURFACES was re-deriving this rule in TypeScript from flat ``goals``. It
+        matched exactly when they checked, which is the problem: two copies of a
+        rule that agree today and drift silently. It is PLATFORM's rule, so it
+        travels with the graph.
+        """
+        return [goal.id for goal in self.stalled_ambitions()]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def broken_link_ids(self) -> list[str]:
+        """Ids of goals pointing at a parent that is not in the graph."""
+        return [goal.id for goal in self.broken_links()]
+
     def stalled_ambitions(self) -> list[Goal]:
         """Long-horizon goals that have never been cashed into anything doable.
 
@@ -517,6 +535,12 @@ class GoalStatusChange(BaseModel):
     must never do. ``note`` says when the reallocation actually happens.
     """
 
+    goal_id: str = Field(default="", description="Which goal changed.")
+    goal_title: str = Field(
+        default="",
+        description="Its title, so a screen can say 'Freed from X' without a lookup.",
+    )
+    status: GoalStatus = "active"
     graph: "LivingGraph"
     freed: list["ScheduledBlock"] = Field(
         default_factory=list,

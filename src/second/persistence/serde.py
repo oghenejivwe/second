@@ -38,7 +38,10 @@ def to_item(model: BaseModel) -> dict[str, Any]:
         A plain dict whose floats are ``Decimal`` and whose dates are ISO
         strings, suitable for a resource-level ``put_item`` or as a nested Map.
     """
-    return json.loads(model.model_dump_json(), parse_float=Decimal)
+    # Computed fields are derived, not state. Storing them would persist a
+    # snapshot of a rule that then goes stale the moment the rule changes.
+    return json.loads(model.model_dump_json(exclude={"stalled_ambition_ids", "broken_link_ids"}),
+                      parse_float=Decimal)
 
 
 def from_item(model_type: type[T], item: dict[str, Any]) -> T:

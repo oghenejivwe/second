@@ -424,3 +424,56 @@ def test_real_prepared_work_still_notifies(graph, clock):
     brief = assemble(graph=graph, clock=clock, judgement=BriefJudgement(notify=False), prepared=[draft])
     assert brief.notify is True
     assert len(brief.prepared) == 1
+
+
+# -- reading the day is free ------------------------------------------------
+
+
+def test_reading_the_day_does_not_run_the_graph(store, today):
+    """GET /api/today used to invoke five agents. SURFACES found it.
+
+    Nothing here touches a model: if there is no cached brief the day is
+    assembled from the Living Graph alone, because the schedule and the deadline
+    risks are facts and cost nothing.
+    """
+    from second.graphs import service
+
+    brief = service.get_today("demo", today)
+
+    assert brief.blocks, "the schedule is there without a model call"
+    assert brief.at_risk
+    assert brief.decisions == [], "the judgement-shaped parts are absent, not invented"
+    assert brief.notify is False
+
+
+def test_a_computed_brief_comes_back_as_it_was(store, today):
+    """What run_daily produced is what a later read returns."""
+    from second.core.models import BriefJudgement, Decision
+    from second.graphs.brief import assemble
+    from second.graphs import service
+
+    computed = assemble(
+        graph=store.load("demo"),
+        clock=Clock.fixed(today, zone_name=TZ),
+        judgement=BriefJudgement(
+            decisions=[Decision(question="Move the gym to 07:00?", evidence="lost 4 of 5 days")],
+            notify=True,
+        ),
+    )
+    store.save_brief("demo", computed)
+
+    read_back = service.get_today("demo", today)
+    assert read_back.notify is True
+    assert read_back.decisions[0].question == "Move the gym to 07:00?"
+    assert len(read_back.blocks) == len(computed.blocks)
+
+
+def test_the_status_route_reads_config_rather_than_asserting_it(store):
+    """SURFACES refused to hardcode a model claim. This is why they were right."""
+    from second.graphs import service
+
+    status = service.runtime_status()
+    assert status["provider"] in ("anthropic", "bedrock")
+    assert status["model"], "the model is read, not written down"
+    assert status["timezone_source"] in ("explicit", "calendar", "system", "utc")
+    assert isinstance(status["timezone_trustworthy"], bool)

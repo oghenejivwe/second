@@ -1088,4 +1088,117 @@ then `--smoke`, then the full seed, and I will run them with you rather than at
 you.
 
 ---
-WAITING ON: CTO - the first live call, once the owner's Google setup lands. Nothing needed from CONNECTORS.
+
+## CONNECTORS — turn 3 · 2026-09-11T11:20Z
+**asks:** one fixture fix that is yours, one line. Nothing blocks on it.
+**phase:** done — one handoff, and a process slip of mine to report
+
+You said nothing was needed from me. I verified the merge anyway, because my
+package landed alongside two other branches plus your own fixes and "the rails
+held on my branch" is not the same claim as "the rails hold on main". **They hold:
+509 green, 21 rails RED-then-GREEN on merged main.** The fake's window now matches
+the real tool exactly.
+
+Then the verification found something.
+
+### The seeded calendar is empty on the demo day
+
+The check-in fix added yesterday slots to `living_graph()`. `calendar_events()`
+did not gain matching entries, and the Eng sync series still stops the day before
+`TODAY`:
+
+```
+GRAPH  2026-09-09 08:00  t-recording        CAL  2026-09-09 18:00  Eng sync
+GRAPH  2026-09-09 18:00  t-gym              CAL  (nothing at all on 2026-09-10)
+GRAPH  2026-09-10 08:00  t-recording
+GRAPH  2026-09-10 17:00  t-pitch
+GRAPH  2026-09-10 18:00  t-gym
+```
+
+**The graph plans three blocks on the demo day and the seeded calendar has no
+events that day.** So `get_calendar_events` returns `[]`, `find_free_slots`
+reports the whole working window free, and **18:00 on the day being shown is
+genuinely empty** — which makes "6pm always loses to meetings" true of the history
+and false of the day on stage. If a judge asks what is blocking 6pm today, the
+honest answer is nothing.
+
+**The fixture contradicts itself in writing.** The seeded inbox carries:
+
+> *"the engineering sync moves to 18:00 daily so we overlap with the US team. It is
+> a standing invite, no need to reply."*
+
+Dated 2026-08-18, and the calendar stops providing it on 09-09.
+
+**Fix: extend the Eng sync series through `TODAY`.** `demo_scenario.py` is yours,
+so I have not touched it. `_weekdays_in_history()` returns offsets 0–20 and `TODAY`
+is offset 21.
+
+**Why this is worth a line of your time rather than a shrug:** yesterday's 18:00
+Eng sync is what lets the Observer cite real evidence for the gym slip in the
+check-in. Today has no equivalent, so the Adapter's move-to-07:00 is justified by
+history alone on the one day anybody is watching.
+
+### What I did about it in my own file
+
+`seed_demo.py --verify` now refuses to call a seed verified when a day the graph
+plans work on has **no** seeded events at all. That is the last place this could
+have been caught before a judge caught it, and it is mine.
+
+**Deliberately not a per-slot check.** A scheduled slot with no event on it is the
+fourth beat — the honest unknown, where Second must admit it cannot tell. That is
+wanted. A whole empty day is different: there is no evidence of any kind to reason
+from. Bounded to the two days actually *observed*, yesterday and today; my first
+version flagged future days too and fired on every correct fixture until I
+narrowed it.
+
+`test_the_current_fixture_leaves_the_demo_day_empty` pins the gap so it is a
+visible failure rather than a surprise. **It is written to fail the moment you
+extend the series, and its docstring says to delete it then.** A test that outlives
+the thing it pins is a future false alarm.
+
+### A process slip, mine
+
+I found this while verifying in `MySecond` and **edited `scripts/seed_demo.py` and
+`tests/connectors/test_seed.py` in your working tree** before thinking about which
+tree I was in. Your uncommitted work on `models.py`, `graphs/service.py` and
+`persistence/serde.py` was sitting there at the time.
+
+I restored only my two paths — `git restore --source=HEAD -- <those two>` — moved
+them to my worktree, and checked `git status` before and after. **Your three files
+were not touched**, and the only thing in your tree from me now is this turn.
+
+Reporting it rather than quietly tidying it, because "I was careful about it" is
+not a control and you should know the tree was shared.
+
+### Footprint
+
+```
+$ git log --oneline -2        # branch connectors, rebased onto main
+d153811 Teach --verify to catch a day the graph plans and the calendar does not cover
+dcd4881 Merge SURFACES: four screens, the audit panel, the type layer, nine routes
+
+$ git status --porcelain
+(clean)
+```
+
+Rebased onto main across six commits, then **re-verified rather than assumed**:
+509 passed (133 platform, 216 connectors, 139 agents, 21 api), 21 rails
+RED-then-GREEN, `uv sync` re-run after SURFACES' dependency changes.
+
+### Still the only risk in my domain
+
+No credentials, so none of this has made a live call. Order when the Google
+console work lands, and I will be here for it:
+
+```
+1. authorize_google.py --role runtime --check      one read, proves the token
+2. authorize_google.py --role seeder  --check      one read, proves the split
+3. seed_demo.py --zone <IANA> --smoke --apply      one import, one cancel, one message
+4. seed_demo.py --zone <IANA> --apply              the full 32 + 5, then --verify
+```
+
+Step 3 before step 4 is the whole point: a bad id, a bad body or a missing scope
+fails identically on the first write and on the thirty-second.
+
+---
+WAITING ON: CTO — extend the Eng sync series through TODAY in demo_scenario (one line, yours), then merge d153811. Nothing else from me until credentials exist.

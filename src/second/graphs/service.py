@@ -37,12 +37,28 @@ from second.graphs.conditions import typed_result
 from second.graphs.daily import build_daily_graph
 from second.graphs.feedback import build_feedback_graph
 from second.graphs.intake import build_intake_graph
+from second.persistence.serde import decimals_to_native
 from second.persistence.store import LivingGraphStore
 from second.settings import DEMO_USER_ID
 
 logger = logging.getLogger(__name__)
 
 _store: LivingGraphStore | None = None
+
+
+def _plural(count: int, noun: str) -> str:
+    """"1 slot", "3 slots". A string in the demo should not read "3 slot(s)"."""
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
+
+
+def _span(minutes: int) -> str:
+    """Minutes as something a person would say out loud."""
+    if minutes < 60:
+        return _plural(minutes, "minute")
+    hours = minutes / 60
+    if hours.is_integer():
+        return _plural(int(hours), "hour")
+    return f"{hours:.1f} hours"
 
 
 def _clock_for(today: date | None) -> Clock:
@@ -152,11 +168,20 @@ def set_goal_status(
         note = f"{goal.title!r} is {status}. It was holding no upcoming slots."
     else:
         note = (
-            f"{len(freed)} slot(s) over the next four weeks are free. "
-            "The next daily run reallocates them to the goals still active."
+            f"{_plural(len(freed), 'slot')} over the next four weeks, "
+            f"{_span(minutes)} in all, {'is' if len(freed) == 1 else 'are'} now free. "
+            "The next daily run reallocates the time to the goals still active."
         )
 
-    return GoalStatusChange(graph=written, freed=freed, freed_minutes=minutes, note=note)
+    return GoalStatusChange(
+        goal_id=goal_id,
+        goal_title=goal.title,
+        status=status,
+        graph=written,
+        freed=freed,
+        freed_minutes=minutes,
+        note=note,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +212,65 @@ async def run_intake(
         graph=load_living_graph(user_id),
         clarifying_questions=list(extraction.clarifying_questions) if extraction else [],
         schedule=schedule,
+    )
+
+
+def runtime_status(user_id: str = DEMO_USER_ID) -> dict[str, Any]:
+    """What is actually running, so a screen never has to claim it.
+
+    SURFACES declined to hardcode "Sonnet 5, direct API" on the grounds that they
+    could not verify it at runtime. That instinct is right and it is the same rule
+    the product applies to itself: do not assert what you have not checked.
+
+    Every value here is read from live configuration rather than written down.
+    """
+    from second.settings import (
+        ANTHROPIC_MODEL_ID,
+        AWS_REGION,
+        BEDROCK_MODEL_ID,
+        MAX_MODEL_CALLS_PER_NODE,
+        MODEL_PROVIDER,
+    )
+
+    provider = MODEL_PROVIDER.lower()
+    clock = _clock_for(None)
+    return {
+        "provider": provider,
+        "model": ANTHROPIC_MODEL_ID if provider == "anthropic" else BEDROCK_MODEL_ID,
+        "region": AWS_REGION if provider == "bedrock" else None,
+        "timezone": clock.name,
+        "timezone_source": clock.source,
+        "timezone_trustworthy": clock.is_trustworthy,
+        "today": clock.today.isoformat(),
+        "max_model_calls_per_node": MAX_MODEL_CALLS_PER_NODE,
+        "user_id": user_id,
+    }
+
+
+def get_today(user_id: str = DEMO_USER_ID, today: date | None = None) -> DailyBrief:
+    """Read today's brief WITHOUT running the graph.
+
+    ``GET /api/today`` used to invoke the whole Daily flow -- five agents, tens of
+    seconds, real tokens -- on a route a browser might poll. SURFACES found it.
+
+    So reading is now free and running is deliberate. If a brief was computed
+    today it comes back as it was. If not, the day is assembled from the Living
+    Graph alone: the schedule and the deadline risks are facts and cost nothing,
+    and the judgement-shaped parts are simply absent rather than invented.
+
+    **Failure direction: show the factual day.** A user opening the app before the
+    morning run should see their schedule, not a spinner and not an error.
+    """
+    clock = _clock_for(today)
+    cached = get_store().load_brief(user_id, clock.today)
+    if cached:
+        return DailyBrief.model_validate(decimals_to_native(cached))
+
+    return assemble(
+        graph=load_living_graph(user_id),
+        clock=clock,
+        judgement=None,
+        observations=None,
     )
 
 
@@ -224,6 +308,7 @@ async def run_daily(
         prepared=[prepared_action] if prepared_action else [],
         observations=observations,
     )
+    get_store().save_brief(user_id, brief)
     if brief.is_quiet:
         logger.info("quiet day: %s", brief.silence_reason or "nothing needed the user")
     return brief
