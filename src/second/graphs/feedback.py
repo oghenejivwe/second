@@ -41,6 +41,7 @@ from second.graphs.composition import (
     ToolRegistry,
     apply_guardrails,
     build_model,
+    model_for,
     build_node_agent,
     default_registry,
     resolve_clock,
@@ -79,7 +80,7 @@ def build_feedback_graph(
         A :class:`ComposedGraph` ready to ``await .run(feedback_text)``.
     """
     clock = clock or resolve_clock()
-    model = model or build_model()
+    shared_model = model
     registry = registry or default_registry()
     specs = specs or {}
     context = context or {}
@@ -91,7 +92,7 @@ def build_feedback_graph(
         builder.add_node(
             build_node_agent(
                 specs.get(node_id) or load_agent_spec(node_id),
-                model=model,
+                model=shared_model or model_for(node_id),
                 registry=registry,
                 hooks=[audit, guard],
                 user_id=user_id,

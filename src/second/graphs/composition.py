@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import os
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import date
@@ -42,6 +43,7 @@ from second.settings import (
     BEDROCK_MODEL_ID,
     GEMINI_API_KEY_ENV,
     GEMINI_MODEL_ID,
+    GEMINI_NODE_MODELS,
     MODEL_PROVIDER,
     RETRY_INITIAL_DELAY,
     RETRY_MAX_ATTEMPTS,
@@ -206,6 +208,20 @@ def resolve_clock(explicit_timezone: str | None = None) -> Clock:
         logger.warning("calendar timezone lookup failed; falling back", exc_info=True)
 
     return Clock.detect(explicit=explicit_timezone, calendar_timezone=calendar_timezone)
+
+
+def model_for(node_id: str, provider: str | None = None) -> Model:
+    """The model this particular node should use.
+
+    On Gemini's free tier the rate limit is 5 requests per minute **per model**,
+    so putting every node on one model means the graph cannot finish. Spreading
+    them across models gives each node its own budget. Everywhere else this is
+    just ``build_model()``.
+    """
+    chosen = (provider or MODEL_PROVIDER).lower()
+    if chosen != "gemini" or os.environ.get("SECOND_GEMINI_MODEL"):
+        return build_model(provider=chosen)
+    return build_model(model_id=GEMINI_NODE_MODELS.get(node_id), provider=chosen)
 
 
 def build_model(

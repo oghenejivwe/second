@@ -63,7 +63,7 @@ ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY"
 
 # --- The free escape hatch --------------------------------------------------
 
-GEMINI_MODEL_ID = os.environ.get("SECOND_GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL_ID = os.environ.get("SECOND_GEMINI_MODEL", "gemini-3.6-flash")
 """Free-tier fallback, if paying for Claude turns out not to be possible.
 
 Genuinely free rather than trial credit, no card, and available in Nigeria --
@@ -72,6 +72,10 @@ thing that rules most cheap options out: Strands' ``{"any": {}}`` maps to
 ``FunctionCallingConfigMode.ANY`` in ``models/gemini.py``, and Strands narrows the
 tool list to the output schema in forced mode so ANY cannot wander.
 
+``gemini-2.5-flash`` is retired for new accounts -- the API returns a 404 naming
+``gemini-3.6-flash`` as the replacement. Found by calling it rather than by
+reading a docs page, which is the only way that class of thing surfaces.
+
 **Two things before relying on it.** Google's unpaid-tier terms say human
 reviewers may read API input and output -- and Second quotes real calendar
 entries and real email, so a free-tier demo must run on synthetic data. And
@@ -79,6 +83,37 @@ Gemini may reject a deeply nested schema under ANY mode; ``ExtractionResult`` is
 the one to test first."""
 
 GEMINI_API_KEY_ENV = "GEMINI_API_KEY"
+
+GEMINI_NODE_MODELS: dict[str, str] = {
+    # Daily -- the five that run every morning
+    "observer": "gemini-3.5-flash-lite",
+    "diagnostician": "gemini-3.6-flash",
+    "adapter": "gemini-3.1-flash-lite",
+    "preparer": "gemini-3.5-flash",
+    "communicator": "gemini-3.7-flash",
+    # Intake
+    "extractor": "gemini-3.6-flash",
+    "cascader": "gemini-3.5-flash",
+    "route_planner": "gemini-3.7-flash",
+    "scheduler": "gemini-3.8-flash",
+    "resource_finder": "gemini-3.1-flash-lite",
+    # Feedback
+    "interpreter": "gemini-3.5-flash-lite",
+    "graph_updater": "gemini-3.1-flash-lite",
+}
+"""One model per node, and the spread is the point.
+
+Gemini's free tier allows **5 requests per minute**, and the quota is scoped
+*per model* -- the 429 names ``quotaDimensions: {model: gemini-3.6-flash}``.
+Found by running the Daily graph and watching it die at the Diagnostician.
+
+Five nodes on one model share 5 RPM and the graph cannot finish. Five nodes on
+five models get 5 RPM each, and since no single node makes more than four calls,
+nothing queues. The heavier reasoning sits on full Flash; the mechanical nodes
+sit on Lite.
+
+This buys a working free tier rather than a fast one. On a paid key the map is
+irrelevant -- set SECOND_GEMINI_MODEL and every node uses it."""
 
 
 # --- AWS -------------------------------------------------------------------
