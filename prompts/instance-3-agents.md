@@ -1036,4 +1036,110 @@ exists - put it wherever it fits your flow rather than last.
 Build the package. Do not stop again.
 
 ---
-WAITING ON: AGENTS - build the twelve agents, Observer first; report once
+
+## AGENTS — turn 2 · 2026-09-11T02:40Z
+**asks:** rule on three findings below — all in your files, all test-backed, none blocking
+**phase:** done — ready for review
+
+Twelve modules, thirteen prompts, 139 tests. **270 green against a 131 baseline.**
+Nothing outside `src/second/agents/` and `tests/agents/` is touched.
+
+| | Agent | Tools | Output |
+|---|---|---|---|
+| Intake | `extractor` · `cascader` · `route_planner` · `scheduler` · `resource_finder` | 1 · 2 · 1 · 5 · 4 | `ExtractionResult` · `CascadeResult` · `RoutePlan` · `ScheduleDecision` · — |
+| Daily | `observer` · `diagnostician` · `adapter` · `preparer` · `communicator` | 4 · 2 · 3 · 4 · **0** | `ObservationReport` · `Diagnosis` · — · `PreparedAction` · `BriefJudgement` |
+| Feedback | `interpreter` · `graph_updater` | 1 · 4 | `FeedbackResult` · — |
+
+Two departures from the matrix, both defaults you approved: `cascader` and
+`resource_finder` gained `write_graph`.
+
+`agents/_base.py` is the single factory. Prompts are markdown with
+`prompts/_shared.md` prepended to all twelve, so "structural, never psychological"
+is a property of the package rather than of whichever prompt remembered it.
+Placeholders are `<<TOKEN>>`, not `{token}` — prompts carry JSON examples and
+`str.format` on those raises or eats a brace.
+
+### NINE MUTATIONS, EACH WATCHED GO RED
+
+```
+1  models.py    _no_evidence_means_unknown disabled -> a confident diagnosis with
+                null evidence reaches the Adapter: "'adapter' ran but was not scripted"
+2  daily.py     observer->communicator un-gated     -> all 11 daily tests red
+3  graph_tools  record_diagnosis learns from anything -> an honest UNKNOWN teaches
+                                                         a false recurring blocker
+4  _base.py     shared-rules prepend dropped        -> 24 red across all twelve
+5  _base.py     placeholder check deleted           -> 1 red
+6  graph_tools  slip reversal removed               -> the user's answer stops
+                                                       beating the inference
+7  intake.py    extractor->cascader un-gated        -> a misheard goal cascades
+8  brief.py     assemble() honours notify verbatim  -> a raised decision AND a
+                                                       prepared draft stop reaching the user
+9  interpreter built under the extractor's name     -> distinctness guard fires
+```
+
+Guards of my own behind 4, 5 and 9: a missing or empty prompt raises rather than
+shipping an `Agent` with no system prompt; a surviving `<<TOKEN>>` raises; and
+`agent.name` is always the node id, because `RunawayGuard` counts per name
+(`guard.py:60-71`). Also `callback_handler=None` — the SDK default prints every
+tool call to stdout.
+
+### WHAT THE BRIEF GOT WRONG — three, all yours
+
+**1. "A reminder with no evidence is a defect" is enforced nowhere.**
+`Reminder(what=..., evidence="", source="email")` validates and reaches the brief.
+Same for `Decision.evidence`, `Observation.evidence` on an `honoured` outcome, and
+`Deprioritised.reason`. `Diagnosis.evidence` is the only one you hardened.
+**Recommend the same coercion, in `assemble()` rather than a validator** — raising
+inside a forced structured-output call is the loop whose cheapest escape is a
+fabricated quote.
+
+**2. `graphs/feedback.py` says the Graph Updater "never sees the raw sentence". It
+does.** `_build_node_input` prepends `"Original Task: ..."` to every node
+(`graph.py:1226-1229`) and `run_feedback` passes the utterance as the task. The
+isolation that holds is the useful one — no write tool on one side, no read tool on
+the other — but the claim is stronger than the wiring. Move the utterance into
+`invocation_state["second"]`, or soften the docstring.
+
+**3. `record_completion` keeps the reason only on `did_it=False`.** The `True`
+branch returns first. So *"I did do it, I just never opened the calendar"* — the
+explanation for **demo beat 4** — is taken in and discarded. One line in your file.
+
+Each is pinned by a test that asserts today's behaviour and says in its docstring
+what to rewrite it to.
+
+### TWO THINGS BEFORE THE DEMO
+
+**The check-in cannot appear.** 2026-09-09 has **zero** scheduled blocks in the
+seeded world, so `build_check_in` returns nothing and `DailyBrief.check_in` is
+`None` — reconciliation, `record_completion` and `CheckInItem` are all invisible on
+stage. One slot offset fixes it. **CONNECTORS' fixture.**
+
+**`is_quiet` is unreachable on the act path.** The Preparer always runs there and
+`PreparedAction` has no "nothing to prepare" value, so `assemble()` always forces
+`notify`. That may be right — a draft awaiting one click is worth mentioning — but
+the Communicator's brief calls "the Adapter fixed it, nothing needs you" the common
+quiet day, and that day notifies.
+
+### FOOTPRINT
+
+```
+$ git status --porcelain          (empty - committed)
+$ git log --oneline -1
+74feafc The twelve agents, their prompts, and the suite that proves them
+
+src/second/agents/          12 modules + _base + __init__    1093 lines
+src/second/agents/prompts/  13 files                            99 KB
+tests/agents/               4 files + conftest                1718 lines
+$ uv run pytest -q            270 passed
+```
+
+No typechecker is configured and `ruff` is not installed; `compileall` is clean.
+
+One design note to overrule if you want: the Preparer's only dependency is the
+Adapter, which is untyped, so the Adapter's final message is the whole channel
+carrying the diagnosis forward. Its prompt restates the task id, blocker and
+evidence, and a test asserts they arrive. A gated `diagnostician -> preparer` edge
+would make that structural instead — your file, your call.
+
+---
+WAITING ON: CTO - review the twelve agents; three findings in your files await a ruling
