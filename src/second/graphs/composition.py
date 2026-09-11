@@ -40,6 +40,8 @@ from second.settings import (
     ANTHROPIC_MODEL_ID,
     AWS_REGION,
     BEDROCK_MODEL_ID,
+    GEMINI_API_KEY_ENV,
+    GEMINI_MODEL_ID,
     MODEL_PROVIDER,
     RETRY_INITIAL_DELAY,
     RETRY_MAX_ATTEMPTS,
@@ -255,9 +257,24 @@ def build_model(
             max_tokens=8192,
         )
 
+    if chosen == "gemini":
+        import os
+
+        from strands.models.gemini import GeminiModel
+
+        if not os.environ.get(GEMINI_API_KEY_ENV):
+            raise ModelProviderNotConfigured(
+                f"{GEMINI_API_KEY_ENV} is not set. Get a free key at aistudio.google.com "
+                f"-- no card required."
+            )
+        return GeminiModel(
+            model_id=model_id or GEMINI_MODEL_ID,
+            params={"max_output_tokens": 8192},
+        )
+
     if chosen != "bedrock":
         raise ModelProviderNotConfigured(
-            f"SECOND_MODEL_PROVIDER must be 'anthropic' or 'bedrock'; got {chosen!r}"
+            f"SECOND_MODEL_PROVIDER must be 'anthropic', 'gemini' or 'bedrock'; got {chosen!r}"
         )
 
     from strands.models.bedrock import BedrockModel

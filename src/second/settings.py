@@ -13,7 +13,7 @@ from dataclasses import dataclass
 # --- Which Claude, and from where ------------------------------------------
 
 MODEL_PROVIDER = os.environ.get("SECOND_MODEL_PROVIDER", "anthropic")
-"""``"anthropic"`` (direct API) or ``"bedrock"``.
+"""``"anthropic"`` (direct API), ``"gemini"`` (free tier) or ``"bedrock"``.
 
 Defaults to the direct API because **Bedrock refuses Anthropic models on this
 account**. Verified in CloudShell on 2026-09-10, reproducibly, on both a current
@@ -59,6 +59,26 @@ survives an overloaded model."""
 
 ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY"
 """Read from the environment, never from a file in this repo."""
+
+
+# --- The free escape hatch --------------------------------------------------
+
+GEMINI_MODEL_ID = os.environ.get("SECOND_GEMINI_MODEL", "gemini-2.5-flash")
+"""Free-tier fallback, if paying for Claude turns out not to be possible.
+
+Genuinely free rather than trial credit, no card, and available in Nigeria --
+the opposite of the Bedrock problem. Forced tool choice works, which is the
+thing that rules most cheap options out: Strands' ``{"any": {}}`` maps to
+``FunctionCallingConfigMode.ANY`` in ``models/gemini.py``, and Strands narrows the
+tool list to the output schema in forced mode so ANY cannot wander.
+
+**Two things before relying on it.** Google's unpaid-tier terms say human
+reviewers may read API input and output -- and Second quotes real calendar
+entries and real email, so a free-tier demo must run on synthetic data. And
+Gemini may reject a deeply nested schema under ANY mode; ``ExtractionResult`` is
+the one to test first."""
+
+GEMINI_API_KEY_ENV = "GEMINI_API_KEY"
 
 
 # --- AWS -------------------------------------------------------------------
