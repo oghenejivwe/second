@@ -316,11 +316,11 @@ def build_node_agent(
     The privilege assertion runs before the factory, so an agent that has grown
     a dependency it did not declare fails here rather than at run time.
     """
-    from strands.event_loop._retry import ModelRetryStrategy
+    from second.core.retry import ResilientRetry
 
     deps = AgentDeps(
         model=model,
-        retry=ModelRetryStrategy(
+        retry=ResilientRetry(
             max_attempts=RETRY_MAX_ATTEMPTS,
             initial_delay=RETRY_INITIAL_DELAY,
             max_delay=RETRY_MAX_DELAY,
