@@ -282,3 +282,182 @@ def test_the_node_timeout_outlasts_a_wait_we_agreed_to_sit_through():
 
     assert NODE_TIMEOUT_SECONDS > RETRY_PATIENCE_SECONDS + 30
     assert GRAPH_TIMEOUT_SECONDS >= NODE_TIMEOUT_SECONDS * 3
+
+
+# -- "this model", not "the service" ----------------------------------------
+#
+# The third live run got past the quota wall and died on:
+#     "This model is currently experiencing high demand."
+# That sentence names its own scope. Eleven other models sat idle in
+# GEMINI_NODE_MODELS while the graph failed.
+
+
+class _Model:
+    def __init__(self, model_id: str) -> None:
+        self.model_id = model_id
+
+    def update_config(self, **config) -> None:
+        self.model_id = config["model_id"]
+
+
+class _Agent:
+    def __init__(self, model_id: str = "gemini-3.7-flash") -> None:
+        self.model = _Model(model_id)
+
+
+class _AgentEvent(_Event):
+    def __init__(self, exception: Exception | None, agent: _Agent | None = None) -> None:
+        super().__init__(exception)
+        self.agent = agent or _Agent()
+
+
+MODEL_503 = (
+    "503 Service Unavailable. {'message': '{\"error\": {\"code\": 503, \"message\": "
+    '"This model is currently experiencing high demand. Spikes in demand are '
+    "usually temporary. Please try again later.\", \"status\": \"UNAVAILABLE\"}}'}"
+)
+
+
+@pytest.fixture
+def failover() -> ResilientRetry:
+    return ResilientRetry(
+        max_attempts=3,
+        initial_delay=1,
+        max_delay=4,
+        patience=65,
+        alternates=["gemini-3.1-flash-lite", "gemini-3.5-flash"],
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_model_scoped_refusal_moves_to_another_model(failover, slept):
+    event = _AgentEvent(Exception(MODEL_503))
+
+    await failover._handle_after_model_call(event)
+
+    assert event.agent.model.model_id == "gemini-3.1-flash-lite"
+    assert event.retry is True
+    assert slept == [1], "a fresh model does not owe the old one's cooldown"
+
+
+@pytest.mark.asyncio
+async def test_with_nowhere_to_go_it_waits_instead(slept):
+    """Same error, no alternates. The ladder is the only recovery left."""
+    strategy = ResilientRetry(max_attempts=3, initial_delay=1, max_delay=4, alternates=[])
+    event = _AgentEvent(Exception(MODEL_503))
+
+    await strategy._handle_after_model_call(event)
+
+    assert event.agent.model.model_id == "gemini-3.7-flash"
+    assert event.retry is True
+    assert slept == [1]
+
+
+@pytest.mark.asyncio
+async def test_a_provider_wide_outage_does_not_burn_an_alternate(failover, slept):
+    """"The service is unavailable" is not about the model, and switching cannot
+    help. Spending an alternate on it costs the recovery that does work."""
+    event = _AgentEvent(Exception("503 Service Unavailable. The service is temporarily unavailable."))
+
+    await failover._handle_after_model_call(event)
+
+    assert event.agent.model.model_id == "gemini-3.7-flash"
+    assert failover._alternates == ["gemini-3.1-flash-lite", "gemini-3.5-flash"]
+    assert event.retry is True
+
+
+@pytest.mark.asyncio
+async def test_a_days_quota_gone_on_one_model_moves_rather_than_gives_up(failover, slept):
+    """patience refuses an hours-long wait. It should not refuse when there is
+    somewhere else to go -- a day gone on gemini-3.7-flash says nothing at all
+    about gemini-3.1-flash-lite."""
+    event = _AgentEvent(
+        Exception(
+            '429 RESOURCE_EXHAUSTED. "retryDelay": "3600s" '
+            '"quotaDimensions": {"location": "global", "model": "gemini-3.7-flash"}'
+        )
+    )
+
+    await failover._handle_after_model_call(event)
+
+    assert event.agent.model.model_id == "gemini-3.1-flash-lite"
+    assert event.retry is True
+
+
+@pytest.mark.asyncio
+async def test_alternates_are_consumed_and_never_revisited(failover, slept):
+    """A model overloaded ten seconds ago still is. Cycling back wastes the run."""
+    agent = _Agent()
+
+    for expected in ("gemini-3.1-flash-lite", "gemini-3.5-flash"):
+        event = _AgentEvent(Exception(MODEL_503), agent)
+        await failover._handle_after_model_call(event)
+        assert agent.model.model_id == expected
+
+    exhausted = _AgentEvent(Exception(MODEL_503), agent)
+    await failover._handle_after_model_call(exhausted)
+    assert agent.model.model_id == "gemini-3.5-flash"
+    assert failover._alternates == []
+
+
+@pytest.mark.asyncio
+async def test_a_successful_call_does_not_hand_back_the_burnt_models(failover, slept):
+    """_reset_retry_state runs after every success. It must clear the attempt
+    count without restoring models that are known to be down."""
+    agent = _Agent()
+    await failover._handle_after_model_call(_AgentEvent(Exception(MODEL_503), agent))
+
+    failover._reset_retry_state()
+
+    assert failover._alternates == ["gemini-3.5-flash"]
+    assert failover._switched_to is None
+
+
+@pytest.mark.asyncio
+async def test_a_switch_that_fails_does_not_swallow_the_original_error(slept):
+    """If update_config raises, the 503 must still be retried normally."""
+
+    class _Broken(_Model):
+        def update_config(self, **config):
+            raise RuntimeError("provider rejected the model id")
+
+    strategy = ResilientRetry(
+        max_attempts=3, initial_delay=1, max_delay=4, alternates=["gemini-3.1-flash-lite"]
+    )
+    agent = _Agent()
+    agent.model = _Broken("gemini-3.7-flash")
+    event = _AgentEvent(Exception(MODEL_503), agent)
+
+    await strategy._handle_after_model_call(event)
+
+    assert agent.model.model_id == "gemini-3.7-flash"
+    assert event.retry is True
+    assert strategy._alternates == [], "a model id the provider rejects is spent, not retried"
+    assert strategy._switched_to is None, "a failed switch must not claim to have happened"
+
+
+# -- where the alternates come from -----------------------------------------
+
+
+def test_a_node_is_never_offered_the_model_it_is_already_on(monkeypatch):
+    from second.graphs.composition import alternates_for
+    from second.settings import GEMINI_NODE_MODELS
+
+    monkeypatch.setenv("SECOND_MODEL_PROVIDER", "gemini")
+    monkeypatch.delenv("SECOND_GEMINI_MODEL", raising=False)
+
+    for node, model in GEMINI_NODE_MODELS.items():
+        assert model not in alternates_for(node, provider="gemini"), node
+
+
+def test_no_alternates_where_switching_would_be_wrong(monkeypatch):
+    """Non-Gemini providers have no map to draw from, and a pinned model is a
+    deliberate choice that should not be silently abandoned."""
+    from second.graphs.composition import alternates_for
+
+    monkeypatch.delenv("SECOND_GEMINI_MODEL", raising=False)
+    assert alternates_for("observer", provider="anthropic") == ()
+    assert alternates_for("observer", provider="cerebras") == ()
+
+    monkeypatch.setenv("SECOND_GEMINI_MODEL", "gemini-3.6-flash")
+    assert alternates_for("observer", provider="gemini") == ()

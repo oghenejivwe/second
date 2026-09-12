@@ -38,9 +38,24 @@ was ignored.
 
 So a stated delay wins over the ladder. And its *size* carries information the
 status code does not: a per-minute window says "40s", an exhausted daily quota
-says hours. Above ``patience`` we stop retrying entirely rather than sleeping
-through the run -- waiting out a minute is recovery, waiting out a day is a hang
-wearing a retry costume.
+says hours. Waiting out a minute is recovery; waiting out a day is a hang wearing
+a retry costume.
+
+**Some refusals are about the model, not the account.** The third live run got
+past the quota wall and died on this instead:
+
+    "This model is currently experiencing high demand."
+
+*This* model. The sentence names its own scope, and the right answer to it is not
+a longer wait -- it is a different model. Second already runs one model per node
+to spread the per-model quota, so alternates exist and were sitting unused while
+the graph died. When a refusal is model-scoped and an alternate is available, the
+strategy swaps the model underneath the agent and retries at once.
+
+That also rescues the case ``patience`` would otherwise refuse: a daily allowance
+exhausted on ``gemini-3.7-flash`` says nothing whatsoever about
+``gemini-3.5-flash``. Giving up there was correct only while there was nowhere
+else to go.
 """
 
 from __future__ import annotations
@@ -48,6 +63,8 @@ from __future__ import annotations
 import logging
 import math
 import re
+from collections.abc import Sequence
+from typing import Any
 
 from strands.event_loop._retry import ModelRetryStrategy
 
@@ -132,6 +149,30 @@ def _stated_delay(exception: Exception | None) -> float | None:
     return None
 
 
+_MODEL_SCOPED_SIGNALS = (
+    "this model is currently experiencing high demand",
+    "the model is overloaded",
+    "model is currently overloaded",
+)
+"""Phrasings that name the model as the thing that is unavailable.
+
+Deliberately narrow. A generic "service unavailable" is about the provider, and
+switching models cannot help; burning an alternate on it would spend the one
+recovery that works when the real model-scoped failure arrives."""
+
+
+def _names_a_model(exception: Exception) -> bool:
+    """Whether the provider blamed a specific model rather than itself.
+
+    Google's quota errors carry ``"model": "gemini-3.7-flash"`` inside
+    ``quotaDimensions``, which is the machine-readable version of the same claim.
+    """
+    text = str(exception)[:4000].lower()
+    if any(signal in text for signal in _MODEL_SCOPED_SIGNALS):
+        return True
+    return "quotadimensions" in text and '"model"' in text
+
+
 class ResilientRetry(ModelRetryStrategy):
     """Retries on any provider's way of saying "busy", not just Bedrock's.
 
@@ -145,6 +186,10 @@ class ResilientRetry(ModelRetryStrategy):
             asking for less than this is describing a per-minute window that will
             reopen; one asking for more is describing an exhausted allowance, and
             sleeping through that is a hang rather than a recovery.
+        alternates: Other model ids this node may fall back to when the refusal
+            names the model rather than the account. Consumed in order and never
+            revisited -- a model that was overloaded ten seconds ago still is.
+            Empty means the only recovery available is waiting.
     """
 
     def __init__(
@@ -154,17 +199,25 @@ class ResilientRetry(ModelRetryStrategy):
         initial_delay: int = 4,
         max_delay: int = 240,
         patience: float = 65.0,
+        alternates: Sequence[str] = (),
     ) -> None:
         super().__init__(
             max_attempts=max_attempts, initial_delay=initial_delay, max_delay=max_delay
         )
         self._patience = patience
+        self._alternates = list(alternates)
         self._last_exception: Exception | None = None
+        self._switched_to: str | None = None
 
     def is_retryable(self, exception: Exception) -> bool:
         """Whether this refusal is worth waiting out."""
+        if self._switched_to is not None:
+            return True  # the thing that refused is not the thing we will call
+
         stated = _stated_delay(exception)
         if stated is not None and stated > self._patience:
+            if self._alternates:
+                return True  # handled by the switch, which runs before this
             logger.warning(
                 "not retrying %s: provider asked for %.0fs, longer than the %.0fs "
                 "worth waiting -- this is an exhausted allowance, not a busy minute",
@@ -204,7 +257,39 @@ class ResilientRetry(ModelRetryStrategy):
         reimplementing the retry policy around it.
         """
         self._last_exception = event.exception
+        self._switched_to = None
+
+        if event.exception is not None and self._alternates and _names_a_model(event.exception):
+            self._switch_model(event.agent, event.exception)
+
         await super()._handle_after_model_call(event)
+
+    def _switch_model(self, agent: Any, exception: Exception) -> None:
+        """Point the agent at the next alternate, in place.
+
+        ``update_config`` is the provider-agnostic seam for this -- every Strands
+        model exposes it -- so the swap works the same on Gemini and on anything
+        OpenAI-compatible. The conversation so far is untouched and stays valid:
+        the messages are the provider's format, not the model's.
+
+        The attempt counter resets because a different model is a fresh chance,
+        not a second go at the one that just refused. The loop is bounded by the
+        alternates list rather than by the counter.
+        """
+        try:
+            target = self._alternates.pop(0)
+            agent.model.update_config(model_id=target)
+        except Exception as failure:  # noqa: BLE001 - a failed switch must not mask the 503
+            logger.warning("could not switch model: %s", failure)
+            return
+
+        self._switched_to = target
+        self._current_attempt = 0
+        logger.warning(
+            "switching to %s -- %s named the model, not the account",
+            target,
+            type(exception).__name__,
+        )
 
     def _calculate_delay(self, attempt: int) -> int:
         """The provider's stated wait if it gave one, otherwise the ladder.
@@ -213,6 +298,9 @@ class ResilientRetry(ModelRetryStrategy):
         is not open at 40.51s, and landing exactly on the boundary spends a
         request to learn nothing.
         """
+        if self._switched_to is not None:
+            return 1  # a different model does not owe the old one's cooldown
+
         stated = _stated_delay(self._last_exception)
         if stated is None:
             return super()._calculate_delay(attempt)
@@ -230,3 +318,6 @@ class ResilientRetry(ModelRetryStrategy):
         """Forget the last refusal along with the attempt count."""
         super()._reset_retry_state()
         self._last_exception = None
+        self._switched_to = None
+        # _alternates is deliberately NOT restored: a model that was overloaded
+        # a moment ago still is, and cycling back to it wastes the run.

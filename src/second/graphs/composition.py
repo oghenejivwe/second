@@ -227,6 +227,32 @@ def model_for(node_id: str, provider: str | None = None) -> Model:
     return build_model(model_id=GEMINI_NODE_MODELS.get(node_id), provider=chosen)
 
 
+def alternates_for(node_id: str, provider: str | None = None) -> tuple[str, ...]:
+    """Models this node may fall back to when the refusal names the model.
+
+    "This model is currently experiencing high demand" is a sentence about one
+    model, and the third live Daily run died on it while eleven other models sat
+    idle in the same map. The spread already exists for quota reasons; this makes
+    it a recovery path as well.
+
+    Ordered least-loaded-first by proxy: the Lite models, which are less
+    contended than the previews. Capped at three because a node that has burned
+    through three models is not having a capacity problem.
+
+    Empty for every provider but Gemini, and empty when SECOND_GEMINI_MODEL pins
+    one model on purpose -- switching away from a deliberate choice would be
+    surprising, and on a paid key there is nothing to recover from.
+    """
+    chosen = (provider or MODEL_PROVIDER).lower()
+    if chosen != "gemini" or os.environ.get("SECOND_GEMINI_MODEL"):
+        return ()
+
+    mine = GEMINI_NODE_MODELS.get(node_id)
+    others = [model for model in dict.fromkeys(GEMINI_NODE_MODELS.values()) if model != mine]
+    others.sort(key=lambda model: (0 if "lite" in model else 1, "preview" in model, model))
+    return tuple(others[:3])
+
+
 def build_model(
     model_id: str | None = None,
     region: str = AWS_REGION,
@@ -356,6 +382,7 @@ def build_node_agent(
             initial_delay=RETRY_INITIAL_DELAY,
             max_delay=RETRY_MAX_DELAY,
             patience=RETRY_PATIENCE_SECONDS,
+            alternates=alternates_for(spec.node_id),
         ),
         tools=registry.resolve(spec.required_tools),
         hooks=hooks,
