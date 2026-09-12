@@ -475,5 +475,43 @@ def test_the_status_route_reads_config_rather_than_asserting_it(store):
     status = service.runtime_status()
     assert status["provider"] in ("anthropic", "bedrock")
     assert status["model"], "the model is read, not written down"
+    assert status["model"] != "unknown"
     assert status["timezone_source"] in ("explicit", "calendar", "system", "utc")
     assert isinstance(status["timezone_trustworthy"], bool)
+
+
+def test_the_status_route_names_the_model_of_whatever_provider_is_running(monkeypatch):
+    """It reported a Bedrock model id while running on Gemini.
+
+    The line was ``ANTHROPIC_MODEL_ID if provider == "anthropic" else
+    BEDROCK_MODEL_ID``, written when there were exactly two providers. There are
+    now six, and a status route that asserts an unchecked model is the precise
+    thing this function's own docstring says it exists not to do.
+    """
+    from second import settings
+    from second.graphs import service
+
+    monkeypatch.delenv("SECOND_GEMINI_MODEL", raising=False)
+    monkeypatch.setattr(settings, "MODEL_PROVIDER", "gemini")
+    assert "gemini" in service.runtime_status()["model"]
+
+    monkeypatch.setattr(settings, "MODEL_PROVIDER", "groq")
+    assert service.runtime_status()["model"] == settings.OPENAI_COMPATIBLE["groq"][1]
+
+    monkeypatch.setattr(settings, "MODEL_PROVIDER", "cerebras")
+    assert service.runtime_status()["model"] == settings.OPENAI_COMPATIBLE["cerebras"][1]
+
+    monkeypatch.setattr(settings, "MODEL_PROVIDER", "something-new")
+    assert service.runtime_status()["model"] == "unknown", "never invent a model name"
+
+
+def test_a_pinned_gemini_model_is_reported_as_itself(monkeypatch):
+    """Unset means twelve models, one per node. Naming one would be a lie; so
+    would naming none once the operator has pinned one."""
+    from second import settings
+    from second.graphs import service
+
+    monkeypatch.setattr(settings, "MODEL_PROVIDER", "gemini")
+    monkeypatch.setenv("SECOND_GEMINI_MODEL", "gemini-3.6-flash")
+
+    assert service.runtime_status()["model"] == "gemini-3.6-flash"

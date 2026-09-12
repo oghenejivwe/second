@@ -228,19 +228,42 @@ def runtime_status(user_id: str = DEMO_USER_ID) -> dict[str, Any]:
 
     Every value here is read from live configuration rather than written down.
     """
+    import os
+
     from second.settings import (
         ANTHROPIC_MODEL_ID,
         AWS_REGION,
         BEDROCK_MODEL_ID,
+        GEMINI_MODEL_ID,
         MAX_MODEL_CALLS_PER_NODE,
         MODEL_PROVIDER,
+        OPENAI_COMPATIBLE,
     )
 
     provider = MODEL_PROVIDER.lower()
+
+    # This used to be `ANTHROPIC_MODEL_ID if anthropic else BEDROCK_MODEL_ID`,
+    # which reported a Bedrock model id while running on Gemini -- a status
+    # route asserting something it had not checked, which is the one thing this
+    # function exists not to do. Found when .env reached the test suite and the
+    # provider stopped being one of two.
+    if provider == "anthropic":
+        model = ANTHROPIC_MODEL_ID
+    elif provider == "bedrock":
+        model = BEDROCK_MODEL_ID
+    elif provider == "gemini":
+        # Unset means one model per node rather than one model, so say that
+        # instead of naming a model no single node is necessarily using.
+        model = os.environ.get("SECOND_GEMINI_MODEL") or f"{GEMINI_MODEL_ID} (per-node spread)"
+    elif provider in OPENAI_COMPATIBLE:
+        model = OPENAI_COMPATIBLE[provider][1]
+    else:
+        model = "unknown"
+
     clock = _clock_for(None)
     return {
         "provider": provider,
-        "model": ANTHROPIC_MODEL_ID if provider == "anthropic" else BEDROCK_MODEL_ID,
+        "model": model,
         "region": AWS_REGION if provider == "bedrock" else None,
         "timezone": clock.name,
         "timezone_source": clock.source,

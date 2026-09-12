@@ -9,6 +9,34 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+# --- .env, once, here ------------------------------------------------------
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(_REPO_ROOT / ".env", override=False)
+except ImportError:  # pragma: no cover - dotenv is a dependency, not a guarantee
+    pass
+
+"""Load the developer's .env before anything below reads os.environ.
+
+It used to be loaded by exactly two scripts -- ``live_check.py`` and
+``live_daily.py``. Every other entrypoint read ``os.environ`` directly, so
+``app.py``, ``authorize_google.py`` and ``seed_demo.py`` could not see a single
+value in the file. A key written to .env was simply invisible to the API server,
+and the failure was "not configured" rather than anything pointing at .env.
+
+Here rather than in each entrypoint because this module is the one every
+entrypoint already imports, and it reads ``os.environ`` at import time -- so a
+loader placed anywhere later is a loader that runs too late.
+
+``override=False`` is load-bearing: a real environment variable beats the file.
+A deployed runtime sets variables properly and must not be overruled by a .env
+that happened to get packaged."""
 
 # --- Which Claude, and from where ------------------------------------------
 

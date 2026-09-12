@@ -18,7 +18,8 @@ import boto3
 import pytest
 from moto import mock_aws
 
-from second.graphs import service
+from second import settings
+from second.graphs import composition, service
 from second.graphs.composition import ToolRegistry
 from second.persistence.store import LivingGraphStore
 from second.testing import demo_scenario
@@ -40,6 +41,32 @@ def _pin_the_date(monkeypatch):
     reason, which is the cheap version of the same thing happening on stage.
     """
     monkeypatch.setenv("SECOND_DEMO_TODAY", demo_scenario.TODAY.isoformat())
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_model_config(monkeypatch):
+    """Keep the developer's .env out of the test suite.
+
+    ``settings`` loads .env at import so every entrypoint can see it, which is
+    right for the app and wrong for tests: two tests started passing or failing
+    depending on whether the machine running them happened to have a provider
+    key configured. A suite whose result depends on an untracked file is a suite
+    that will disagree with CI and be believed anyway.
+
+    The key names are read out of ``settings`` rather than listed here, so a new
+    provider cannot quietly escape this.
+    """
+    names = {settings.ANTHROPIC_API_KEY_ENV, settings.GEMINI_API_KEY_ENV}
+    names.update(key_env for _, _, key_env in settings.OPENAI_COMPATIBLE.values())
+    for name in names:
+        monkeypatch.delenv(name, raising=False)
+
+    # Pins the provider the same way for everyone. composition binds this by
+    # value at import, so the env var alone would not move it.
+    monkeypatch.delenv("SECOND_GEMINI_MODEL", raising=False)
+    monkeypatch.setenv("SECOND_MODEL_PROVIDER", "anthropic")
+    monkeypatch.setattr(composition, "MODEL_PROVIDER", "anthropic")
+    monkeypatch.setattr(settings, "MODEL_PROVIDER", "anthropic")
 
 
 @pytest.fixture
