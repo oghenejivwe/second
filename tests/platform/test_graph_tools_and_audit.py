@@ -247,6 +247,36 @@ def test_a_raising_tool_is_audited_as_failed(seeded):
     assert row.failed is True
 
 
+def test_a_failed_row_says_why_it_failed(seeded):
+    """The docstring above always claimed the audit kept the cause. It did not.
+
+    The first live Daily run logged three write_graph calls from the adapter, two
+    failed, and the log could not distinguish a lost race from a malformed patch
+    -- opposite problems with opposite fixes. A row that says FAILED and nothing
+    else is half a record, and this log is what a reviewer reads.
+    """
+    audit = run_graph(
+        seeded,
+        [ToolUse("read_graph", {"user_id": USER, "layer": "nonsense"}), Text("done")],
+    )
+
+    row = next(entry for entry in audit.entries if entry.action == "read_graph")
+    assert "GraphToolError" in row.payload["error"]
+    assert "nonsense" in row.payload["error"]
+
+
+def test_a_successful_row_carries_no_error_key(seeded):
+    """Absence is the signal. An empty string would read as "failed, cause unknown"."""
+    audit = run_graph(
+        seeded,
+        [ToolUse("read_graph", {"user_id": USER, "layer": "goals"}), Text("done")],
+    )
+
+    row = next(entry for entry in audit.entries if entry.action == "read_graph")
+    assert row.failed is False
+    assert "error" not in row.payload
+
+
 def test_audit_flushes_to_the_store(seeded):
     audit = AuditLogHook(run_id="r1", user_id=USER, store=seeded)
     audit._record(kind="tool", actor="observer", action="update_person_model", is_write=True)

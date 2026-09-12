@@ -127,6 +127,8 @@ async def main() -> int:
         print(f"\nAUDIT   {len(composed.audit.entries)} entries, {len(writes)} writes")
         for entry in writes:
             print(f"  {'FAILED ' if entry.failed else 'ok     '}{entry.actor:14s} {entry.action}")
+            if entry.failed:
+                print(f"           why: {entry.payload.get('error', '(not recorded)')[:110]}")
 
         print("\n" + "=" * 66)
         print("This is the first time any of it has thought for itself.")

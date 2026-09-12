@@ -157,13 +157,24 @@ class AuditLogHook(HookProvider):
         and leaves this ``None`` -- which is why the standing rule is to raise.
         """
         name = event.tool_use.get("name", "?")
+        payload = {"input": _summarise(event.tool_use.get("input"))}
+        if event.exception is not None:
+            # A row that says FAILED without saying why is half a record. The
+            # first live Daily run showed three write_graph calls from the
+            # adapter, two of them failed, and the log could not say whether that
+            # was a lost race or a malformed patch -- which are opposite problems
+            # with opposite fixes.
+            payload["error"] = _summarise(
+                f"{type(event.exception).__name__}: {event.exception}"
+            )
+
         self._record(
             kind="tool",
             actor=getattr(event.agent, "name", "?"),
             action=name,
-            payload={"input": _summarise(event.tool_use.get("input"))},
+            payload=payload,
             is_write=name in WRITE_TOOLS,
-            failed=event.exception is not None,
+            failed=True if event.exception is not None else False,
         )
 
     # -- internals ------------------------------------------------------
