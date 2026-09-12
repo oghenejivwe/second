@@ -166,7 +166,13 @@ def authorise(role: str, *, assume_published: bool = False) -> Path:
     )
 
     _assert_usable(credentials, role, scopes)
-    _write(token_file, credentials, role, assumed_published=True)
+    # Reaching here means one of two things, and they are NOT the same: either
+    # the operator answered "y" to _confirm_published, or they passed
+    # --assume-published, which asserts it without being asked. This used to be
+    # hardcoded True, so the field recorded the literal value True for every
+    # token ever written and the warning that reads it could never fire -- a
+    # record that claims to know something and knows nothing.
+    _write(token_file, credentials, role, assumed_published=not assume_published)
     return token_file
 
 
@@ -251,15 +257,48 @@ def check(role: str) -> int:
     if not stored.get("refresh_token"):
         print("  NO REFRESH TOKEN. This file cannot be renewed. Re-run the flow.")
         return 1
-    if not (stored.get("_second") or {}).get("publishing_status_confirmed_in_production", True):
-        print("  WARNING: minted without confirming the app was published. Expect 7-day expiry.")
+    # Default False: no record is not a clean bill of health. The only tokens
+    # without this field are ones written before it meant anything.
+    if not (stored.get("_second") or {}).get("publishing_status_confirmed_in_production", False):
+        print("  WARNING: nothing recorded that the app was published when this was minted")
+        print("  (--assume-published was used, or the file predates the check). If the app")
+        print("  was in Testing, this token dies seven days after it was issued and")
+        print("  publishing now will not defuse it. Publish, then re-run the flow.")
 
     os.environ[config["token_env"]] = str(token_file)
     try:
         if role == "runtime":
-            from second.tools.calendar_tools import get_calendar_timezone
+            # NOT get_calendar_timezone(). That helper swallows every exception
+            # and returns None on purpose -- a clock lookup must never break a
+            # run -- so using it here made this check incapable of failing. It
+            # printed "live call OK. Calendar timezone: None" and exited 0 on a
+            # dead token, a revoked grant or a missing scope, which is worse than
+            # having no check at all: it is a check that certifies a broken
+            # setup. Found by an audit of the setup path, before the founder
+            # relied on it.
+            #
+            # Both API families are exercised, because the runtime needs all
+            # three scopes and proving calendar alone leaves two thirds unproven.
+            # A token with a working calendar scope and a broken gmail one used
+            # to pass here and fail on the first Observer run.
+            settings_request = _google.service("calendar", "runtime").settings().get(setting="timezone")
+            zone = (_google.call(settings_request, "read the calendar timezone") or {}).get("value")
+            if not (zone or "").strip():
+                print("  calendar answered but named no timezone. Set one at "
+                      "calendar.google.com -> Settings -> Time zone.")
+                return 1
 
-            print(f"  live call OK. Calendar timezone: {get_calendar_timezone()}")
+            profile_request = _google.service("gmail", "runtime").users().getProfile(userId="me")
+            mailbox = (_google.call(profile_request, "read the mailbox profile") or {}).get(
+                "emailAddress"
+            )
+            if not mailbox:
+                print("  gmail answered but named no mailbox. The gmail.readonly scope is not working.")
+                return 1
+
+            print(f"  live call OK. Calendar timezone: {zone}")
+            print(f"  live call OK. Mailbox: {mailbox}")
+            print(f"  pass this to the seeder:  --zone {zone}")
         else:
             events = _google.service("calendar", "seeder").events()
             page = _google.call(

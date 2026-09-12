@@ -217,6 +217,25 @@ def _messages():
     return service("gmail", "seeder").users().messages()
 
 
+def _messages_as_runtime():
+    """Gmail, read through the RUNTIME credential rather than the seeder's.
+
+    The seeder holds ``gmail.insert`` and ``calendar.events`` and nothing else,
+    so ``messages().list`` under it is a guaranteed 403 insufficientPermissions.
+    403 is not retryable, so it raised -- uncaught, at the tail of ``verify()``,
+    *after* every write had committed. The operator saw a traceback at the end of
+    a successful seed and would reasonably re-run the whole thing.
+
+    Reading back as the runtime is also the more honest check: the runtime is
+    what has to find this mail on demo day, so proving the runtime can see it
+    proves the thing that matters. The seeder proving it could see its own writes
+    would have proved nothing.
+    """
+    from second.tools._google import service
+
+    return service("gmail", "runtime").users().messages()
+
+
 def _duplicate(error: BaseException) -> bool:
     """Whether this is Google's 409 ``duplicate``, which means "already seeded".
 
@@ -407,18 +426,32 @@ def verify(zone: ZoneInfo) -> int:
     print(f"\n  waiting {INDEX_WAIT_SECONDS}s for Gmail's search index (it is eventually consistent)...")
     time.sleep(INDEX_WAIT_SECONDS)
 
-    found = call(
-        _messages().list(userId=USER_ID, q='subject:"travel insurance policy"', maxResults=5),
-        "search for the seeded policy email",
-    )
-    if not (found.get("messages") or []):
+    # Nothing from here on may raise. Every write is already committed, and a
+    # traceback at this point reads as "the seed failed" when the seed succeeded
+    # -- which invites exactly the re-run that duplicates a world that cannot be
+    # deleted. Failures become problems; the caller still exits non-zero.
+    try:
+        found = call(
+            _messages_as_runtime().list(
+                userId=USER_ID, q='subject:"travel insurance policy"', maxResults=5
+            ),
+            "search for the seeded policy email",
+        )
+    except Exception as error:  # noqa: BLE001 - see the comment above
         problems.append(
-            "the policy email is not searchable yet. The insert may still have "
-            "succeeded -- Gmail's index lags. Check the inbox by eye before concluding "
-            "anything, and re-run this verification rather than re-inserting."
+            f"could not read the mail back as the runtime: {type(error).__name__}: {error}. "
+            f"THE WRITES ABOVE ALL SUCCEEDED -- do not re-run --apply. Authorise the "
+            f"runtime role if you have not, then re-run this with --verify."
         )
     else:
-        print(f"  gmail: the policy email is searchable ({len(found['messages'])} hit)")
+        if not (found.get("messages") or []):
+            problems.append(
+                "the policy email is not searchable yet. The insert may still have "
+                "succeeded -- Gmail's index lags. Check the inbox by eye before concluding "
+                "anything, and re-run this verification rather than re-inserting."
+            )
+        else:
+            print(f"  gmail: the policy email is searchable ({len(found['messages'])} hit)")
 
     if problems:
         print("\nPROBLEMS:")
