@@ -52,7 +52,7 @@ from strands import Agent
 from second.agents._base import build_agent
 from second.core.deps import AgentDeps
 
-REQUIRED_TOOLS: tuple[str, ...] = ("read_graph", "reschedule_event", "write_graph")
+REQUIRED_TOOLS: tuple[str, ...] = ("read_graph", "reschedule_event", "adapt_task")
 OUTPUT_MODEL = None
 
 

@@ -63,6 +63,7 @@ TOOL_OWNERS = {
     "search_gmail": "CONNECTORS",
     "draft_email": "CONNECTORS",
     "web_search": "CONNECTORS",
+    "adapt_task": "PLATFORM",
     "read_graph": "PLATFORM",
     "write_graph": "PLATFORM",
     "update_person_model": "PLATFORM",

@@ -44,6 +44,7 @@ WRITE_TOOLS = frozenset(
         "reschedule_event",
         "draft_email",
         "write_graph",
+        "adapt_task",
         "update_person_model",
         "record_diagnosis",
         "record_completion",

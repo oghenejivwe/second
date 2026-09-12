@@ -18,7 +18,7 @@ reserved keys (``agent``, ``messages``, ``system_prompt``, ``tool_config``,
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from strands import ToolContext, tool
@@ -136,6 +136,122 @@ def write_graph(user_id: str, layer: str, patch: dict, tool_context: ToolContext
 
     ids = [raw.get("id", "?") for raw in incoming] if layer == "goals" else [str(len(incoming))]
     return f"wrote {len(incoming)} {layer} entr{'y' if len(incoming) == 1 else 'ies'}: {ids}"
+
+
+@tool(context=True)
+def adapt_task(
+    user_id: str,
+    task_id: str,
+    reason: str,
+    tool_context: ToolContext,
+    new_title: str = "",
+    future_slots: list[str] | None = None,
+    cadence: str = "",
+    rationale: str = "",
+) -> str:
+    """Change when or what a slipping task is, without rewriting its history.
+
+    This is the Adapter's tool. It edits exactly the four things an adaptation
+    can legitimately change -- the task's title, its *upcoming* slots, and the
+    cadence and rationale of the route it sits in -- and it cannot touch anything
+    else.
+
+    **Past slots are never modified.** They are the record the slips hang off,
+    and ``future_slots`` replaces only the slots from today onwards. Slip
+    history, slip count, status, dependencies, deadline and known blocker are not
+    parameters here, so no adaptation can erase them.
+
+    Args:
+        user_id: Whose graph this is.
+        task_id: The task to adapt. Must already exist.
+        reason: Why this change will stop the task slipping again, in one
+            sentence, citing the fact that justifies it. Required, and recorded.
+        new_title: A new title, for a task whose problem was its wording rather
+            than its time. Omit to leave the title alone.
+        future_slots: The upcoming slots this task should have from now on, as
+            naive local wall-clock ISO datetimes ("2026-09-14T07:00:00"). This
+            REPLACES upcoming slots; pass every one you want to keep. Omit to
+            leave the schedule alone. Pass an empty list to clear it.
+        cadence: A new cadence for the route, in plain words. Omit to leave it.
+        rationale: A new route rationale, citing the person-layer fact behind the
+            new time. Change this whenever you change the cadence -- a rationale
+            that describes the old time makes the graph lie.
+
+    Returns:
+        A description of what changed, field by field, old value to new.
+
+    Raises:
+        GraphToolError: If the task is not in the graph, if nothing was asked
+            for, or if a slot is not a valid datetime.
+    """
+    if not (reason or "").strip():
+        raise GraphToolError("adapt_task needs a reason; an unexplained change is not an adaptation")
+
+    wants_schedule = future_slots is not None
+    if not (new_title or wants_schedule or cadence or rationale):
+        raise GraphToolError(
+            "adapt_task was called with nothing to change: pass at least one of "
+            "new_title, future_slots, cadence or rationale"
+        )
+
+    parsed: list[datetime] = []
+    for raw in future_slots or []:
+        try:
+            parsed.append(datetime.fromisoformat(str(raw)))
+        except ValueError as error:
+            raise GraphToolError(
+                f"{raw!r} is not an ISO datetime; use naive local wall-clock like "
+                f"2026-09-14T07:00:00"
+            ) from error
+
+    changes: list[str] = []
+
+    def change(graph: LivingGraph) -> None:
+        task = graph.task_by_id(task_id)
+        if task is None:
+            raise GraphToolError(f"no task {task_id!r} in the graph")
+
+        if new_title and new_title != task.title:
+            changes.append(f"title {task.title!r} -> {new_title!r}")
+            task.title = new_title
+
+        if wants_schedule:
+            clock = run_scope(tool_context.invocation_state).get("clock")
+            today = clock.today if clock else date.today()
+            kept = [slot for slot in task.scheduled_slots if slot.date() < today]
+            dropped = len(task.scheduled_slots) - len(kept)
+            task.scheduled_slots = sorted(kept + parsed)
+            changes.append(
+                f"schedule: {dropped} upcoming slot(s) replaced by {len(parsed)}, "
+                f"{len(kept)} past slot(s) untouched"
+            )
+
+        if cadence or rationale:
+            route = next(
+                (
+                    candidate
+                    for goal in graph.goals
+                    for candidate in goal.routes
+                    if candidate.id == task.route_id
+                ),
+                None,
+            )
+            if route is None:
+                raise GraphToolError(
+                    f"task {task_id!r} names route {task.route_id!r}, which is not in the graph"
+                )
+            if cadence and cadence != route.cadence:
+                changes.append(f"cadence {route.cadence!r} -> {cadence!r}")
+                route.cadence = cadence
+            if rationale and rationale != route.rationale:
+                changes.append("rationale rewritten")
+                route.rationale = rationale
+
+    _store(tool_context).mutate(user_id, change)
+
+    if not changes:
+        return f"{task_id} already matched what was asked; nothing changed"
+    return f"adapted {task_id} ({reason}): " + "; ".join(changes)
 
 
 @tool(context=True)
@@ -361,6 +477,7 @@ def set_goal_status(user_id: str, goal_id: str, status: str, tool_context: ToolC
 ALL_GRAPH_TOOLS = (
     read_graph,
     write_graph,
+    adapt_task,
     update_person_model,
     record_diagnosis,
     record_completion,
