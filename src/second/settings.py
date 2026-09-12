@@ -89,6 +89,7 @@ GEMINI_API_KEY_ENV = "GEMINI_API_KEY"
 
 OPENAI_COMPATIBLE = {
     # name: (base_url, default model, env var holding the key)
+    "cerebras": ("https://api.cerebras.ai/v1", "gpt-oss-120b", "CEREBRAS_API_KEY"),
     "groq": ("https://api.groq.com/openai/v1", "openai/gpt-oss-120b", "GROQ_API_KEY"),
     "mistral": ("https://api.mistral.ai/v1", "mistral-small-latest", "MISTRAL_API_KEY"),
     "qwen": (
@@ -115,6 +116,23 @@ it is a routing decision quietly made on a field that was never filled in.
 
 ``anthropic``, ``bedrock``, ``gemini``, ``litellm``, ``openai`` and
 ``openai_responses`` honour it. Those are the only providers this build uses."""
+
+GROQ_RESTRICTED = True
+"""Groq is unavailable to this account, and not for a reason a retry fixes.
+
+Signup completed normally; ``console.groq.com/keys`` then returned, before any
+API call had been made:
+
+    Restricted access
+    Your organization has been restricted due to violating our terms of service.
+
+A fresh account with zero usage cannot have violated anything by using the
+product, so this is an automated block applied at signup -- the likeliest input
+is the country the account registered from, which is the same shape of problem as
+Bedrock refusing Anthropic models here. Recorded rather than deleted so the next
+person does not spend an hour rediscovering it.
+
+The entry above stays. It costs nothing, and it works the day the block lifts."""
 
 TOOL_CHOICE_DISCARDING_PROVIDERS = frozenset(
     {"mistral", "ollama", "llamacpp", "llamaapi", "writer", "sagemaker"}
