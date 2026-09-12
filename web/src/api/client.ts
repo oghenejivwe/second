@@ -38,6 +38,11 @@ import intakeQuestionsFixture from '../fixtures/intake-questions.json'
 
 export const USING_FIXTURES = import.meta.env.VITE_SOURCE === 'fixtures'
 
+/** Phrases that mark an intake as too unsure to plan on. Fixture mode only.
+ * Whole phrases rather than short fragments, because a fragment like "uh" is
+ * inside ordinary words and would send clear goals to the questions result. */
+const HEDGES = ['umm', 'i guess', 'sort of', 'kind of', 'maybe', 'not sure']
+
 export class ApiError extends Error {
   readonly status: number
   readonly route: string
@@ -143,7 +148,18 @@ export const api = {
 
   intake(transcript: string): Promise<IntakeResult> {
     if (USING_FIXTURES) {
-      const muddy = transcript.trim().length < 40
+      // Hesitation, not length, picks the fixture. This used to be
+      // `length < 40`, which sent each fixture's own sentence to the wrong
+      // result: "I want to write in public every week." is 37 characters and
+      // came back asking whether "fitter" meant running or climbing, while
+      // "umm, I guess I want to be fitter, sort of, this year maybe" is 58 and
+      // came back with a confident writing plan. On camera that reads as the
+      // product not listening. Now a clear sentence gets the plan and a hedged
+      // one gets the questions, which is the distinction the two payloads were
+      // generated to show. Anything this short is too little to plan on either.
+      const said = transcript.trim().toLowerCase()
+      const hedged = HEDGES.some((hedge) => said.includes(hedge))
+      const muddy = said.length < 15 || hedged
       return fixture(muddy ? intakeQuestionsFixture : intakePlannedFixture, 1600)
     }
     return call<IntakeResult>('/api/intake', json({ transcript }))
