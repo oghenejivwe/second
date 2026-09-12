@@ -23,7 +23,12 @@ web/dist/
 *.pem
 client_secret*.json
 credentials.json
-token.json
+# token*.json, not token.json: the seeder writes token_seed.json (see
+# GOOGLE_SEED_TOKEN in .env.example) and the narrower pattern did not match it,
+# so a live refresh token with gmail.insert and calendar.events would have been
+# committed on the first `git add -A` after authorising the seeder. Caught while
+# checking whether this repo was safe to make public.
+token*.json
 token*.pickle
 .aws/
 
