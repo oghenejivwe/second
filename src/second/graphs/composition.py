@@ -50,6 +50,7 @@ from second.settings import (
     RETRY_INITIAL_DELAY,
     RETRY_MAX_ATTEMPTS,
     RETRY_MAX_DELAY,
+    RETRY_PATIENCE_SECONDS,
 )
 
 logger = logging.getLogger(__name__)
@@ -354,6 +355,7 @@ def build_node_agent(
             max_attempts=RETRY_MAX_ATTEMPTS,
             initial_delay=RETRY_INITIAL_DELAY,
             max_delay=RETRY_MAX_DELAY,
+            patience=RETRY_PATIENCE_SECONDS,
         ),
         tools=registry.resolve(spec.required_tools),
         hooks=hooks,

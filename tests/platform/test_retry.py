@@ -140,3 +140,145 @@ def test_an_openai_compatible_provider_needs_its_key():
     with pytest.raises(ModelProviderNotConfigured) as excinfo:
         build_model(provider="groq")
     assert "GROQ_API_KEY" in str(excinfo.value)
+
+
+# -- listening to the provider instead of guessing --------------------------
+#
+# The second live Daily run died at the Diagnostician even though the 429 was
+# caught and retried. A fixed ladder answered after 2s and 4s -- two more
+# requests at a quota that had not moved -- and then gave up 34 seconds before
+# the window reopened. Gemini had said "retry in 40.5s" and was ignored.
+
+
+class _Event:
+    """The shape ``AfterModelCallEvent`` presents to a retry hook."""
+
+    def __init__(self, exception: Exception | None) -> None:
+        self.exception = exception
+        self.retry = False
+        self.stop_response = None
+
+
+@pytest.fixture
+def slept(monkeypatch) -> list[float]:
+    """Record what the strategy waits for, without waiting for it."""
+    import asyncio
+
+    recorded: list[float] = []
+
+    async def _record(seconds: float) -> None:
+        recorded.append(seconds)
+
+    monkeypatch.setattr(asyncio, "sleep", _record)
+    return recorded
+
+
+GEMINI_429 = (
+    "429 Too Many Requests. {'message': '{\n  \"error\": {\n    \"code\": 429,\n"
+    '    "message": "You exceeded your current quota, please check your plan and '
+    "billing details. \\n* Quota exceeded for metric: "
+    "generativelanguage.googleapis.com/generate_content_free_tier_requests, "
+    'limit: 5, model: gemini-3.7-flash\\nPlease retry in 40.513907697s.",\n'
+    '    "status": "RESOURCE_EXHAUSTED",\n    "details": [{"@type": '
+    '"type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "40s"}]}}\'}'
+)
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ('"retryDelay": "40s"', 40.0),
+        ("retryDelay: 7s", 7.0),
+        ("Please retry in 40.513907697s.", 40.513907697),
+        ("Rate limit reached. Please try again in 1.5s", 1.5),
+        ("Retry-After: 30", 30.0),
+    ],
+)
+def test_a_stated_delay_is_found_wherever_the_provider_put_it(message, expected):
+    from second.core.retry import _stated_delay
+
+    assert _stated_delay(Exception(message)) == pytest.approx(expected)
+
+
+def test_no_stated_delay_reads_as_none():
+    """The common case, and the one the exponential ladder exists for."""
+    from second.core.retry import _stated_delay
+
+    assert _stated_delay(Exception("503 overloaded")) is None
+    assert _stated_delay(None) is None
+
+
+def test_an_sdk_that_exposes_the_header_directly_is_read_first():
+    from second.core.retry import _stated_delay
+
+    error = Exception("429")
+    error.retry_after = 12  # type: ignore[attr-defined]
+    assert _stated_delay(error) == 12.0
+
+
+@pytest.mark.asyncio
+async def test_the_real_gemini_wait_is_honoured_not_guessed(strategy, slept):
+    """The whole point. 2s was the old answer; the provider said 40.5s."""
+    await strategy._handle_after_model_call(_Event(Exception(GEMINI_429)))
+
+    assert slept == [41], f"waited {slept} instead of honouring the stated delay"
+
+
+@pytest.mark.asyncio
+async def test_the_ladder_still_runs_when_nothing_was_stated(strategy, slept):
+    """A provider that says only "busy" gets the backoff it always got."""
+    await strategy._handle_after_model_call(_Event(Exception("503 overloaded")))
+
+    assert slept == [1]  # the fixture's initial_delay
+
+
+@pytest.mark.asyncio
+async def test_an_exhausted_allowance_fails_now_rather_than_hanging(slept):
+    """A day-quota 429 asks for hours. Sleeping through it is a hang in costume."""
+    strategy = ResilientRetry(max_attempts=3, initial_delay=1, max_delay=4, patience=65)
+    event = _Event(Exception('429 quota exceeded. "retryDelay": "3600s"'))
+
+    await strategy._handle_after_model_call(event)
+
+    assert slept == []
+    assert event.retry is False
+
+
+def test_patience_is_what_separates_a_busy_minute_from_a_closed_door():
+    strategy = ResilientRetry(max_attempts=3, initial_delay=1, max_delay=4, patience=65)
+
+    assert strategy.is_retryable(Exception('429. "retryDelay": "40s"')) is True
+    assert strategy.is_retryable(Exception('429. "retryDelay": "64s"')) is True
+    assert strategy.is_retryable(Exception('429. "retryDelay": "66s"')) is False
+
+
+def test_a_stated_delay_never_exceeds_patience_even_when_honoured():
+    """Belt and braces: is_retryable already refuses these, but if that check
+    ever moves, the sleep must not become unbounded."""
+    strategy = ResilientRetry(max_attempts=3, initial_delay=1, max_delay=4, patience=65)
+    strategy._last_exception = Exception('"retryDelay": "3600s"')
+
+    assert strategy._calculate_delay(0) == 65
+
+
+def test_the_remembered_exception_is_dropped_when_the_call_succeeds():
+    """Otherwise one 429 sets the delay for every later unrelated failure."""
+    strategy = ResilientRetry(max_attempts=3, initial_delay=1, max_delay=4)
+    strategy._last_exception = Exception('"retryDelay": "40s"')
+
+    strategy._reset_retry_state()
+
+    assert strategy._calculate_delay(0) == 1
+
+
+def test_the_node_timeout_outlasts_a_wait_we_agreed_to_sit_through():
+    """A timeout shorter than the provider's recovery interval is a scheduled
+    failure. 60s killed nodes that waited 40s correctly and then thought."""
+    from second.settings import (
+        GRAPH_TIMEOUT_SECONDS,
+        NODE_TIMEOUT_SECONDS,
+        RETRY_PATIENCE_SECONDS,
+    )
+
+    assert NODE_TIMEOUT_SECONDS > RETRY_PATIENCE_SECONDS + 30
+    assert GRAPH_TIMEOUT_SECONDS >= NODE_TIMEOUT_SECONDS * 3

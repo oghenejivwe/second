@@ -222,17 +222,41 @@ purpose: the busiest node here is the Preparer at four tool calls plus the
 structured-output pass, so twelve means something is wrong rather than busy."""
 
 MAX_NODE_EXECUTIONS = 20
-NODE_TIMEOUT_SECONDS = 60.0
-GRAPH_TIMEOUT_SECONDS = 300.0
+NODE_TIMEOUT_SECONDS = 180.0
+GRAPH_TIMEOUT_SECONDS = 900.0
 """A graph with no execution limits only logs a warning and can spin forever.
 Note that hitting the cap sets ``status`` to FAILED *silently* -- always check
-``result.status is Status.COMPLETED`` explicitly rather than assuming success."""
+``result.status is Status.COMPLETED`` explicitly rather than assuming success.
+
+These were 60s and 300s, chosen to fail fast on stage. On the free tier that
+choice guaranteed the failure it was meant to avoid: Gemini's per-minute window
+asks for a 40s wait, and a node that legitimately waits 40s and then spends 20s
+thinking was being killed at 60 for doing the right thing. A timeout shorter than
+the provider's own recovery interval is not caution, it is a scheduled failure.
+
+180s holds one honoured wait plus a slow call with room to spare. 900s holds a
+five-node Daily run where more than one node has to wait its turn."""
 
 RETRY_MAX_ATTEMPTS = 3
 RETRY_INITIAL_DELAY = 2
 RETRY_MAX_DELAY = 8
 """Strands retries 6 times by default on a 4s->240s ladder, which is up to ~124
-seconds of silent waiting. On a live demo, fail fast instead."""
+seconds of silent waiting. On a live demo, fail fast instead.
+
+This ladder is now the fallback rather than the rule -- when a provider states
+its own delay, that wins. See ``second.core.retry``."""
+
+RETRY_PATIENCE_SECONDS = 65.0
+"""The longest stated wait worth sitting through.
+
+Providers state a delay whose *size* says which wall was hit. Gemini's
+per-minute free-tier cap asks for ~40s and means it; an exhausted daily
+allowance asks for hours. One is a queue, the other is a closed door, and the
+status code is 429 for both.
+
+65s clears a per-minute window with margin and refuses anything longer, so a
+day-quota 429 fails immediately and honestly instead of hanging the run and
+then failing anyway."""
 
 
 # --- Shared run state ------------------------------------------------------
