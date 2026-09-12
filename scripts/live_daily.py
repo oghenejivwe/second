@@ -82,6 +82,13 @@ async def main() -> int:
         print(f"date    : {clock.today}  ({clock.name})")
         print("-" * 66)
 
+        before = {
+            task.id: (list(task.scheduled_slots), task.slip_count, len(task.slips), task.title)
+            for goal in store.load(USER).goals
+            for route in goal.routes
+            for task in route.tasks
+        }
+
         composed = build_daily_graph(
             store=store,
             user_id=USER,
@@ -130,9 +137,37 @@ async def main() -> int:
             if entry.failed:
                 print(f"           why: {entry.payload.get('error', '(not recorded)')[:110]}")
 
+        # The claim adapt_task exists to make: a plan can change without the
+        # record of why it had to change being touched. Read back from the
+        # store, because what matters is what landed, not what the tool said.
+        print()
+        print("GRAPH AFTER")
+        lost = False
+        for goal in store.load(USER).goals:
+            for route in goal.routes:
+                for task in route.tasks:
+                    was_slots, was_count, was_slips, was_title = before[task.id]
+                    now_slots = list(task.scheduled_slots)
+                    if (now_slots, task.title) == (was_slots, was_title):
+                        continue
+                    past = [slot for slot in was_slots if slot.date() < clock.today]
+                    survived = len(set(past) & set(now_slots))
+                    print(f"  {task.id}: {was_title!r}")
+                    if task.title != was_title:
+                        print(f"    retitled  -> {task.title!r}")
+                    print(f"    slots     {len(was_slots)} -> {len(now_slots)}")
+                    print(f"    past kept {survived}/{len(past)}")
+                    print(f"    slips     {was_slips} -> {len(task.slips)}, count {was_count} -> {task.slip_count}")
+                    if len(task.slips) < was_slips or task.slip_count < was_count:
+                        print("    *** SLIP HISTORY LOST -- the one thing it must not do ***")
+                        lost = True
+                    if survived < len(past):
+                        print("    *** A PAST SLOT WAS REWRITTEN ***")
+                        lost = True
+
         print("\n" + "=" * 66)
         print("This is the first time any of it has thought for itself.")
-        return 0
+        return 1 if lost else 0
 
 
 if __name__ == "__main__":
