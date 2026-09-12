@@ -78,23 +78,48 @@ def read_audit(limit: int = Query(default=50, ge=1, le=500)) -> JSONResponse:
     return JSONResponse(content={"entries": [entry.model_dump(mode="json") for entry in entries]})
 
 
+@router.get("/health")
+def health() -> JSONResponse:
+    """Is the process up and can it reach its store.
+
+    Deliberately does not touch a model: a health check that spends quota is a
+    health check that causes the outage it is watching for. It reports which
+    provider is configured without calling it.
+    """
+    from second.settings import MODEL_PROVIDER
+
+    try:
+        service.load_living_graph(DEMO_USER_ID)
+        store = "ok"
+    except Exception as error:  # noqa: BLE001 - a health check reports, it does not raise
+        store = f"unreachable: {type(error).__name__}"
+
+    body = {"status": "ok" if store == "ok" else "degraded", "store": store,
+            "provider": MODEL_PROVIDER}
+    return JSONResponse(content=body, status_code=200 if store == "ok" else 503)
+
+
 # --- the day ----------------------------------------------------------------
 
 
 @router.get("/today")
-async def read_today() -> JSONResponse:
-    """Today's brief.
+def read_today() -> JSONResponse:
+    """Today's brief, read rather than computed.
 
     **A brief is always returned.** Existing is not interrupting: the schedule
     is a plan the user asked for and it is there whenever they look. What stays
     rare is ``notify`` and ``decisions``.
 
-    This runs the Daily graph rather than reading a cached brief, because there
-    is nowhere to cache one -- the store holds the Living Graph, not the day.
-    Worth knowing before wiring a poll to it: a GET here is not cheap.
+    **A GET does not run the graph.** This used to call ``run_daily`` -- five
+    agents, tens of seconds and real tokens on a route a browser might poll, and
+    a refresh could quietly spend a day's free-tier quota. SURFACES found it.
+
+    Reading is free and running is deliberate. If today's brief was computed it
+    comes back as it was; if not, the day is assembled from the Living Graph
+    alone, where the schedule and the deadline risks are facts that cost nothing
+    and the judgement-shaped parts are absent rather than invented.
     """
-    brief = await service.run_daily(DEMO_USER_ID)
-    return sent(brief)
+    return sent(service.get_today(DEMO_USER_ID))
 
 
 @router.post("/daily/run")

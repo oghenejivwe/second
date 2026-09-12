@@ -422,3 +422,81 @@ def test_brief_shape(client, monkeypatch):
         "silence_reason",
     ):
         assert field in body, f"{field} was dropped on the way out"
+
+
+# -- a read must stay a read -------------------------------------------------
+
+
+def test_getting_today_does_not_run_the_graph(client, monkeypatch):
+    """``GET /api/today`` used to invoke five agents. A browser refresh could
+    spend a day's free-tier quota, and nothing in the response said so.
+
+    Asserted by making run_daily explode: if the route still reaches for it, this
+    test says so instead of quietly costing tokens on every poll.
+    """
+
+    async def _explode(*args, **kwargs):
+        raise AssertionError("GET /api/today ran the Daily graph")
+
+    monkeypatch.setattr(service, "run_daily", _explode)
+
+    response = client.get("/api/today")
+
+    assert response.status_code == 200
+    assert "blocks" in response.json()
+
+
+def test_running_the_day_is_still_a_post(client):
+    """The expensive thing keeps a verb that cannot be triggered by a link,
+    a prefetch or a refresh."""
+    assert client.get("/api/daily/run").status_code == 405
+
+
+def test_today_is_served_from_the_cached_brief_when_there_is_one(client, store, today):
+    """A brief computed by the morning run is what the day shows, unchanged."""
+    from second.graphs import service as svc
+
+    brief = svc.get_today(DEMO_USER_ID, today=today)
+    brief.silence_reason = "nothing needed saying"
+    store.save_brief(DEMO_USER_ID, brief)
+
+    assert client.get("/api/today").json()["silence_reason"] == "nothing needed saying"
+
+
+# -- health ------------------------------------------------------------------
+
+
+def test_health_reports_the_store_and_the_provider(client):
+    body = client.get("/api/health").json()
+
+    assert body["status"] == "ok"
+    assert body["store"] == "ok"
+    assert body["provider"]
+
+
+def test_health_does_not_call_a_model(client, monkeypatch):
+    """A health check that spends quota causes the outage it watches for."""
+    from second.graphs import composition
+
+    def _explode(*args, **kwargs):
+        raise AssertionError("/api/health built a model")
+
+    monkeypatch.setattr(composition, "build_model", _explode)
+
+    assert client.get("/api/health").status_code == 200
+
+
+def test_health_says_degraded_when_the_store_is_gone(client, monkeypatch):
+    """It reports rather than raising -- a 500 from a health check tells a load
+    balancer nothing about what is wrong."""
+
+    def _unreachable(*args, **kwargs):
+        raise RuntimeError("table not found")
+
+    monkeypatch.setattr(service, "load_living_graph", _unreachable)
+
+    response = client.get("/api/health")
+
+    assert response.status_code == 503
+    assert response.json()["status"] == "degraded"
+    assert "RuntimeError" in response.json()["store"]
