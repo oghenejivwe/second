@@ -32,6 +32,12 @@ token*.json
 token*.pickle
 .aws/
 
+# Local tooling and build leftovers, not part of the project
+.claude/
+package/
+pr.json
+pr.tgz
+
 # Local scratch
 *.local
 .DS_Store
