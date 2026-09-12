@@ -1,4 +1,7 @@
 {
+  "goal_id": "g-speaking",
+  "goal_title": "Get comfortable speaking to a room",
+  "status": "retired",
   "graph": {
     "user_id": "demo",
     "goals": [
@@ -342,7 +345,9 @@
       }
     ],
     "version": 2,
-    "updated_at": "2026-09-11T09:13:28.968922Z"
+    "updated_at": "2026-09-12T19:16:13.304137Z",
+    "stalled_ambition_ids": [],
+    "broken_link_ids": []
   },
   "freed": [
     {
@@ -389,5 +394,5 @@
     }
   ],
   "freed_minutes": 180,
-  "note": "3 slot(s) over the next four weeks are free. The next daily run reallocates them to the goals still active."
+  "note": "3 slots over the next four weeks, 3 hours in all, are now free. The next daily run reallocates the time to the goals still active."
 }

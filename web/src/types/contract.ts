@@ -500,6 +500,15 @@ export interface FeedbackUpdate {
  * via the `definition` "GoalStatusChange".
  */
 export interface GoalStatusChange {
+  /**
+   * Which goal changed.
+   */
+  goal_id: string
+  /**
+   * Its title, so a screen can say 'Freed from X' without a lookup.
+   */
+  goal_title: string
+  status: 'active' | 'paused' | 'retired'
   graph: LivingGraph
   /**
    * Upcoming slots the goal was holding, now released. Empty when it held none.
@@ -528,6 +537,19 @@ export interface LivingGraph {
   links: Link[]
   version: number
   updated_at: string | null
+  /**
+   * Ids of ambitions with nothing under them, computed here not in a client.
+   *
+   * SURFACES was re-deriving this rule in TypeScript from flat ``goals``. It
+   * matched exactly when they checked, which is the problem: two copies of a
+   * rule that agree today and drift silently. It is PLATFORM's rule, so it
+   * travels with the graph.
+   */
+  stalled_ambition_ids: string[]
+  /**
+   * Ids of goals pointing at a parent that is not in the graph.
+   */
+  broken_link_ids: string[]
 }
 /**
  * Observed facts about how this person actually operates.

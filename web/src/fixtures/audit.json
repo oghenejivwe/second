@@ -1,7 +1,7 @@
 [
   {
-    "at": "2026-09-11T09:13:30.368110Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.765474Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "node",
     "actor": "graph",
     "action": "run_end",
@@ -10,8 +10,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.368110Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.765474Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "node",
     "actor": "communicator",
     "action": "node_end",
@@ -22,8 +22,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.368110Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.765474Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "communicator",
     "action": "BriefJudgement",
@@ -34,8 +34,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.352403Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.762461Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "node",
     "actor": "communicator",
     "action": "node_start",
@@ -44,8 +44,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.352403Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.762461Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "node",
     "actor": "preparer",
     "action": "node_end",
@@ -56,8 +56,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.352403Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.762461Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "preparer",
     "action": "PreparedAction",
@@ -68,8 +68,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.352403Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.759987Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "preparer",
     "action": "draft_email",
@@ -80,8 +80,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.352403Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.752111Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "preparer",
     "action": "search_gmail",
@@ -92,8 +92,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.352403Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.752111Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "node",
     "actor": "preparer",
     "action": "node_start",
@@ -102,8 +102,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.352403Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.752111Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "node",
     "actor": "adapter",
     "action": "node_end",
@@ -112,32 +112,20 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.352403Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.752111Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "adapter",
-    "action": "write_graph",
+    "action": "adapt_task",
     "payload": {
-      "input": "{'user_id': 'demo', 'layer': 'links', 'patch': {'links': [{'kind': 'slot_abandoned_for_task', 'from_id': 't-gym', 'to_ref': 'Thu 18:00', 'note': 'Declined again today; moved to 07:00.'}]}}"
+      "input": "{'user_id': 'demo', 'task_id': 't-gym', 'reason': '18:00 is recorded as abandoned on Mon, Wed and Fri and loses to Eng sync, which has nine attendees and is not theirs to move; 07:00 is uncontested.', 'future_slots': ['2026-09-10T07:00:00', '2026-09-11T07:00:00', '2026-09-14T07:00:00', '2026-09-16T…"
     },
     "is_write": true,
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.291715Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
-    "kind": "tool",
-    "actor": "adapter",
-    "action": "write_graph",
-    "payload": {
-      "input": "{'user_id': 'demo', 'layer': 'goals', 'patch': {'goals': [{'id': 'g-fitness', 'title': 'Train three times a week', 'horizon': 'year', 'contributes_to': 'g-health', 'deadline': None, 'status': 'active', 'routes': [{'id': 'r-gym', 'goal_id': 'g-fitness', 'title': 'Gym after work', 'cadence': 'Mon/Wed…"
-    },
-    "is_write": true,
-    "failed": false
-  },
-  {
-    "at": "2026-09-11T09:13:30.081341Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.685856Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "adapter",
     "action": "reschedule_event",
@@ -148,20 +136,21 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.081341Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.685856Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "adapter",
     "action": "reschedule_event",
     "payload": {
-      "input": "{'event_id': 'engsync000', 'new_start': '2026-09-10T07:00:00'}"
+      "input": "{'event_id': 'engsync000', 'new_start': '2026-09-10T07:00:00'}",
+      "error": "FakeConnectorError: 'engsync000' (Eng sync) belongs to someone else and will not be moved"
     },
     "is_write": true,
     "failed": true
   },
   {
-    "at": "2026-09-11T09:13:30.078631Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.685856Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "node",
     "actor": "adapter",
     "action": "node_start",
@@ -170,8 +159,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.078631Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.685856Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "node",
     "actor": "diagnostician",
     "action": "node_end",
@@ -182,8 +171,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.065258Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.685856Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "diagnostician",
     "action": "Diagnosis",
@@ -194,8 +183,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.065258Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.685856Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "diagnostician",
     "action": "read_graph",
@@ -206,8 +195,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.003778Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.637613Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "node",
     "actor": "diagnostician",
     "action": "node_start",
@@ -216,8 +205,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.003778Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.637613Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "node",
     "actor": "observer",
     "action": "node_end",
@@ -228,8 +217,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.003778Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.637613Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "observer",
     "action": "ObservationReport",
@@ -240,8 +229,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:30.002673Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.621668Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "observer",
     "action": "update_person_model",
@@ -252,8 +241,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:29.926264Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.578786Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "observer",
     "action": "search_gmail",
@@ -264,8 +253,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:29.926264Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.578786Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "tool",
     "actor": "observer",
     "action": "get_calendar_events",
@@ -276,8 +265,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:29.926264Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.576399Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "node",
     "actor": "observer",
     "action": "node_start",
@@ -286,8 +275,8 @@
     "failed": false
   },
   {
-    "at": "2026-09-11T09:13:29.926264Z",
-    "run_id": "1303b318-d7a9-4d63-b7e0-37ca5768491a",
+    "at": "2026-09-12T19:16:14.576399Z",
+    "run_id": "1946dde8-1c42-49b9-85a7-09ab639d1a24",
     "kind": "node",
     "actor": "graph",
     "action": "run_start",

@@ -1,4 +1,7 @@
 {
+  "goal_id": "g-lisbon",
+  "goal_title": "Be at my sister's wedding in Lisbon",
+  "status": "paused",
   "graph": {
     "user_id": "demo",
     "goals": [
@@ -342,7 +345,9 @@
       }
     ],
     "version": 2,
-    "updated_at": "2026-09-11T09:13:29.222595Z"
+    "updated_at": "2026-09-12T19:16:13.593279Z",
+    "stalled_ambition_ids": [],
+    "broken_link_ids": []
   },
   "freed": [],
   "freed_minutes": 0,

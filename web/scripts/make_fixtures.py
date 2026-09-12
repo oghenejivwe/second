@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -192,25 +192,53 @@ def observation_report(reconciling) -> dict[str, Any]:
     }
 
 
-def moved_gym_goal(new_hour: int = 7) -> dict[str, Any]:
-    """``g-fitness`` with today's gym slot moved, as a complete goal.
+def gym_adaptation(run_day, new_hour: int = 7) -> dict[str, Any]:
+    """The Adapter's move for the gym conflict, as the ``adapt_task`` call it makes.
 
-    ``write_graph`` upserts whole goals by id, so this is what a real Adapter
-    hands it. It exists because the Living Graph screen has to *visibly change*
-    after a run, and a run that only touches the fake calendar changes nothing a
-    judge can see. Moving the slot in the graph is the change.
+    This replaced a helper that retyped the whole ``g-fitness`` goal with one slot
+    changed, for a whole-goal ``write_graph``. The real Adapter no longer has
+    ``write_graph``. On a live model that mechanism ran out of output tokens
+    mid-goal, and a truncated goal that validated would have erased the slip
+    history. So a fixture showing the Adapter calling it would put the one thing
+    it cannot do at the centre of the demo's audit panel.
+
+    It also fixes what the old version got wrong by the Adapter prompt's own
+    rule. It moved the slot but left the route saying "Mon/Wed/Fri 18:00" with a
+    rationale about free evenings, which is a graph that lies. This moves every
+    upcoming slot, sets the cadence to match, and rewrites the rationale to cite
+    the person-layer fact behind the new time.
+
+    Slots are computed from the run's own date, because the check-in variant runs
+    the next morning and a hardcoded date would hand it a slot already in the past.
     """
     graph = demo_scenario.living_graph()
-    goal = graph.goal_by_id("g-fitness")
-    assert goal is not None, "demo_scenario lost g-fitness"
+    task = graph.task_by_id("t-gym")
+    assert task is not None, "demo_scenario lost t-gym"
 
-    task = next(task for route in goal.routes for task in route.tasks if task.id == "t-gym")
-    task.scheduled_slots = [
-        slot.replace(hour=new_hour) if slot.date() == TODAY else slot for slot in task.scheduled_slots
-    ]
-    task.known_blocker = "The 18:00 weekday slot always loses to Eng sync."
+    upcoming = {
+        slot.replace(hour=new_hour, minute=0)
+        for slot in task.scheduled_slots
+        if slot.date() >= run_day
+    }
+    for offset in range(7):
+        day = run_day + timedelta(days=offset)
+        if day.strftime("%a") in ("Mon", "Wed", "Fri"):
+            upcoming.add(datetime(day.year, day.month, day.day, new_hour, 0))
 
-    return goal.model_dump(mode="json")
+    return {
+        "user_id": USER,
+        "task_id": "t-gym",
+        "reason": (
+            "18:00 is recorded as abandoned on Mon, Wed and Fri and loses to Eng sync, "
+            "which has nine attendees and is not theirs to move; 07:00 is uncontested."
+        ),
+        "future_slots": [slot.isoformat() for slot in sorted(upcoming)],
+        "cadence": "Mon/Wed/Fri 07:00",
+        "rationale": (
+            "18:00 is recorded as abandoned on Mon, Wed and Fri; 07:00 is uncontested "
+            "and matches a stated early day shape."
+        ),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -316,29 +344,14 @@ def daily_specs(
                     {"event_id": "engsync000", "new_start": f"{TODAY}T07:00:00"},
                 ),
                 ToolUse("reschedule_event", {"event_id": "gym000", "new_start": f"{TODAY}T07:00:00"}),
-                # Both writes, deliberately. The calendar move is what the user
-                # sees in Google; this is what the Living Graph screen sees.
-                ToolUse("write_graph", {"user_id": USER, "layer": "goals", "patch": {"goals": [moved_gym_goal()]}}),
-                ToolUse(
-                    "write_graph",
-                    {
-                        "user_id": USER,
-                        "layer": "links",
-                        "patch": {
-                            "links": [
-                                {
-                                    "kind": "slot_abandoned_for_task",
-                                    "from_id": "t-gym",
-                                    "to_ref": "Thu 18:00",
-                                    "note": "Declined again today; moved to 07:00.",
-                                }
-                            ]
-                        },
-                    },
-                ),
+                # The graph change goes through adapt_task, which is the only write
+                # the real Adapter has. There is no links write any more: the
+                # Adapter cannot write links, and a fixture that showed it doing so
+                # would be the one dishonesty this app's own comments forbid.
+                ToolUse("adapt_task", gym_adaptation(reconciling + timedelta(days=1))),
                 Text("Moved the gym block to 07:00. The 18:00 slot is gone, not postponed."),
             ],
-            tools=("read_graph", "reschedule_event", "write_graph"),
+            tools=("read_graph", "reschedule_event", "adapt_task"),
         ),
         "preparer": spec(
             "preparer",
@@ -420,9 +433,10 @@ async def make_daily_fixtures() -> None:
                 entries = service.read_audit(USER, limit=200)
                 write(audit_name, [entry.model_dump(mode="json") for entry in entries])
 
-            # The Adapter moved a slot and recorded a link. The Living Graph
-            # screen has to show the world AFTER a run, not before it, so both
-            # states are checked in and the screen can diff them.
+            # The Adapter moved the gym slots and rewrote the route's cadence and
+            # rationale. The Living Graph screen has to show the world AFTER a
+            # run, not before it, so both states are checked in and the screen
+            # can diff them.
             if name == "brief-prepared.json":
                 write("living-graph-after-run.json", store.load(USER).model_dump(mode="json"))
 

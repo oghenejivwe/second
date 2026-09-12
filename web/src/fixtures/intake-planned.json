@@ -378,7 +378,9 @@
       }
     ],
     "version": 2,
-    "updated_at": "2026-09-11T09:13:31.943933Z"
+    "updated_at": "2026-09-12T19:16:16.567283Z",
+    "stalled_ambition_ids": [],
+    "broken_link_ids": []
   },
   "clarifying_questions": [],
   "schedule": {

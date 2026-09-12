@@ -581,6 +581,28 @@
     "GoalStatusChange": {
       "description": "What pausing or retiring a goal actually did.\n\n``freed`` is the point. Retiring a goal releases the calendar time its routes\nwere holding, and the Goals screen has to be able to show that concretely --\nthese slots, this many hours, no longer spoken for.\n\nIt says *freed*, not *redistributed*, deliberately. The Scheduler has not run\nagain yet, so nothing has been reallocated. Claiming otherwise would have\nSecond describing a plan it has not made, which is the one thing this product\nmust never do. ``note`` says when the reallocation actually happens.",
       "properties": {
+        "goal_id": {
+          "default": "",
+          "description": "Which goal changed.",
+          "title": "Goal Id",
+          "type": "string"
+        },
+        "goal_title": {
+          "default": "",
+          "description": "Its title, so a screen can say 'Freed from X' without a lookup.",
+          "title": "Goal Title",
+          "type": "string"
+        },
+        "status": {
+          "default": "active",
+          "enum": [
+            "active",
+            "paused",
+            "retired"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
         "graph": {
           "$ref": "#/$defs/LivingGraph"
         },
@@ -721,10 +743,30 @@
           ],
           "default": null,
           "title": "Updated At"
+        },
+        "stalled_ambition_ids": {
+          "description": "Ids of ambitions with nothing under them, computed here not in a client.\n\nSURFACES was re-deriving this rule in TypeScript from flat ``goals``. It\nmatched exactly when they checked, which is the problem: two copies of a\nrule that agree today and drift silently. It is PLATFORM's rule, so it\ntravels with the graph.",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true,
+          "title": "Stalled Ambition Ids",
+          "type": "array"
+        },
+        "broken_link_ids": {
+          "description": "Ids of goals pointing at a parent that is not in the graph.",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true,
+          "title": "Broken Link Ids",
+          "type": "array"
         }
       },
       "required": [
-        "user_id"
+        "user_id",
+        "stalled_ambition_ids",
+        "broken_link_ids"
       ],
       "title": "LivingGraph",
       "type": "object"

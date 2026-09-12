@@ -21,7 +21,15 @@ import { defineConfig } from 'vite'
  *   npm run dev        fixtures   the checked-in payloads, generated from the
  *                                 real code paths by scripts/make_fixtures.py
  *   npm run dev:live   live       uvicorn on :8000, through the proxy below
- *   npm run build      live       a built bundle never ships fixtures
+ *   npm run build      live       the bundle FastAPI serves; never ships fixtures
+ *   npm run build:demo fixtures   a static bundle for a host with no backend
+ *
+ * `build:demo` is the one exception to "a built bundle never ships fixtures",
+ * and it is an exception by name rather than by accident. It exists because the
+ * demo has to be shown before real Google and AWS access exist, on a static host
+ * with no API behind it. The ordinary build would call an `/api` that is not
+ * there and render nothing but errors. It keeps the rail's `fixtures` marker,
+ * because that marker is what stops example data passing for a live account.
  *
  * Development defaults to fixtures, and not for convenience: `second.agents`
  * does not exist yet and there is no ANTHROPIC_API_KEY, so every route that
@@ -32,7 +40,9 @@ import { defineConfig } from 'vite'
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
   define: {
-    'import.meta.env.VITE_SOURCE': JSON.stringify(mode === 'development' ? 'fixtures' : 'live'),
+    'import.meta.env.VITE_SOURCE': JSON.stringify(
+      mode === 'development' || mode === 'demo' ? 'fixtures' : 'live',
+    ),
   },
   server: {
     port: 5173,

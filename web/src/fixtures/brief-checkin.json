@@ -2,6 +2,19 @@
   "on": "2026-09-11",
   "blocks": [
     {
+      "task_id": "t-gym",
+      "goal_id": "g-fitness",
+      "goal_title": "Train three times a week",
+      "horizon": "year",
+      "serves": [
+        "Still be climbing at sixty"
+      ],
+      "title": "Gym session",
+      "start": "2026-09-11T07:00:00+01:00",
+      "duration_min": 60,
+      "resource_url": null
+    },
+    {
       "task_id": "t-club",
       "goal_id": "g-speaking",
       "goal_title": "Get comfortable speaking to a room",
@@ -41,14 +54,6 @@
     "on": "2026-09-10",
     "items": [
       {
-        "task_id": "t-gym",
-        "title": "Gym session",
-        "goal_title": "Train three times a week",
-        "scheduled_for": "2026-09-10T07:00:00+01:00",
-        "inferred": "likely_missed",
-        "evidence": "18:00 invite declined; 'Eng sync' (9 attendees) ran at the same time."
-      },
-      {
         "task_id": "t-recording",
         "title": "Record five minutes and listen back",
         "goal_title": "Get comfortable speaking to a room",
@@ -63,6 +68,14 @@
         "scheduled_for": "2026-09-10T17:00:00+01:00",
         "inferred": "likely_missed",
         "evidence": "The 17:00 slot was declined and no draft reached the inbox."
+      },
+      {
+        "task_id": "t-gym",
+        "title": "Gym session",
+        "goal_title": "Train three times a week",
+        "scheduled_for": "2026-09-10T18:00:00+01:00",
+        "inferred": "likely_missed",
+        "evidence": "18:00 invite declined; 'Eng sync' (9 attendees) ran at the same time."
       }
     ]
   },
