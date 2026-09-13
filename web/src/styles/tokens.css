@@ -1,77 +1,145 @@
-/* The visual identity is quietness, so the palette is mostly greys.
+/* The visual identity is calm on white: paper, ink, and one blue instrument.
  *
- * Three rules this file exists to enforce:
+ * Six rules this file exists to enforce:
  *
- * 1. **Colour is information, never decoration.** There are exactly two hues in
- *    the whole app -- one for something that slipped, one for something that
- *    held -- and both are desaturated so that neither reads as alarm or as
- *    praise. Everything else is a grey. If a screen needs a third hue, the
- *    screen is saying too much.
+ * 1. **Action is monochrome.** A thing you can press is Obsidian on white or
+ *    white on Obsidian. No button, pill or tab is ever filled with a hue,
+ *    because a coloured button claims an importance the words should earn.
  *
- * 2. **Evidence is set in mono.** Anything quoted from the calendar, the inbox
- *    or the audit log uses --font-mono. It is a typographic way of saying "these
- *    are not our words", and it does the job an italic or a quotation mark would
- *    do more loudly.
+ * 2. **One blue, for instruments only.** --accent marks the tools Second uses
+ *    to listen and measure: the mic glyph, a waveform, a small icon. It is
+ *    never a button fill and never more than two words of text. If a screen
+ *    wants blue for emphasis, the screen wants a better sentence.
  *
- * 3. **Rules, not cards.** Separation comes from 1px borders and whitespace.
- *    No shadows, no elevation, no rounded panels floating on a backdrop. A
- *    card implies a thing to be collected; a rule implies a list to be read.
+ * 3. **Cards float on faint blue-tinted shadows.** Separation comes from a
+ *    white card, a hairline and a shadow that never passes 0.1 opacity. The
+ *    shadow leans towards blue so it reads as air rather than dirt.
  *
- * There is no success green and no celebration anywhere in this file, and that
- * is deliberate. Second does not perform at the user.
+ * 4. **The sky gradient appears once, at the door.** --gradient-sky belongs to
+ *    the login screen and nowhere else. Used twice, it stops being a threshold
+ *    and becomes wallpaper.
+ *
+ * 5. **Slip and held are information.** They are the only two hues besides
+ *    the blue, one for something that slipped and one for something that
+ *    held. Both are muted so neither reads as alarm or as praise, and both
+ *    are dark enough to be read as small text on white. There is no success
+ *    green and no celebration anywhere in this file; Second does not perform
+ *    at the user.
+ *
+ * 6. **Evidence is set in mono.** Anything quoted from the calendar, the inbox
+ *    or the audit log uses --font-mono. It is a typographic way of saying
+ *    "these are not our words", and it does the job a quotation mark would do
+ *    more loudly.
  */
 
 :root {
-  /* Greys, dark to light. Not pure black and not pure white -- both are harsh
-   * on a projector, and this gets watched on a recording. */
-  --ink-000: #0a0b0c;
-  --ink-050: #0e1012;
-  --ink-100: #14161a;
-  --ink-200: #1b1e23;
-  --ink-300: #24282e;
-  --ink-400: #32373f;
-  --ink-500: #4a515b;
-  --ink-600: #6b737d;
-  --ink-700: #8f979f;
-  --ink-800: #b9c0c6;
-  --ink-900: #e4e7ea;
+  /* --- Letters palette ---------------------------------------------------- */
 
-  --bg: var(--ink-000);
-  --bg-raised: var(--ink-050);
-  --bg-inset: var(--ink-100);
-  --bg-hover: var(--ink-200);
+  --color-obsidian: #070709;
+  --color-paper: #ffffff;
+  --color-cloud: #f5f5f5;
+  --color-sky-tint: #d7e6f5;
+  --color-charcoal: #60606c;
+  /* Slate is 3.41:1 on white, so it is for placeholders, disabled controls and
+   * text of 18px and larger. Small text that must be read uses --text-ghost. */
+  --color-slate: #8b8b8b;
+  --color-ink: #151515;
+  --color-hairline: #bebecc;
 
-  --rule: var(--ink-300);
-  --rule-strong: var(--ink-400);
+  --accent: #2597d0;
+  --gradient-sky: linear-gradient(180deg, #779bc1 0%, #9abfda 58%, #cbdcec 100%);
 
-  --text: var(--ink-900);
-  --text-dim: var(--ink-700);
-  --text-faint: var(--ink-600);
+  /* --- the legacy grey scale, inverted for a light page ------------------- */
+
+  /* Modules written for the dark theme still name these steps directly. The
+   * roles are kept rather than the values: 000 is still the page and 900 is
+   * still the strongest text, so a border that was a little brighter than the
+   * rule is still a little stronger than the rule. */
+  --ink-000: #ffffff;
+  --ink-050: #fafafb;
+  --ink-100: #f5f5f5;
+  --ink-200: #e7e7ee;
+  --ink-300: #d5d5de;
+  --ink-400: #bebecc;
+  /* 4.96:1 on white, and deliberately not Slate, because modules use this step
+   * as small text. */
+  --ink-500: #6f6f7b;
+  --ink-600: #60606c;
+  --ink-700: #3d3d45;
+  --ink-800: #151515;
+  --ink-900: #070709;
+
+  /* --- surfaces ----------------------------------------------------------- */
+
+  --bg: var(--color-paper);
+  --bg-raised: var(--color-paper);
+  --bg-inset: var(--color-cloud);
+  --bg-hover: #efeff3;
+
+  --rule: var(--ink-200);
+  --rule-strong: var(--color-hairline);
+
+  /* --- text --------------------------------------------------------------- */
+
+  /* Measured against white and against Cloud Gray (the inset surface):
+   *   --text        20.13:1 / 18.46:1
+   *   --text-dim     6.20:1 /  5.69:1
+   *   --text-faint   5.34:1 /  4.89:1
+   *   --text-ghost   4.96:1 /  4.55:1
+   * Every step clears AA for small text on both, so no module that names one
+   * of the older, quieter steps drops below 4.5:1 by accident. */
+  --text: var(--color-obsidian);
+  --text-dim: var(--color-charcoal);
+  --text-faint: #6a6a76;
   --text-ghost: var(--ink-500);
 
-  /* The only two hues. Both muted on purpose: a slip is a fact, not an alarm. */
-  --slip: #c0655c;
-  --slip-dim: #6e3a36;
-  --slip-wash: rgba(192, 101, 92, 0.09);
+  /* --- the two semantic hues ---------------------------------------------- */
 
-  --held: #7f9b7a;
-  --held-dim: #46543f;
-  --held-wash: rgba(127, 155, 122, 0.09);
+  /* Measured as text, against white / Cloud Gray / its own wash over white:
+   *   --slip  #a8493f   5.69:1 / 5.22:1 / 5.15:1
+   *   --held  #4e7048   5.62:1 / 5.16:1 / 5.07:1
+   * The two sit within a tenth of each other so neither shouts louder. The
+   * -dim steps are borders and rules, not text (2.34:1 and 2.14:1 on white),
+   * and the washes stay under 0.1 so a slipped row is tinted, not flagged. */
+  --slip: #a8493f;
+  --slip-dim: #d49c94;
+  --slip-wash: rgba(168, 73, 63, 0.07);
 
-  /* Used only for the thing the user is currently pointing at. */
-  --focus: var(--ink-800);
+  --held: #4e7048;
+  --held-dim: #9fb899;
+  --held-wash: rgba(78, 112, 72, 0.08);
 
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", Menlo, monospace;
+  /* Used only for the thing the user is currently pointing at. Obsidian keeps
+   * it monochrome and gives 20:1 on white. */
+  --focus: var(--color-obsidian);
+
+  /* --- type --------------------------------------------------------------- */
+
+  --font-display: 'Open Runde', ui-rounded, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-ui: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font: var(--font-display);
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', 'Roboto Mono', Menlo, monospace;
+
+  /* Tight at 28px and up, a hair tight for 14 to 18px body, and normal at
+   * 10 to 12px, where any negative tracking starts to close the counters. */
+  --tracking-tight: -0.04em;
+  --tracking-body: -0.01em;
 
   --size-11: 0.6875rem;
   --size-12: 0.75rem;
   --size-13: 0.8125rem;
   --size-14: 0.875rem;
   --size-16: 1rem;
+  --size-18: 1.125rem;
   --size-19: 1.1875rem;
+  --size-20: 1.25rem;
   --size-24: 1.5rem;
+  --size-28: 1.75rem;
   --size-32: 2rem;
+  --size-44: 2.75rem;
+
+  /* --- space and shape ---------------------------------------------------- */
 
   --space-1: 4px;
   --space-2: 8px;
@@ -82,7 +150,23 @@
   --space-7: 48px;
   --space-8: 64px;
 
-  --rail-width: 168px;
+  --radius-pill: 100px;
+  --radius-card: 18px;
+  --radius-card-lg: 32px;
+  --radius-input: 12px;
+  --radius-icon: 8px;
+
+  /* No shadow here passes 0.1 opacity. The card shadow is three long, faint
+   * layers tinted towards blue; the button shadow is short and neutral, so a
+   * pill sits on the page instead of hovering over it. */
+  --shadow-card: rgba(16, 55, 132, 0.03) 0 17px 37px, rgba(16, 55, 132, 0.03) 0 67px 67px,
+    rgba(16, 55, 132, 0.02) 0 150px 90px;
+  --shadow-button: rgba(36, 36, 40, 0.1) 0 1px 2px, rgba(36, 36, 40, 0.09) 0 3px 3px,
+    rgba(36, 36, 40, 0.05) 0 6px 4px, rgba(36, 36, 40, 0.01) 0 11px 4px;
+  --shadow-accent: rgba(23, 107, 197, 0.08) 0 1px 1px, rgba(23, 107, 197, 0.07) 0 3px 3px;
+  --shadow-subtle: rgba(228, 229, 231, 0.24) 0 1px 2px;
+
+  --rail-width: 192px;
   --measure: 62ch;
 
   /* One duration, used for everything. Long enough to be seen on a recording,

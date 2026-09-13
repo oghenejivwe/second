@@ -1,8 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { USING_FIXTURES } from './api/client'
+import { SignOut } from './components/SignOut'
+import { readSignedIn } from './lib/demoLogin'
 import { Goals } from './screens/Goals'
 import { LivingGraphScreen } from './screens/LivingGraphScreen'
+import { Login } from './screens/Login'
 import { MemoryScreen } from './screens/MemoryScreen'
 import { Record } from './screens/Record'
 import { ScheduleScreen } from './screens/ScheduleScreen'
@@ -31,12 +34,20 @@ export function App() {
   const loadGraph = useSecond((state) => state.loadGraph)
   const loadBrief = useSecond((state) => state.loadBrief)
 
+  // The demo gate, which is a stage prop and not security (see
+  // lib/demoLogin.ts). Read once from sessionStorage, so a reload inside the
+  // same tab stays signed in.
+  const [signedIn, setSignedIn] = useState(readSignedIn)
+
   // Both, once, at startup. The Living Graph and Today are the two screens a
-  // judge will flip between, and neither should ever be caught loading.
+  // judge will flip between, and neither should ever be caught loading. They
+  // run behind the login too, so the first screen after Sign in is ready.
   useEffect(() => {
     void loadGraph()
     void loadBrief()
   }, [loadGraph, loadBrief])
+
+  if (!signedIn) return <Login onSignedIn={() => setSignedIn(true)} />
 
   return (
     <div className={styles.shell}>
@@ -66,6 +77,8 @@ export function App() {
             </span>
           </p>
         )}
+
+        <SignOut onSignedOut={() => setSignedIn(false)} />
       </nav>
 
       <main className={styles.screen}>

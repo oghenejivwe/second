@@ -5,6 +5,7 @@ import { BlockRow } from '../components/BlockRow'
 import { CheckInList } from '../components/CheckInList'
 import { Problem } from '../components/Problem'
 import { Section } from '../components/Section'
+import { TalkItThrough, TalkPill } from '../components/TalkItThrough'
 import { USING_FIXTURES, api, errorLine, fixtureBrief, type FixtureState } from '../api/client'
 import { duration, longDate, shortDate, weekdayShort } from '../lib/datetime'
 import { plural, takenOffLine, withdrawFromBrief, type BriefWithdrawal } from '../lib/withdrawn'
@@ -52,6 +53,7 @@ export function Today() {
   const fixtureState = useSecond((state) => state.fixtureState)
 
   const [auditOpen, setAuditOpen] = useState(false)
+  const [talkOpen, setTalkOpen] = useState(false)
 
   if (errors.brief && !loaded) {
     return (
@@ -103,8 +105,16 @@ export function Today() {
           >
             Audit
           </button>
+          <TalkPill open={talkOpen} onToggle={() => setTalkOpen((open) => !open)} />
         </div>
       </header>
+
+      {/* Keyed by the fixture state, so stepping to another morning while the
+       * panel is open starts the conversation again about the day now on
+       * screen, instead of finishing one about a day that has gone. */}
+      {talkOpen && (
+        <TalkItThrough key={fixtureState} brief={brief} onClose={() => setTalkOpen(false)} />
+      )}
 
       {errors.run && <Problem what={errors.run} onRetry={() => void runDaily()} />}
 

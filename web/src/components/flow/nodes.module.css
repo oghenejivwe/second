@@ -1,12 +1,16 @@
-/* One shape for all three node kinds: a 1px rule and some text. What varies is
- * the emphasis, and the only colour is information. */
+/* One shape for all three node kinds: a white card with a hairline and some
+ * text. What varies is the emphasis, and the only colour is information.
+ *
+ * Nodes keep the 12px padding and small type from before, because the layout
+ * in lib/livingGraph.ts spaces rows 132px apart and a taller task node would
+ * run into the row below. */
 .node {
   position: relative;
   width: 100%;
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   background: var(--bg-raised);
-  border: 1px solid var(--rule);
-  border-radius: 2px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-card);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -14,18 +18,19 @@
   cursor: default;
 }
 
+/* A goal is the top of a ladder, so it is the one node that lifts off the
+ * canvas on the card shadow. */
 .node[data-kind='goal'] {
   width: 248px;
+  box-shadow: var(--shadow-card);
 }
 
 .node[data-kind='route'] {
   width: 216px;
-  background: var(--bg);
 }
 
 .node[data-kind='task'] {
   width: 208px;
-  background: var(--bg);
 }
 
 /* A goal too far out to hold calendar work is drawn with a dashed rule: it is
@@ -35,13 +40,27 @@
   border-color: var(--rule-strong);
 }
 
+/* Paused and retired sink onto the Cloud Gray surface instead of fading, so
+ * every line of text on them still clears 4.5:1 (ghost is 4.55:1 on that grey,
+ * where half opacity on white took it under 2:1). */
 .node[data-status='paused'],
 .node[data-status='retired'] {
-  opacity: 0.5;
+  background: var(--bg-inset);
+  border-color: var(--rule);
+  box-shadow: none;
 }
 
+.node[data-status='paused'] .title,
+.node[data-status='retired'] .title {
+  color: var(--text-dim);
+}
+
+/* Selection is the instrument the user is holding, so it borrows the blue, as
+ * the canvas selection in styles/flow.css does. It is drawn as a ring rather
+ * than a border colour, so it still shows on a slipped, blocked or changed
+ * node whose border already says something else. */
 .node[data-selected='true'] {
-  border-color: var(--ink-600);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-accent);
 }
 
 /* Slipped is a fact about the task, so it colours the task. */
@@ -67,18 +86,26 @@
   animation: settle calc(var(--beat) * 5) var(--ease) 1;
 }
 
+/* The word, as a tag sitting on the top rule. 18px tall, so -9px centres it on
+ * the border. Obsidian on white. */
 .changed {
   position: absolute;
   top: -9px;
-  right: var(--space-2);
-  padding: 0 var(--space-1);
+  right: var(--space-3);
+  padding: 0 var(--space-2);
   background: var(--bg);
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
   font-size: var(--size-11);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-dim);
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: normal;
+  color: var(--text);
 }
 
+/* From Obsidian to a step lighter: the pulse starts at the darkest rule on the
+ * page and settles to the changed border. */
 @keyframes settle {
   from {
     border-color: var(--ink-900);
@@ -88,33 +115,45 @@
   }
 }
 
+/* The kind line above the title, in the UI face at normal tracking and without
+ * capitals, which shout on white. */
 .horizon,
 .cadence {
+  font-family: var(--font-ui);
   font-size: var(--size-11);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: normal;
   color: var(--text-ghost);
 }
 
 .title {
   font-size: var(--size-13);
+  font-weight: 500;
   line-height: 1.35;
+  letter-spacing: var(--tracking-body);
   color: var(--text);
 }
 
 .node[data-kind='goal'] .title {
   font-size: var(--size-14);
+  font-weight: 600;
+  color: var(--color-ink);
 }
 
 .meta {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  font-family: var(--font-ui);
   font-size: var(--size-11);
+  letter-spacing: normal;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
 
+/* Slip on the slipped task's wash is 5.15:1; held on it, for a task that is
+ * both done and slipped, is 5.09:1. */
 .slips {
   color: var(--slip);
 }
@@ -124,14 +163,18 @@
 }
 
 .blocked {
+  font-family: var(--font-ui);
   font-size: var(--size-11);
+  letter-spacing: normal;
   color: var(--slip);
 }
 
 .stalled,
 .broken {
+  font-family: var(--font-ui);
   font-size: var(--size-11);
   line-height: 1.35;
+  letter-spacing: normal;
   color: var(--text-ghost);
 }
 
@@ -145,9 +188,10 @@
   font-family: var(--font-mono);
   font-size: var(--size-11);
   line-height: 1.4;
+  letter-spacing: normal;
   color: var(--text-faint);
   padding-top: var(--space-1);
-  border-top: 1px solid var(--ink-200);
+  border-top: 1px solid var(--rule);
 }
 
 /* Person-layer facts, hung off the right edge of the node. Context, not
@@ -167,9 +211,10 @@
   display: flex;
   flex-direction: column;
   padding-left: var(--space-2);
-  border-left: 1px solid var(--ink-400);
+  border-left: 1px solid var(--rule-strong);
   font-size: var(--size-11);
   line-height: 1.3;
+  letter-spacing: normal;
 }
 
 .annotation[data-tone='held'] {
@@ -186,13 +231,14 @@
 }
 
 .annotationNote {
+  font-family: var(--font-ui);
   color: var(--text-ghost);
 }
 
 /* --- edges --------------------------------------------------------------- */
 
 .dep {
-  stroke: var(--ink-400);
+  stroke: var(--color-hairline);
   stroke-width: 1;
 }
 
@@ -221,15 +267,24 @@
   }
 }
 
+/* An edge label is a tag laid over the line, white so the line does not run
+ * through the words. */
 .edgeLabel {
   position: absolute;
-  padding: 1px var(--space-1);
+  padding: 0 var(--space-2);
   background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
   font-size: var(--size-11);
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: normal;
   color: var(--text-ghost);
   pointer-events: none;
 }
 
 .edgeLabel[data-blocked='true'] {
+  border-color: var(--slip-dim);
   color: var(--slip);
 }

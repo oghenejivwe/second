@@ -13,20 +13,33 @@
 }
 
 .title {
-  font-size: var(--size-24);
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+  font-size: var(--size-28);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
 }
 
 .what {
   max-width: var(--measure);
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-faint);
 }
 
+/* The counts are one tag, sized to its words rather than stretched across the
+ * header column. */
 .tally {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
   font-size: var(--size-12);
-  color: var(--text-ghost);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--text-faint);
 }
 
 .body {
@@ -37,7 +50,7 @@
 
 .waiting,
 .nothing {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-ghost);
 }
 
@@ -45,18 +58,38 @@
   max-width: var(--measure);
 }
 
+/* A day's blocks sit in one white card. BlockRow draws its own dividing rule
+ * under every row, so the last row's rule is hidden here where the card's edge
+ * already closes the list, and the top padding makes up the room BlockRow
+ * trims from its first row. */
 .blocks {
   display: flex;
   flex-direction: column;
+  padding: var(--space-2) var(--space-5) 0;
+  background: var(--bg-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.blocks > li:last-child {
+  border-bottom-color: transparent;
 }
 
 /* --- what Second did not suggest --------------------------------------- */
 
+/* Set on the Cloud Gray secondary surface, so what was refused never passes for
+ * a block in the white card above. The invisible border and matching side
+ * padding keep the time column where the card's is. On this grey, ghost text
+ * measures 4.55:1, the mono reason 4.89:1 and the route 5.69:1. */
 .refused {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding-top: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-inset);
+  border: 1px solid transparent;
+  border-radius: var(--radius-card);
 }
 
 .refusals {
@@ -78,7 +111,7 @@
  * table and is not happening. Grey, because a refusal is Second's decision and
  * not the user's slip. */
 .wanted {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-ghost);
   white-space: nowrap;
   text-decoration: line-through;
@@ -86,7 +119,8 @@
 }
 
 .route {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
+  font-weight: 500;
   color: var(--text-dim);
 }
 
@@ -95,12 +129,16 @@
   grid-column: 2;
 }
 
+/* A route that is on no day is its own small white card, since there is no day
+ * card for it to sit in. */
 .unlaid {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--rule);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
 }
 
 .cadence {
@@ -110,10 +148,10 @@
 }
 
 /* Fixture mode only: what came off the list after a goal was paused or
- * retired, and why. A step brighter than the header copy and the tally,
+ * retired, and why. A step darker than the header copy and the tally,
  * because it explains a list that is shorter than the file it was read from. */
 .withdrawn {
   max-width: var(--measure);
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-dim);
 }

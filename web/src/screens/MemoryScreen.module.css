@@ -13,14 +13,17 @@
 }
 
 .title {
-  font-size: var(--size-24);
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+  font-size: var(--size-28);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
 }
 
 .what {
   max-width: var(--measure);
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-faint);
 }
 
@@ -32,63 +35,77 @@
 
 .waiting,
 .nothing {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-ghost);
 }
 
 /* --- sources ------------------------------------------------------------ */
 
-/* One column per source between two rules, the same separation the capture row
- * on Record uses. A source that could not be read is marked by the one hue for
- * something that did not hold, on its edge only. */
+/* One small card per source, so each reads as its own instrument. A source
+ * that could not be read is marked by the one hue for something that did not
+ * hold, on its edge and its state tag only; the card itself stays white. */
 .sources {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: var(--space-3) var(--space-5);
-  padding: var(--space-3) 0;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
+  gap: var(--space-3);
 }
 
 .source {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding-left: var(--space-3);
-  border-left: 1px solid var(--rule-strong);
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   min-width: 0;
 }
 
 .source[data-connected='false'] {
-  border-left-color: var(--slip-dim);
+  border-color: var(--slip-dim);
 }
 
 .sourceHead {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
 }
 
 .sourceName {
-  font-size: var(--size-13);
-  color: var(--text-dim);
+  font-family: var(--font-display);
+  font-size: var(--size-14);
+  font-weight: 600;
+  color: var(--color-ink);
 }
 
+/* The state is a tag: a pill with a hairline, in the UI face. */
 .sourceState {
-  font-size: var(--size-11);
-  color: var(--text-ghost);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--text-dim);
   white-space: nowrap;
 }
 
+/* Slip on its own wash measures 5.15:1. */
 .source[data-connected='false'] .sourceState {
+  border-color: var(--slip-dim);
+  background: var(--slip-wash);
   color: var(--slip);
 }
 
 .sourceReason {
   font-family: var(--font-mono);
-  font-size: var(--size-11);
-  line-height: 1.5;
+  font-size: var(--size-12);
+  line-height: 1.55;
+  letter-spacing: normal;
   color: var(--text-faint);
 }
 
@@ -98,19 +115,22 @@
   gap: var(--space-2);
 }
 
-/* The Problem band's shape, because an unread source is a real gap in what
- * follows -- but no retry, because reading again does not change why. */
+/* The Problem band's meaning, because an unread source is a real gap in what
+ * follows -- but no retry, because reading again does not change why. A faint
+ * slip wash with a slip hairline, rounded like a card; Charcoal on the wash is
+ * 5.61:1 and the mono evidence 4.83:1. */
 .unreadItem {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  border-left: 2px solid var(--slip-dim);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--slip-dim);
+  border-radius: var(--radius-card);
   background: var(--slip-wash);
 }
 
 .unreadWhat {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-dim);
 }
 
@@ -122,19 +142,24 @@
   gap: var(--space-4);
 }
 
-/* Today's decision treatment: the inset ground and the strong edge are what
- * this app gives the one thing that asks for something back. */
+/* The one thing on this screen that asks for something back, so it is the one
+ * card with the stronger hairline under its shadow. A settled question keeps
+ * the card but drops to the quiet rule and loses the shadow, so an open one is
+ * still the first thing the eye lands on. */
 .ask {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-4);
-  background: var(--bg-inset);
-  border-left: 2px solid var(--ink-600);
+  padding: var(--space-5);
+  background: var(--bg-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 .ask[data-settled='true'] {
-  border-left-color: var(--rule-strong);
+  border-color: var(--rule);
+  box-shadow: none;
 }
 
 .ask[data-settled='true'] .question {
@@ -143,20 +168,35 @@
 
 .askHead {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-3);
 }
 
+/* The horizon is a status of the question, so the global label becomes a tag
+ * here. Scoped to this module; the label elsewhere is untouched. */
+.askHead > :global(.label) {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
+}
+
 .cadenceNote {
+  font-family: var(--font-ui);
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-ghost);
 }
 
 .question {
   max-width: 56ch;
-  font-size: var(--size-16);
-  line-height: 1.45;
+  font-family: var(--font-display);
+  font-size: var(--size-18);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: var(--tracking-body);
+  color: var(--color-ink);
 }
 
 .answer {
@@ -167,23 +207,33 @@
 
 .boxLabel {
   display: block;
+  font-family: var(--font-ui);
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-ghost);
 }
 
 /* Record's transcript box, restated for the reason Record gives: base.css loads
- * after the modules, so `.evidence` would win on size and colour. */
+ * after the modules, so `.evidence` would win on size and colour. The Letters
+ * input shape: white, a hairline, the input radius. */
 .box {
   width: 100%;
   margin-top: var(--space-2);
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   background: var(--bg);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-input);
   font-family: var(--font-mono);
   font-size: var(--size-13);
   line-height: 1.6;
+  letter-spacing: normal;
   color: var(--text);
   resize: vertical;
+  transition: border-color var(--beat) var(--ease);
+}
+
+.box:hover:not(:read-only) {
+  border-color: var(--color-slate);
 }
 
 .box:read-only {
@@ -194,37 +244,65 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
+  gap: var(--space-2) var(--space-3);
   margin: var(--space-3) 0 var(--space-2);
 }
 
+/* The primary action: a filled Obsidian pill with the short button shadow.
+ * Monochrome, because the words say what it does. */
 .primary {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--rule-strong);
-  font-size: var(--size-13);
-  color: var(--text-dim);
-  transition: color var(--beat) var(--ease), border-color var(--beat) var(--ease);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-pill);
+  background: var(--color-obsidian);
+  box-shadow: var(--shadow-button);
+  font-family: var(--font-display);
+  font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--color-paper);
+  transition: background-color var(--beat) var(--ease);
 }
 
 .primary:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--ink-600);
+  background: var(--ink-700);
 }
 
-/* Today's ghost button. Skipping is allowed and quiet, so it never looks like
- * the main action. */
+/* Disabled is a flat grey pill. The label stays Charcoal (5.41:1 on this grey)
+ * rather than base.css's Slate, because "Sending" is a status someone reads. */
+.primary:disabled {
+  background: var(--bg-hover);
+  box-shadow: none;
+  color: var(--text-dim);
+}
+
+/* The ghost pill. Skipping is allowed and quiet, so it never looks like the
+ * main action: no fill, a hairline, and the same height as the primary. */
 .skip {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--size-13);
-  color: var(--text-faint);
+  padding: calc(var(--space-3) - 1px) calc(var(--space-5) - 1px);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--text);
+  transition:
+    background-color var(--beat) var(--ease),
+    border-color var(--beat) var(--ease);
 }
 
 .skip:hover:not(:disabled) {
-  color: var(--text);
+  background: var(--color-cloud);
+  border-color: var(--color-slate);
+}
+
+.skip:disabled {
+  border-color: var(--rule);
+  color: var(--text-dim);
 }
 
 .working {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-faint);
 }
 
@@ -237,19 +315,29 @@
   border-top: 1px solid var(--rule);
 }
 
+/* "Skipped" and "Answered" are statuses, so they are tags too. Sized to their
+ * word, because the outcome is a column that would otherwise stretch them. */
+.outcome > :global(.label) {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
+}
+
 .said {
   white-space: pre-wrap;
 }
 
 .outcomeLine {
   max-width: var(--measure);
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-dim);
 }
 
 .rationale {
   max-width: var(--measure);
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-faint);
 }
 
@@ -264,9 +352,15 @@
 
 /* --- items -------------------------------------------------------------- */
 
+/* Each group's items sit in one white card, divided by the quiet rule. */
 .items {
   display: flex;
   flex-direction: column;
+  padding: 0 var(--space-5);
+  background: var(--bg-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 .item {
@@ -274,17 +368,23 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-1) var(--space-4);
   align-items: baseline;
-  padding: var(--space-3) 0;
+  padding: var(--space-4) 0;
   border-bottom: 1px solid var(--rule);
 }
 
+.item:last-child {
+  border-bottom: 0;
+}
+
 .itemWhat {
-  font-size: var(--size-14);
+  font-size: var(--size-16);
+  line-height: 1.4;
   min-width: 0;
 }
 
 .when {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
+  font-weight: 500;
   color: var(--text-dim);
   white-space: nowrap;
 }
@@ -299,10 +399,10 @@
 }
 
 /* Fixture mode only: what came off the list after a goal was paused or
- * retired, and why. A step brighter than the header copy,
- * because it explains a list that is shorter than the file it was read from. */
+ * retired, and why. A step darker than the header copy, because it explains
+ * a list that is shorter than the file it was read from. */
 .withdrawn {
   max-width: var(--measure);
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-dim);
 }

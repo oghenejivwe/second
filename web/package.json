@@ -14,6 +14,8 @@
     "types": "node scripts/gen-types.mjs"
   },
   "dependencies": {
+    "@fontsource/inter": "5.3.0",
+    "@fontsource/open-runde": "5.3.0",
     "@xyflow/react": "12.11.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",

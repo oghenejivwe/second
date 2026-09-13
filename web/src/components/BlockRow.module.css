@@ -7,15 +7,23 @@
   border-bottom: 1px solid var(--rule);
 }
 
+/* The list sits inside a Section card, whose padding already ends it, so a
+ * rule under the last row would only draw a second edge. */
+.block:last-child {
+  border-bottom: 0;
+}
+
 /* A suggestion, drawn so it cannot pass for a booking. The dashed edge is the
  * mark the fixture switcher already uses for "not the real thing", and the
  * negative margin keeps the time column aligned with the placed rows around it.
- * Time and title step down one grey, so on a day that has both, the placed
- * block is the brightest thing in the list. */
+ * The dash is Slate, the lightest grey that still clears 3:1 against white, so
+ * the edge is seen and not merely sensed. Time and title step down one grey,
+ * so on a day that has both, the placed block is the strongest thing in the
+ * list. */
 .block[data-status='proposed'] {
   margin-left: calc(-1 * var(--space-3) - 1px);
   padding-left: var(--space-3);
-  border-left: 1px dashed var(--ink-500);
+  border-left: 1px dashed var(--color-slate);
 }
 
 .block[data-status='proposed'] .time {
@@ -26,11 +34,19 @@
   color: var(--text-dim);
 }
 
+/* The words that name a suggestion, set as a tag with the same dashed edge as
+ * the row, so the two marks read as one statement. */
 .suggested {
-  font-size: var(--size-11);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-faint);
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border: 1px dashed var(--color-slate);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--text-dim);
 }
 
 /* `.evidence` supplies the mono and the colour; this only keeps it readable. */
@@ -44,6 +60,7 @@
 
 .time {
   font-size: var(--size-16);
+  line-height: 1.49;
   color: var(--text-dim);
 }
 
@@ -56,6 +73,9 @@
 
 .title {
   font-size: var(--size-16);
+  font-weight: 500;
+  line-height: 1.49;
+  color: var(--text);
 }
 
 /* The line that answers "why this, today?". Small, because it is context -- but
@@ -65,16 +85,17 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-1);
+  font-family: var(--font-ui);
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-faint);
   line-height: 1.45;
 }
 
+/* Written like the global .label: the UI face at 500, in sentence case. */
 .servesLabel {
   margin-right: var(--space-1);
-  font-size: var(--size-11);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: 500;
   color: var(--text-ghost);
 }
 
@@ -85,22 +106,36 @@
 }
 
 .arrow {
-  color: var(--ink-500);
+  color: var(--text-ghost);
 }
 
 .resource {
+  font-family: var(--font-ui);
   font-size: var(--size-12);
-  color: var(--text-faint);
+  font-weight: 500;
+  letter-spacing: normal;
+  color: var(--text-dim);
   text-decoration: underline;
+  text-decoration-color: var(--color-hairline);
   text-underline-offset: 3px;
   width: fit-content;
+  transition: color var(--beat) var(--ease), text-decoration-color var(--beat) var(--ease);
 }
 
 .resource:hover {
   color: var(--text);
+  text-decoration-color: currentColor;
 }
 
+/* A length is a reading, so it is a tag. */
 .duration {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
   font-size: var(--size-12);
-  color: var(--text-ghost);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--text-dim);
 }

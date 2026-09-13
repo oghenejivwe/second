@@ -36,6 +36,7 @@
 
 import { useEffect, useState } from 'react'
 
+import { AskAloud } from '../components/AskAloud'
 import { Problem } from '../components/Problem'
 import { Section } from '../components/Section'
 import {
@@ -401,6 +402,9 @@ function Ask({ question, settled }: { question: HorizonQuestion; settled: Settle
               ? 'Answer again, with the detail Second asked for.'
               : 'Answer in your own words. Second plans it the same way it plans anything you record.'}
           </label>
+          {/* Speaking fills the box through its own state and sends nothing:
+           * the heard words are read and sent with the button below. */}
+          <AskAloud question={question} disabled={busy !== null} onHeard={setText} />
           <textarea
             id={id}
             className={styles.box}

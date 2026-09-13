@@ -1,7 +1,16 @@
+/* A section is a card: white, an 18px radius, a quiet rule and the faint
+ * blue-leaning card shadow. On a white page the rule does the separating and
+ * the shadow only lifts it; the card is what groups the content now, so the
+ * rule under the head is a divider inside it rather than the section's edge. */
 .section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--bg-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 .head {
@@ -9,24 +18,42 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-4);
-  padding-bottom: var(--space-2);
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--rule);
 }
 
+/* The card's title, in the display face at body-lg. Tight tracking is written
+ * for 28px and up, so at 18px the heading takes the body tracking instead of
+ * the -0.04em base.css gives every h2. */
 .label {
-  font-size: var(--size-11);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-ghost);
+  font-family: var(--font-display);
+  font-size: var(--size-18);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: var(--tracking-body);
+  color: var(--color-ink);
 }
 
+/* The count is a tag, because it is a reading and not part of the title. It
+ * stays beside the label so "nothing here" and "not loaded" still differ. */
 .count {
+  display: inline-block;
   margin-left: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
   font-variant-numeric: tabular-nums;
-  color: var(--ink-500);
+  color: var(--text-dim);
 }
 
 .aside {
+  font-family: var(--font-ui);
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-faint);
 }

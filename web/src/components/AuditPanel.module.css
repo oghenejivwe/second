@@ -1,11 +1,17 @@
+/* A drawer with a white head over a Cloud Gray body, so each run can be a
+ * white card on it. The left corners round to the card radius and the card
+ * shadow lifts the drawer off the page; nothing here passes 0.1 opacity. */
 .panel {
   position: fixed;
   inset: 0 0 0 auto;
   width: min(460px, 100vw);
   display: flex;
   flex-direction: column;
-  background: var(--bg-raised);
-  border-left: 1px solid var(--rule-strong);
+  background: var(--bg-inset);
+  border-left: 1px solid var(--rule);
+  border-radius: var(--radius-card) 0 0 var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 
 .head {
@@ -13,23 +19,48 @@
   align-items: baseline;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
+  background: var(--bg-raised);
   border-bottom: 1px solid var(--rule);
 }
 
+/* The title arrives with the global .label class. In a drawer it is the
+ * drawer's heading, so it is set like a Section title instead. */
+.head h2 {
+  font-family: var(--font-display);
+  font-size: var(--size-18);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: var(--tracking-body);
+  color: var(--color-ink);
+}
+
 .count {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
   font-size: var(--size-12);
-  color: var(--text-faint);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
 
 .close {
   margin-left: auto;
-  font-size: var(--size-12);
-  color: var(--text-faint);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--text);
+  transition: background-color var(--beat) var(--ease);
 }
 
 .close:hover {
-  color: var(--text);
+  background: var(--color-cloud);
 }
 
 .body {
@@ -38,11 +69,11 @@
   padding: var(--space-4) var(--space-5) var(--space-7);
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 .nothing {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-ghost);
 }
 
@@ -50,29 +81,43 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
+/* The run id is quoted from the audit, so it stays mono. base.css gives every
+ * h3 the heading weight and tight tracking, which would close up a 12px mono
+ * id, so both are put back. */
 .runId {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--size-12);
-  color: var(--text-faint);
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--text-dim);
 }
 
 .runLabel {
-  font-family: var(--font);
-  font-size: var(--size-11);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
   color: var(--text-ghost);
 }
 
 .runMeta {
   margin-left: auto;
-  font-family: var(--font);
-  color: var(--text-ghost);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--text-dim);
 }
 
 .entries {
@@ -85,8 +130,10 @@
   grid-template-columns: 4.5rem minmax(0, 1fr) auto;
   gap: var(--space-1) var(--space-3);
   padding: var(--space-2) 0;
-  border-top: 1px solid var(--ink-200);
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-ui);
   font-size: var(--size-12);
+  letter-spacing: normal;
 }
 
 .at {
@@ -113,13 +160,23 @@
   color: var(--text);
 }
 
+/* Writes and refusals are marked with a tag; a read renders an empty mark,
+ * which must not draw an empty pill. */
 .mark {
   grid-row: 1 / span 2;
   grid-column: 3;
   align-self: start;
-  font-size: var(--size-11);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+  line-height: 1.2;
   color: var(--text-ghost);
   white-space: nowrap;
+}
+
+.mark:empty {
+  display: none;
 }
 
 .entry[data-write='true'] .mark {
@@ -127,13 +184,32 @@
 }
 
 /* The one row that matters most in the seeded demo: the Adapter refusing to
- * move a meeting the user does not own. A refusal is the rail working. */
+ * move a meeting the user does not own. A refusal is the rail working.
+ *
+ * Its wash reaches a little past the columns and rounds, so the rules either
+ * side give way; padding and negative margin cancel, keeping the columns in
+ * line. On the wash --text-ghost falls to 4.49:1, so the two ghost-grey texts
+ * in this row step up to --text-faint (4.84:1). */
 .entry[data-failed='true'] {
+  margin-inline: calc(-1 * var(--space-3));
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-icon);
+  border-top-color: transparent;
   background: var(--slip-wash);
+}
+
+.entry[data-failed='true'] + .entry {
+  border-top-color: transparent;
+}
+
+.entry[data-failed='true'] .at,
+.entry[data-failed='true'] .pair dt {
+  color: var(--text-faint);
 }
 
 .entry[data-failed='true'] .mark {
   color: var(--slip);
+  border-color: var(--slip-dim);
 }
 
 .payload {
@@ -149,7 +225,7 @@
 }
 
 .pair dt {
-  color: var(--ink-500);
+  color: var(--text-ghost);
   flex: none;
 }
 

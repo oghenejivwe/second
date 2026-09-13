@@ -13,66 +13,112 @@
 }
 
 .title {
-  font-size: var(--size-24);
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+  font-size: var(--size-28);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
 }
 
 .what {
   max-width: var(--measure);
-  font-size: var(--size-13);
-  color: var(--text-faint);
+  font-size: var(--size-14);
+  color: var(--text-dim);
 }
 
 /* One button, the signal, and the clock, on one baseline. The waveform takes
  * the rest of the row so the line is long enough to read as a waveform rather
- * than as a widget. */
+ * than as a widget. The row is the one card at the top of the screen because
+ * it is the instrument: everything below it is what the instrument heard. */
 .capture {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-4) 0;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
+/* A ghost pill, not a filled one. Recording has no consequences -- the upload
+ * is a transcription job and nothing reaches Intake until Send is pressed -- so
+ * the Obsidian fill belongs to `.primary`, the press that does. The blue mic
+ * glyph and the accent shadow mark this as the instrument's control, which is
+ * the only thing the blue is for. */
 .trigger {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
   min-width: 15ch;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-paper);
   border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-accent);
   font-size: var(--size-14);
-  color: var(--text-dim);
+  font-weight: 500;
+  color: var(--text);
   text-align: center;
-  transition: color var(--beat) var(--ease), border-color var(--beat) var(--ease);
+  transition:
+    background-color var(--beat) var(--ease),
+    border-color var(--beat) var(--ease);
+}
+
+/* Drawn with a mask so the glyph takes its colour from a token, like every
+ * other colour here. Empty `content` adds nothing to the button's accessible
+ * name, which stays the label beside it. */
+.trigger::before {
+  content: '';
+  flex: none;
+  width: 14px;
+  height: 14px;
+  background-color: var(--accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='5.25' y='1.25' width='5.5' height='8.75' rx='2.75'/%3E%3Cpath d='M3 7.5a5 5 0 0 0 10 0M8 12.5v2' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='5.25' y='1.25' width='5.5' height='8.75' rx='2.75'/%3E%3Cpath d='M3 7.5a5 5 0 0 0 10 0M8 12.5v2' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
 }
 
 .trigger:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--ink-600);
+  background: var(--color-cloud);
+  border-color: var(--color-slate);
 }
 
 /* No pulse, no red dot, no ring that breathes. Recording is legible from the
- * waveform moving and the clock counting, which are the signal itself. */
+ * waveform moving and the clock counting, which are the signal itself. While
+ * the browser is asking for the microphone the glyph goes grey with the label,
+ * because a blue mic on a control that cannot be pressed promises a signal. */
 .trigger:disabled {
   border-color: var(--rule);
+  box-shadow: none;
+}
+
+.trigger:disabled::before {
+  background-color: var(--color-hairline);
 }
 
 /* `color` rather than a stroke property, because a canvas has no cascade: the
- * component reads this back with getComputedStyle and strokes with it. */
+ * component reads this back with getComputedStyle and strokes with it. Surgical
+ * Blue, because the waveform is an instrument reading. */
 .wave {
   flex: 1;
   min-width: 0;
   height: 44px;
   display: block;
-  color: var(--ink-600);
+  color: var(--accent);
 }
 
+/* Mono for its fixed-width digits, so the row does not shift every second. */
 .clock {
   flex: none;
   font-family: var(--font-mono);
-  font-size: var(--size-13);
-  color: var(--text-ghost);
+  font-size: var(--size-14);
+  letter-spacing: normal;
+  color: var(--text-dim);
 }
 
 /* The live region stays in the tree, empty or not. A `role="status"` element
@@ -91,13 +137,16 @@
 
 .note {
   max-width: var(--measure);
-  font-size: var(--size-13);
-  color: var(--text-faint);
+  font-size: var(--size-14);
+  color: var(--text-dim);
 }
 
 .boxLabel {
   display: block;
+  font-family: var(--font-ui);
   font-size: var(--size-12);
+  line-height: 1.2;
+  letter-spacing: normal;
   color: var(--text-ghost);
 }
 
@@ -112,21 +161,34 @@
 .box {
   width: 100%;
   margin-top: var(--space-2);
-  padding: var(--space-3);
-  background: var(--bg-inset);
-  border: 1px solid var(--rule);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-paper);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-input);
   font-family: var(--font-mono);
   font-size: var(--size-13);
   line-height: 1.6;
+  letter-spacing: normal;
   color: var(--text);
   resize: vertical;
+  transition:
+    background-color var(--beat) var(--ease),
+    border-color var(--beat) var(--ease);
+}
+
+.box:hover:not(:read-only) {
+  border-color: var(--color-slate);
 }
 
 .box::placeholder {
-  color: var(--ink-500);
+  color: var(--color-slate);
+  opacity: 1;
 }
 
+/* Cloud Gray while it cannot be typed in, so the field says it is being
+ * painted before a keystroke finds out. --text-dim is 5.69:1 on it. */
 .box:read-only {
+  background: var(--bg-inset);
   color: var(--text-dim);
 }
 
@@ -138,17 +200,31 @@
   margin-top: var(--space-3);
 }
 
+/* The filled pill. Sending is the press with consequences: what Intake writes
+ * lands in the graph and on the calendar. */
 .primary {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--rule-strong);
-  font-size: var(--size-13);
-  color: var(--text-dim);
-  transition: color var(--beat) var(--ease), border-color var(--beat) var(--ease);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-obsidian);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-button);
+  font-size: var(--size-14);
+  font-weight: 500;
+  color: var(--color-paper);
+  transition:
+    background-color var(--beat) var(--ease),
+    color var(--beat) var(--ease);
 }
 
 .primary:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--ink-600);
+  background: var(--ink-700);
+}
+
+/* Written out because base.css's `button:disabled` outranks a bare class, and
+ * Slate on an Obsidian fill would be a pill that is merely hard to read. */
+.primary:disabled {
+  background: var(--ink-200);
+  box-shadow: none;
+  color: var(--color-slate);
 }
 
 .offer {
@@ -156,33 +232,43 @@
   align-items: baseline;
   gap: var(--space-2);
   flex-wrap: wrap;
-  font-size: var(--size-13);
-  color: var(--text-faint);
+  font-size: var(--size-14);
+  color: var(--text-dim);
 }
 
+/* The secondary press beside the offer: a ghost pill, smaller than the filled
+ * one next to it so the two do not compete. */
 .link {
-  font-size: var(--size-13);
-  color: var(--text-dim);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--size-14);
+  font-weight: 500;
+  color: var(--text);
+  transition:
+    background-color var(--beat) var(--ease),
+    border-color var(--beat) var(--ease);
 }
 
 .link:hover {
-  color: var(--text);
+  background: var(--color-cloud);
+  border-color: var(--color-slate);
 }
 
-/* A long call shows its work instead of a spinner. Nothing here moves. */
+/* A long call shows its work instead of a spinner. Nothing here moves. It sits
+ * on Cloud Gray rather than white, because it is a state of the page and not a
+ * result on it. --text-dim is 5.69:1 there. */
 .working {
   max-width: var(--measure);
-  padding: var(--space-3) 0;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-  font-size: var(--size-13);
-  color: var(--text-faint);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-inset);
+  border-radius: var(--radius-card);
+  font-size: var(--size-14);
+  color: var(--text-dim);
 }
 
 .nothing {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-ghost);
 }
 
@@ -196,8 +282,8 @@
 
 .stopped {
   max-width: var(--measure);
-  font-size: var(--size-13);
-  color: var(--text-faint);
+  font-size: var(--size-14);
+  color: var(--text-dim);
 }
 
 .questions {
@@ -212,9 +298,10 @@
 .question {
   max-width: 54ch;
   padding-left: var(--space-4);
-  border-left: 1px solid var(--rule-strong);
-  font-size: var(--size-19);
-  line-height: 1.45;
+  border-left: 2px solid var(--rule-strong);
+  font-size: var(--size-18);
+  line-height: 1.4;
+  letter-spacing: var(--tracking-body);
   color: var(--text);
 }
 
@@ -233,31 +320,39 @@
 }
 
 .replyLine {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-dim);
 }
 
 .updates {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .update {
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-dim);
 }
 
+/* What each typed change is about, as a tag. The minimum width keeps the tags
+ * one column wide, so the changes beside them start on the same line. */
 .updateTarget {
   flex: none;
   min-width: 11ch;
-  font-size: var(--size-11);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-ghost);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  text-align: center;
+  color: var(--text-dim);
 }
 
 /* The user's own words about one task, beside the id they are about. It takes
@@ -268,15 +363,24 @@
 
 /* --- what was decided -------------------------------------------------- */
 
+/* One white card per half of the decision, so Placed and Deprioritised are the
+ * same kind of object, one after the other. */
 .decided {
   display: flex;
   flex-direction: column;
+  padding: var(--space-2) var(--space-5);
+  background: var(--color-paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 /* Placed and deprioritised rows are the same row. The only difference is the
- * 1px edge: --held for a task that got its slot, --slip for one that lost it.
+ * left edge: --held for a task that got its slot, --slip for one that lost it.
  * Same type size, same spacing, same section shape, because the losses are half
- * the decision and burying them would be the scheduler hiding its own work. */
+ * the decision and burying them would be the scheduler hiding its own work.
+ * The edge is 2px because the -dim hues are faint on white, and at 1px the two
+ * halves all but stopped looking different. */
 .held,
 .slipped {
   display: grid;
@@ -287,16 +391,24 @@
   border-bottom: 1px solid var(--rule);
 }
 
+/* The card's own edge closes the list, so the last rule would be a double. */
+.held:last-child,
+.slipped:last-child {
+  border-bottom: 0;
+}
+
 .held {
-  border-left: 1px solid var(--held-dim);
+  border-left: 2px solid var(--held-dim);
 }
 
 .slipped {
-  border-left: 1px solid var(--slip-dim);
+  border-left: 2px solid var(--slip-dim);
 }
 
 .decidedTitle {
   font-size: var(--size-14);
+  font-weight: 500;
+  color: var(--text);
   min-width: 0;
 }
 
@@ -321,6 +433,7 @@
 .ref {
   grid-column: 1 / -1;
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-ghost);
 }
 
@@ -336,14 +449,18 @@
   gap: var(--space-1);
   font-size: var(--size-12);
   line-height: 1.45;
+  letter-spacing: normal;
   color: var(--text-faint);
 }
 
+/* Set like the global `.label`: the UI face, normal case. Capitals on white
+ * shout where on the old dark ground they only whispered. */
 .servesLabel {
   margin-right: var(--space-1);
-  font-size: var(--size-11);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  letter-spacing: normal;
   color: var(--text-ghost);
 }
 
@@ -373,6 +490,11 @@
 .goals {
   display: flex;
   flex-direction: column;
+  padding: var(--space-2) var(--space-5);
+  background: var(--color-paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 .goal {
@@ -380,24 +502,39 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: var(--space-4);
   align-items: baseline;
-  padding: var(--space-2) 0;
+  padding: var(--space-3) 0;
   border-bottom: 1px solid var(--rule);
+}
+
+.goal:last-child {
+  border-bottom: 0;
 }
 
 .goalTitle {
   font-size: var(--size-14);
+  font-weight: 500;
+  color: var(--text);
   min-width: 0;
 }
 
+/* The horizon is a status of the goal, so it is a tag. */
 .horizon {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
   font-size: var(--size-12);
-  color: var(--text-faint);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--text-dim);
   white-space: nowrap;
 }
 
 .confidence {
   font-family: var(--font-mono);
-  font-size: var(--size-11);
+  font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-ghost);
   white-space: nowrap;
 }

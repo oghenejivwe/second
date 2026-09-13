@@ -1,0 +1,295 @@
+/* The spoken conversation on Today: a white card with the captions of what was
+ * said, the live transcript while Second listens, and the three choices once it
+ * has heard something. Action stays monochrome; the only blue is the mic glyph
+ * and the waveform, which are instruments, not buttons. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--size-18);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: var(--tracking-body);
+  color: var(--color-ink);
+}
+
+/* "Speaking" or "Listening". Two words at most, in Charcoal: the waveform
+ * beside it is what carries the blue. */
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: var(--space-2);
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  letter-spacing: normal;
+  color: var(--text-dim);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Ghost pill: transparent, hairline border, Obsidian text. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--color-obsidian);
+  white-space: nowrap;
+  transition: border-color var(--beat) var(--ease), background-color var(--beat) var(--ease);
+}
+
+.pill:hover:not(:disabled) {
+  border-color: var(--color-slate);
+}
+
+.pill[aria-expanded='true'] {
+  background: var(--bg-inset);
+}
+
+.pill:disabled {
+  border-color: var(--rule);
+  color: var(--color-slate);
+}
+
+/* Filled pill: the one action that commits something. */
+.filled {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid var(--color-obsidian);
+  border-radius: var(--radius-pill);
+  background: var(--color-obsidian);
+  box-shadow: var(--shadow-button);
+  font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--color-paper);
+  white-space: nowrap;
+}
+
+.filled:disabled {
+  border-color: var(--rule);
+  background: var(--bg-inset);
+  box-shadow: none;
+  color: var(--color-slate);
+}
+
+.quiet {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--size-14);
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.quiet:hover {
+  color: var(--color-obsidian);
+  background: var(--bg-hover);
+}
+
+.mic {
+  flex: none;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.support,
+.note {
+  font-size: var(--size-13);
+  line-height: 1.4;
+  color: var(--text-dim);
+  max-width: var(--measure);
+}
+
+.captions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.captions:empty {
+  display: none;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.who {
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--text-ghost);
+}
+
+.said {
+  font-size: var(--size-16);
+  line-height: 1.49;
+  letter-spacing: var(--tracking-body);
+  color: var(--text);
+  max-width: var(--measure);
+}
+
+.line[data-who='you'] .said {
+  color: var(--text-dim);
+}
+
+.status {
+  font-size: var(--size-14);
+  color: var(--text-dim);
+}
+
+/* The live transcript: a white card inside the panel, lifted by the faint blue
+ * accent shadow so it reads as the instrument that is on. */
+.live {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-paper);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-input);
+  box-shadow: var(--shadow-accent);
+}
+
+.transcript {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--size-16);
+  line-height: 1.49;
+  color: var(--text);
+}
+
+.interim {
+  color: var(--text-ghost);
+}
+
+.wave {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 16px;
+  flex: none;
+}
+
+.wave span {
+  display: block;
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transform-origin: center;
+  animation: rise 900ms ease-in-out infinite;
+}
+
+.wave span:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.wave span:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+.wave span:nth-child(4) {
+  animation-delay: 360ms;
+}
+
+.wave span:nth-child(5) {
+  animation-delay: 480ms;
+}
+
+@keyframes rise {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* Still bars of different heights: the listening state stays visible without
+ * the motion. */
+@media (prefers-reduced-motion: reduce) {
+  .wave span {
+    animation: none;
+    transform: scaleY(0.6);
+  }
+
+  .wave span:nth-child(odd) {
+    transform: scaleY(0.35);
+  }
+}
+
+.typed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.boxLabel {
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  letter-spacing: normal;
+  color: var(--text-ghost);
+}
+
+.box {
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--color-paper);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-input);
+  font-size: var(--size-14);
+  line-height: 1.4;
+  color: var(--text);
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

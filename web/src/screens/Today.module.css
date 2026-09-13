@@ -13,10 +13,14 @@
   gap: var(--space-6);
 }
 
+/* The date is the page heading: heading-sm, where tight tracking begins. */
 .date {
-  font-size: var(--size-24);
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+  font-size: var(--size-28);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
 }
 
 .standing {
@@ -27,70 +31,107 @@
  * to read as the system working, not as a screen that failed to load. */
 .quiet {
   font-size: var(--size-16);
+  line-height: 1.49;
   color: var(--text-dim);
 }
 
 .quietWhy {
   margin-top: var(--space-1);
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-ghost);
   max-width: 46ch;
 }
 
 .loud {
   font-size: var(--size-16);
+  font-weight: 500;
+  line-height: 1.49;
   color: var(--text);
 }
 
 .actions {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
   flex: none;
 }
 
+/* The one primary action on the screen, so the one filled pill. Its border is
+ * the fill's own colour, which keeps it the same height as the ghost pill
+ * beside it. While a run is going it drops to Cloud Gray rather than to the
+ * Slate base.css gives a disabled button, because "Running the day" is a
+ * status that has to be read: Slate on Obsidian would pass, but a dark pill
+ * that cannot be pressed still looks pressable. */
 .run {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--rule-strong);
-  font-size: var(--size-13);
-  color: var(--text-dim);
-  transition: color var(--beat) var(--ease), border-color var(--beat) var(--ease);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-obsidian);
+  border: 1px solid var(--color-obsidian);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-button);
+  font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--color-paper);
+  transition:
+    background-color var(--beat) var(--ease),
+    border-color var(--beat) var(--ease),
+    color var(--beat) var(--ease);
 }
 
 .run:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--ink-600);
+  background: var(--ink-700);
+  border-color: var(--ink-700);
 }
 
-.ghost {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--size-13);
+.run:disabled {
+  background: var(--color-cloud);
+  border-color: var(--rule);
+  box-shadow: none;
   color: var(--text-faint);
 }
 
-.ghost:hover,
-.ghost[aria-pressed='true'] {
+/* The audit toggle, a ghost pill. Pressed keeps it monochrome: Cloud Gray and a
+ * darker edge, never a tint. */
+.ghost {
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.2;
   color: var(--text);
+  transition: background-color var(--beat) var(--ease), border-color var(--beat) var(--ease);
+}
+
+.ghost:hover {
+  background: var(--color-cloud);
+}
+
+.ghost[aria-pressed='true'] {
+  background: var(--color-cloud);
+  border-color: var(--text-dim);
 }
 
 /* A long run shows the work, not a spinner: there has to be something true to
  * read while the graph thinks. */
 .working {
-  padding: var(--space-3) 0;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-  font-size: var(--size-13);
-  color: var(--text-faint);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-inset);
+  border-radius: var(--radius-input);
+  font-size: var(--size-14);
+  color: var(--text-dim);
 }
 
+/* Each section below is a card, so the gap between them is card spacing. */
 .body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-7);
+  gap: var(--space-5);
 }
 
 .waiting,
 .nothing {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-ghost);
 }
 
@@ -118,13 +159,15 @@
 
 .preparedSummary {
   font-size: var(--size-14);
+  font-weight: 500;
 }
 
 /* The draft itself, quoted verbatim. Second wrote it; it is not Second talking. */
 .draft {
   margin: 0;
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   background: var(--bg-inset);
+  border-radius: var(--radius-input);
   white-space: pre-wrap;
   max-height: 16em;
   overflow: auto;
@@ -134,7 +177,7 @@
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-dim);
 }
 
@@ -147,10 +190,20 @@
 
 .riskWhat {
   font-size: var(--size-14);
+  font-weight: 500;
 }
 
+/* Days left is a reading, so it is a tag, and a slip, so it wears the hue. */
 .riskDays {
-  font-size: var(--size-13);
+  padding: var(--space-1) var(--space-3);
+  background: var(--slip-wash);
+  border: 1px solid var(--slip-dim);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
   color: var(--slip);
 }
 
@@ -165,19 +218,23 @@
   font-size: var(--size-14);
 }
 
-/* A decision is the one thing allowed to interrupt, so it gets the only inset
- * background in the app -- and still no colour. */
+/* A decision is the one thing allowed to interrupt, so it sits on its own
+ * Cloud Gray ground inside the card -- and still carries no colour, because
+ * the hues belong to slip and held. */
 .decision {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-5);
   background: var(--bg-inset);
-  border-left: 2px solid var(--ink-600);
+  border-radius: var(--radius-input);
 }
 
 .question {
-  font-size: var(--size-16);
+  font-size: var(--size-18);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text);
   max-width: 56ch;
 }
 
@@ -187,49 +244,76 @@
   gap: var(--space-2);
 }
 
+/* Every option weighs the same, so every option is a ghost pill. Each gets a
+ * white ground so it reads as a button on the decision's Cloud Gray. */
 .option {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--rule-strong);
-  font-size: var(--size-13);
-  color: var(--text-dim);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-paper);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text);
   text-align: left;
+  transition: border-color var(--beat) var(--ease);
 }
 
 .option:hover {
-  color: var(--text);
-  border-color: var(--ink-600);
+  border-color: var(--color-obsidian);
 }
 
 .answered {
-  font-size: var(--size-13);
-  color: var(--text-ghost);
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--text-dim);
 }
 
 .optionFailed {
   font-family: var(--font-mono);
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--slip);
 }
 
 .switcher {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   padding-top: var(--space-4);
-  border-top: 1px dashed var(--rule);
+  border-top: 1px dashed var(--rule-strong);
 }
 
+/* Fixture states stay in mono so the switcher can never be taken for part of
+ * the product, even now that the chips are pills. */
 .switch {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--rule);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
   font-family: var(--font-mono);
-  font-size: var(--size-11);
-  color: var(--text-ghost);
+  font-size: var(--size-12);
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--text-dim);
+  transition: background-color var(--beat) var(--ease), border-color var(--beat) var(--ease);
+}
+
+.switch:hover {
+  border-color: var(--text-dim);
 }
 
 .switch[aria-pressed='true'] {
-  color: var(--text-dim);
-  border-color: var(--rule-strong);
+  background: var(--color-cloud);
+  border-color: var(--text-dim);
+  color: var(--text);
 }
 
 /* Fixture mode only: what came off the day after a goal was paused or retired,
@@ -238,6 +322,6 @@
 .withdrawn {
   max-width: var(--measure);
   margin-top: var(--space-2);
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-dim);
 }

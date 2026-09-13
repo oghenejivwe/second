@@ -11,6 +11,7 @@
   justify-content: space-between;
   gap: var(--space-5);
   padding: var(--space-4) var(--space-5);
+  background: var(--bg-raised);
   border-bottom: 1px solid var(--rule);
 }
 
@@ -27,12 +28,32 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-3);
+  font-family: var(--font-ui);
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
 
-.countSlipped {
+/* Each count is a tag. */
+.count {
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.count > span {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--text-dim);
+}
+
+/* The slipped count carries the slip hue, on its own wash: 5.15:1. */
+.count > .countSlipped {
+  border-color: var(--slip-dim);
+  background: var(--slip-wash);
   color: var(--slip);
 }
 
@@ -41,41 +62,69 @@
   color: var(--text-ghost);
 }
 
+/* Slate, under 4.5:1, is allowed here because the arrow only repeats the order
+ * the words are already read in. */
 .bandArrow {
-  color: var(--ink-400);
+  color: var(--color-slate);
   margin: 0 var(--space-1);
 }
 
 .actions {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
   flex: none;
 }
 
+/* Running the day is the screen's one primary action: a filled Obsidian pill. */
 .run {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--rule-strong);
-  font-size: var(--size-13);
-  color: var(--text-dim);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-pill);
+  background: var(--color-obsidian);
+  box-shadow: var(--shadow-button);
+  font-family: var(--font-display);
+  font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--color-paper);
+  transition: background-color var(--beat) var(--ease);
 }
 
 .run:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--ink-600);
+  background: var(--ink-700);
 }
 
+/* While the run is going the pill goes flat and grey. Its label says so in
+ * Charcoal (5.41:1), not Slate, because "Running the day" is read, not skipped. */
+.run:disabled {
+  background: var(--bg-hover);
+  box-shadow: none;
+  color: var(--text-dim);
+}
+
+/* The ghost pill, the same height as the run button beside it. */
 .ghost {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--size-12);
-  color: var(--text-ghost);
+  padding: calc(var(--space-3) - 1px) calc(var(--space-5) - 1px);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--text);
+  transition:
+    background-color var(--beat) var(--ease),
+    border-color var(--beat) var(--ease);
 }
 
 .ghost:hover {
-  color: var(--text);
+  background: var(--color-cloud);
+  border-color: var(--color-slate);
 }
 
 /* What the run did. Stated, not animated -- a fading pulse is a claim nobody
- * can check afterwards. */
+ * can check afterwards. A Cloud Gray band, where the copy measures 18.46:1 and
+ * the faint line 4.89:1. */
 .changed {
   display: flex;
   flex-direction: column;
@@ -86,7 +135,8 @@
 }
 
 .changedWhat {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
+  font-weight: 500;
   color: var(--text);
 }
 
@@ -112,32 +162,39 @@
 
 .waiting {
   padding: var(--space-7);
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-ghost);
 }
 
 /* The selected node's reasoning. A strip along the bottom so the graph keeps
- * the room; person-layer facts stay on the nodes where the brief put them. */
+ * the room; person-layer facts stay on the nodes where the brief put them. It
+ * floats a step in from the edges as a white card, so the canvas reads as
+ * running on underneath it. */
 .detail {
   position: absolute;
-  inset: auto 0 0 0;
+  inset: auto var(--space-4) var(--space-4) var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-4) var(--space-5);
   background: var(--bg-raised);
-  border-top: 1px solid var(--rule-strong);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   max-height: 30%;
   overflow: auto;
 }
 
 .detailTitle {
-  font-size: var(--size-13);
-  color: var(--text);
+  font-family: var(--font-display);
+  font-size: var(--size-16);
+  font-weight: 600;
+  letter-spacing: var(--tracking-body);
+  color: var(--color-ink);
 }
 
 .detailNone {
-  font-size: var(--size-12);
+  font-size: var(--size-13);
   color: var(--text-ghost);
 }
 

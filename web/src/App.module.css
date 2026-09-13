@@ -8,64 +8,112 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  padding: var(--space-5) 0 var(--space-4);
+  padding: var(--space-5) var(--space-3) var(--space-4);
   border-right: 1px solid var(--rule);
-  background: var(--bg);
+  background: var(--color-paper);
 }
 
+/* The name, set like a heading and not like a logo: no capitals, no spacing
+ * out, just the display face at its heading weight. */
 .wordmark {
-  padding: 0 var(--space-5);
-  font-size: var(--size-13);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-faint);
+  padding: 0 var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--size-20);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
 }
 
 .nav {
   display: flex;
   flex-direction: column;
+  gap: var(--space-1);
 }
 
 /* No icons. An icon set is a decision about tone, and the tone here is a list
- * of words. The current screen is marked by a rule and a brighter label, which
- * is the least a navigation item can do and still be legible. */
+ * of words. The current screen is the one filled pill in the rail, which is
+ * the Letters primary action turned into a place marker: Obsidian, white
+ * text, and the short button shadow. */
 .navItem {
   display: block;
   width: 100%;
-  padding: var(--space-2) var(--space-5);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-pill);
   text-align: left;
+  font-family: var(--font-display);
   font-size: var(--size-14);
-  color: var(--text-dim);
-  border-left: 2px solid transparent;
-  transition: color var(--beat) var(--ease);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: var(--tracking-body);
+  color: var(--color-charcoal);
+  transition:
+    background-color var(--beat) var(--ease),
+    color var(--beat) var(--ease);
 }
 
 .navItem:hover {
-  color: var(--text);
+  background: var(--color-cloud);
+  color: var(--color-obsidian);
 }
 
 .navItem[aria-current='page'] {
-  color: var(--text);
-  border-left-color: var(--ink-700);
+  background: var(--color-obsidian);
+  color: var(--color-paper);
+  box-shadow: var(--shadow-button);
 }
 
+/* The fixtures note: a small tag, then one line saying what it means.
+ *
+ * App.tsx writes the tag's word as a bare text node beside the note's span, and
+ * a text node cannot carry a border. So the pill is drawn by ::before. The
+ * grid flows by column, which puts ::before in row 1 and the text in row 2;
+ * ::before then pulls its own row to zero height with a negative bottom
+ * margin, so it lies over the word. The first column is max-content and the
+ * note spans into the 1fr column, which keeps the long note out of the first
+ * column's sizing, so the pill is exactly as wide as the word plus padding.
+ * If App.tsx ever wraps the word in its own element, this collapses to an
+ * ordinary bordered span. */
 .source {
-  margin-top: auto;
-  padding: var(--space-3) var(--space-5) 0;
-  border-top: 1px solid var(--rule);
-  font-family: var(--font-mono);
-  font-size: var(--size-11);
-  color: var(--text-ghost);
+  --tag-line: 16px;
+
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  grid-auto-flow: column;
+  justify-items: start;
+  margin: auto 0 0;
+  padding: var(--space-1) var(--space-3) 0 calc(var(--space-3) + var(--space-3));
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  line-height: var(--tag-line);
+  letter-spacing: normal;
+  color: var(--color-charcoal);
+}
+
+.source::before {
+  content: '';
+  justify-self: stretch;
+  height: calc(var(--tag-line) + 2 * var(--space-1));
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-3)) calc(-1 * var(--tag-line) - var(--space-1));
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  pointer-events: none;
 }
 
 .sourceNote {
   display: block;
-  margin-top: var(--space-1);
-  font-family: var(--font);
+  grid-column: 1 / -1;
+  grid-row: 3;
+  margin-top: calc(var(--space-1) + var(--space-2));
+  margin-left: calc(-1 * var(--space-3));
+  font-weight: 400;
   line-height: 1.4;
+  color: var(--color-charcoal);
 }
 
 .screen {
   overflow: auto;
   min-width: 0;
+  background: var(--bg);
 }

@@ -1,9 +1,11 @@
 /* The indent is the only ornament, because the indent is the argument.
  *
- * Nesting is 24px and a left rule, repeated. No cards: a card says each goal is
- * a thing to be collected, and these are rungs on one chain. Routes and tasks
- * step in again and drop a type size each, so depth reads as "closer to
- * Tuesday" without an icon, a badge or a second hue.
+ * Nesting is 24px and a left rule, repeated. One card for the whole ladder and
+ * none per goal: a card round each goal says it is a thing to be collected, and
+ * these are rungs on one chain. Routes and tasks step in again and drop a type
+ * size each, so depth reads as "closer to Tuesday" without an icon, a badge or
+ * a second hue. The header tally is the one tag, because it counts the ladder
+ * rather than decorating a rung of it.
  */
 
 .screen {
@@ -22,28 +24,46 @@
 }
 
 .title {
-  font-size: var(--size-24);
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+  font-size: var(--size-28);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
 }
 
 .counts {
-  font-size: var(--size-13);
-  color: var(--text-faint);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 
 /* Waiting is a sentence, not a spinner. A spinner says "wait"; this says what
  * is being waited on, and it is the same line that says when nothing is there. */
 .absent {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-ghost);
 }
 
 /* --- the ladder --------------------------------------------------------- */
 
+/* The chain's one card. Rules sit above each rung rather than below it, so the
+ * last row never draws a second line against the card's own edge. */
 .ladder {
   display: flex;
   flex-direction: column;
+  padding: var(--space-1) var(--space-5) var(--space-3);
+  background: var(--color-paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 .rung {
@@ -55,8 +75,12 @@
   grid-template-columns: 1fr auto;
   gap: var(--space-4);
   align-items: baseline;
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--rule);
+  padding: var(--space-4) 0 var(--space-3);
+  border-top: 1px solid var(--rule);
+}
+
+.ladder > .rung:first-child > .goalRow {
+  border-top: 0;
 }
 
 .goalMain {
@@ -68,6 +92,7 @@
 
 .goalTitle {
   font-size: var(--size-16);
+  font-weight: 500;
   color: var(--text);
 }
 
@@ -102,7 +127,9 @@
 }
 
 .meta {
+  font-family: var(--font-ui);
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-faint);
 }
 
@@ -111,6 +138,7 @@
  * the plan, not an alarm about the person. */
 .annotation {
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-faint);
   max-width: 54ch;
 }
@@ -121,32 +149,51 @@
   flex: none;
 }
 
+/* Ghost pills. Charcoal rather than Obsidian at rest, because the pair repeats
+ * on every rung and a column of black labels would outweigh the goal titles
+ * they sit beside; hover brings them up to Obsidian. */
 .action {
-  padding: 2px var(--space-2);
-  border: 1px solid var(--rule);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
   font-size: var(--size-12);
-  color: var(--text-faint);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--text-dim);
   white-space: nowrap;
-  transition: color var(--beat) var(--ease), border-color var(--beat) var(--ease);
+  transition:
+    color var(--beat) var(--ease),
+    background-color var(--beat) var(--ease),
+    border-color var(--beat) var(--ease);
 }
 
 .action:hover:not(:disabled) {
   color: var(--text);
-  border-color: var(--ink-600);
+  background: var(--color-cloud);
+  border-color: var(--color-slate);
 }
 
 .action:disabled {
-  border-color: var(--ink-200);
+  border-color: var(--rule);
 }
 
 /* Armed, waiting for the second click. The label already says what the next
  * press does; the hue is here so the state change is visible on a recording at
  * twelve pixels, and it is --slip, the same hue Problem uses -- the app's one
- * colour for bad news, not a third one invented for a button. */
+ * colour for bad news, not a third one invented for a button. It goes on the
+ * text and the border only: a pill is never filled with a hue, and --slip is
+ * 5.69:1 on white at this size. */
 .action[data-armed] {
   color: var(--slip);
-  border-color: var(--slip-dim);
-  background: var(--slip-wash);
+  border-color: var(--slip);
+}
+
+.action[data-armed]:hover:not(:disabled) {
+  color: var(--slip);
+  background: var(--color-paper);
+  border-color: var(--slip);
 }
 
 /* --- routes and tasks --------------------------------------------------- */
@@ -155,7 +202,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  margin: var(--space-3) 0 var(--space-4);
+  margin: 0 0 var(--space-4);
   padding-left: var(--space-5);
 }
 
@@ -221,30 +268,34 @@
   align-items: baseline;
   gap: var(--space-2);
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-ghost);
 }
 
 /* The rung below. The rule is the ladder: it is the only thing on the page
- * saying that what follows serves what came before. */
+ * saying that what follows serves what came before, so it is the stronger
+ * hairline, where the rules between rungs are the quiet one. */
 .children {
   display: flex;
   flex-direction: column;
+  margin-bottom: var(--space-3);
   padding-left: var(--space-5);
-  border-left: 1px solid var(--rule);
+  border-left: 1px solid var(--rule-strong);
 }
 
 /* --- freed -------------------------------------------------------------- */
 
-/* The one band on this screen with a background, for the reason Today gives one
- * to a decision: it is the only thing here that just happened. Still no hue --
- * freed time is neither a slip nor a win. */
+/* The one panel on this screen set on Cloud Gray rather than white, for the
+ * reason Today gives one to a decision: it is the only thing here that just
+ * happened. Still no hue -- freed time is neither a slip nor a win. Every text
+ * step inside it clears 4.5:1 on Cloud Gray; --text-ghost is the lowest, 4.55. */
 .freedBand {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-4);
+  padding: var(--space-5);
   background: var(--bg-inset);
-  border-left: 2px solid var(--ink-600);
+  border-radius: var(--radius-card);
 }
 
 .freedBody {
@@ -295,6 +346,7 @@
 .serves {
   margin-top: var(--space-1);
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-faint);
 }
 
@@ -303,34 +355,51 @@
  * not run. */
 .total {
   font-size: var(--size-16);
+  font-weight: 500;
   color: var(--text);
 }
 
 /* The server's own sentence, verbatim, about when the reallocation happens. */
 .note {
-  font-size: var(--size-13);
+  font-size: var(--size-14);
   color: var(--text-dim);
   max-width: 58ch;
 }
 
+/* A ghost pill: leaving the band is a secondary press. White on the Cloud Gray
+ * panel so it reads as a control and not as another line of text. */
 .dismiss {
   width: fit-content;
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-paper);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
   font-size: var(--size-12);
-  color: var(--text-ghost);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--text);
+  transition: border-color var(--beat) var(--ease);
 }
 
 .dismiss:hover {
-  color: var(--text);
+  border-color: var(--color-slate);
 }
 
 /* A paused or retired goal takes its whole subtree down with it. Scoped to the
  * direct children so a nested active goal is not dimmed by an ancestor -- the
- * ladder is recursive and a rung inside a retired one keeps its own status. */
-.rung[data-status='paused'] > .routes,
-.rung[data-status='retired'] > .routes {
-  opacity: 0.55;
+ * ladder is recursive and a rung inside a retired one keeps its own status.
+ *
+ * Down to --text-ghost by colour, not by opacity. The old 0.55 opacity took
+ * grey text on white to about 2:1, and a retired route is still something the
+ * user reads. Ghost is the quietest step that still clears 4.5:1, and the slip
+ * count keeps its hue because it is a fact about the task, not about the goal. */
+.rung[data-status='paused'] > .routes :is(.routeHead, .routeTitle, .taskHead, .taskTitle, .blocker),
+.rung[data-status='retired'] > .routes :is(.routeHead, .routeTitle, .taskHead, .taskTitle, .blocker),
+.rung[data-status='paused'] > .routes :global(.evidence),
+.rung[data-status='retired'] > .routes :global(.evidence) {
+  color: var(--text-ghost);
 }
 
 /* The slots a released task was holding. Struck through, not hidden: those

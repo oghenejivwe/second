@@ -1,4 +1,4 @@
-/* @xyflow/react 12.11.6, made quiet.
+/* @xyflow/react 12.11.6, on a light canvas.
  *
  * Two things here are not obvious and both were verified rather than assumed.
  *
@@ -13,47 +13,52 @@
  * (0,2,0) beats `:root` (0,1,0). A browser probe confirmed it: with
  * `--xy-node-background-color-default` set at `:root` the node still computed
  * to the library's `#1e1e1e`; with the un-suffixed name it computed to the
- * value asked for. So: no `-default` suffixes anywhere in this file.
+ * value asked for. So: no `-default` suffixes anywhere in this file, and the
+ * light values below hold whichever colorMode the canvas is given.
+ *
+ * The canvas is greys throughout. Selection is the one place it borrows the
+ * Letters blue, as a Sky Tint wash with a blue hairline, because a selection
+ * is the instrument the user is holding.
  */
 
 :root {
   --xy-background-color: var(--bg);
-  --xy-background-pattern-dots-color: var(--ink-200);
+  --xy-background-pattern-dots-color: var(--color-hairline);
   --xy-background-pattern-lines-color: var(--ink-200);
   --xy-background-pattern-cross-color: var(--ink-200);
 
   --xy-node-color: var(--text);
   --xy-node-background-color: var(--bg-raised);
   --xy-node-border: 1px solid var(--rule);
-  --xy-node-border-radius: 2px;
+  --xy-node-border-radius: var(--radius-card);
   --xy-node-group-background-color: transparent;
   --xy-node-boxshadow-hover: none;
-  --xy-node-boxshadow-selected: 0 0 0 1px var(--ink-600);
+  --xy-node-boxshadow-selected: 0 0 0 1px var(--accent);
 
-  --xy-edge-stroke: var(--ink-400);
+  --xy-edge-stroke: var(--color-hairline);
   --xy-edge-stroke-width: 1;
-  --xy-edge-stroke-selected: var(--ink-600);
+  --xy-edge-stroke-selected: var(--color-charcoal);
   --xy-edge-label-background-color: var(--bg);
   --xy-edge-label-color: var(--text-faint);
 
-  --xy-handle-background-color: var(--ink-400);
+  --xy-handle-background-color: var(--color-hairline);
   --xy-handle-border-color: var(--bg);
 
-  --xy-connectionline-stroke: var(--ink-500);
+  --xy-connectionline-stroke: var(--color-slate);
   --xy-connectionline-stroke-width: 1;
 
-  --xy-selection-background-color: rgba(107, 115, 125, 0.05);
-  --xy-selection-border: 1px dotted var(--ink-500);
+  --xy-selection-background-color: rgba(215, 230, 245, 0.5);
+  --xy-selection-border: 1px solid var(--accent);
 
-  --xy-controls-button-background-color: var(--bg-raised);
-  --xy-controls-button-background-color-hover: var(--bg-hover);
-  --xy-controls-button-color: var(--text-faint);
-  --xy-controls-button-color-hover: var(--text);
-  --xy-controls-button-border-color: var(--rule);
-  --xy-controls-box-shadow: none;
+  --xy-controls-button-background-color: var(--color-paper);
+  --xy-controls-button-background-color-hover: var(--color-cloud);
+  --xy-controls-button-color: var(--color-charcoal);
+  --xy-controls-button-color-hover: var(--color-obsidian);
+  --xy-controls-button-border-color: var(--ink-200);
+  --xy-controls-box-shadow: var(--shadow-subtle);
 
-  --xy-minimap-background-color: var(--bg);
-  --xy-minimap-mask-background-color: rgba(10, 11, 12, 0.72);
+  --xy-minimap-background-color: var(--color-paper);
+  --xy-minimap-mask-background-color: rgba(245, 245, 245, 0.72);
   --xy-minimap-mask-stroke-color: transparent;
   --xy-minimap-node-background-color: var(--ink-300);
   --xy-minimap-node-stroke-color: transparent;
@@ -74,21 +79,31 @@
 }
 
 .react-flow__attribution {
+  font-family: var(--font-ui);
   font-size: var(--size-11);
-  color: var(--text-ghost);
-  opacity: 0.45;
+  letter-spacing: normal;
+  color: var(--color-slate);
+  opacity: 0.6;
 }
 
 .react-flow__attribution a {
   color: inherit;
 }
 
+/* The controls are a small white card with a hairline, rounded to the icon
+ * radius, so they sit on the canvas like every other instrument panel. */
+.react-flow__controls {
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-icon);
+  overflow: hidden;
+}
+
 .react-flow__controls-button svg {
   fill: currentColor;
 }
 
-/* A node is selected by clicking it, and the only thing that changes is a
- * brighter rule. No scale, no glow, no lift. */
+/* A node is selected by clicking it, and the only thing that changes is its
+ * rule. No scale, no glow, no lift. */
 .react-flow__node.selectable:focus,
 .react-flow__node.selectable:focus-visible {
   outline: none;

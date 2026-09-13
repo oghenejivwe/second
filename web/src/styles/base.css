@@ -6,19 +6,31 @@
   box-sizing: border-box;
 }
 
+/* index.html still declares a dark colour scheme from the old theme. Saying
+ * light here keeps native controls and scrollbars from rendering dark on a
+ * white page, whatever the meta tag says. */
+:root {
+  color-scheme: light;
+}
+
 html,
 body,
 #root {
   height: 100%;
 }
 
+/* Body copy is set in the display face. 'ss01' is the stylistic set the
+ * Letters type calls for in Open Runde; where Inter picks it up by inheritance
+ * it only opens a few digits, which is harmless in a label. */
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font);
+  font-family: var(--font-display);
   font-size: var(--size-14);
-  line-height: 1.5;
+  line-height: 1.4;
+  letter-spacing: var(--tracking-body);
+  font-feature-settings: 'ss01';
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -35,6 +47,19 @@ figure {
   font-size: inherit;
 }
 
+/* Sizes stay with the modules; the face, weight and tracking are set once so a
+ * heading anywhere reads as a heading. Tight tracking is written for 28px and
+ * up, so a module that uses a small h2 as a label should reset it (the global
+ * .label class below already does). */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
+}
+
 ul,
 ol {
   padding: 0;
@@ -43,6 +68,7 @@ ol {
 
 button {
   font: inherit;
+  letter-spacing: inherit;
   color: inherit;
   background: none;
   border: 0;
@@ -52,24 +78,43 @@ button {
 
 button:disabled {
   cursor: default;
-  color: var(--text-ghost);
+  color: var(--color-slate);
 }
 
-/* Visible, quiet, and the same everywhere. A focus ring that only appears for
- * keyboard users is the one piece of interaction polish worth the bytes. */
+/* Form controls get the Letters shape at zero specificity, so any module class
+ * that styles its own input wins without a fight. */
+:where(input, textarea, select) {
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--text);
+  background: var(--color-paper);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-input);
+}
+
+:where(input, textarea)::placeholder {
+  color: var(--color-slate);
+  opacity: 1;
+}
+
+/* Visible on white and the same everywhere. The offset leaves a white gap, so
+ * the ring still reads around an Obsidian pill. A focus ring that only appears
+ * for keyboard users is the one piece of interaction polish worth the bytes. */
 :focus-visible {
-  outline: 1px solid var(--focus);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
 ::selection {
-  background: var(--ink-400);
+  background: var(--color-sky-tint);
+  color: var(--color-obsidian);
 }
 
-/* Scrollbars, so a projector does not show a bright grey slab down one side. */
+/* Thin grey scrollbars, so a recording does not show a dark slab down one side
+ * of a white page. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--ink-400) transparent;
+  scrollbar-color: var(--color-hairline) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -78,7 +123,7 @@ button:disabled {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: var(--ink-400);
+  background: var(--color-hairline);
   border: 3px solid var(--bg);
   border-radius: 6px;
 }
@@ -90,15 +135,20 @@ button:disabled {
 .evidence {
   font-family: var(--font-mono);
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-faint);
   line-height: 1.55;
 }
 
-/* A section label. Small, uppercase, and it never competes with content. */
+/* A section label. Small, set in the UI face at normal tracking, and it never
+ * competes with content. It is no longer uppercase: on white, capitals shout
+ * where on a dark ground they only whispered. */
 .label {
-  font-size: var(--size-11);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: var(--size-12);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
   color: var(--text-ghost);
 }
 

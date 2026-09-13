@@ -12,6 +12,11 @@
   border-bottom: 1px solid var(--rule);
 }
 
+/* The list ends on the Section card's own padding, not on a rule. */
+.row:last-child {
+  border-bottom: 0;
+}
+
 .row[data-answered='true'] {
   color: var(--text-ghost);
 }
@@ -25,18 +30,22 @@
 
 .title {
   font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 .goal {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
+  font-family: var(--font-ui);
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--text-faint);
 }
 
 .dot {
-  color: var(--ink-500);
+  color: var(--text-ghost);
 }
 
 .guess {
@@ -46,18 +55,32 @@
   min-width: 0;
 }
 
+/* Second's guess is a status, so it is a tag. */
 .guessLabel {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
   font-size: var(--size-12);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
 }
 
 /* Second's own guess, coloured only by what it is: something it thinks held,
- * something it thinks slipped, or -- the honest one -- no view at all. */
+ * something it thinks slipped, or -- the honest one -- no view at all. The hue
+ * sits on its own wash, where it still reads above 5:1. */
 .guessLabel[data-inferred='likely_done'] {
   color: var(--held);
+  border-color: var(--held-dim);
+  background: var(--held-wash);
 }
 
 .guessLabel[data-inferred='likely_missed'] {
   color: var(--slip);
+  border-color: var(--slip-dim);
+  background: var(--slip-wash);
 }
 
 .guessLabel[data-inferred='unknown'] {
@@ -68,15 +91,29 @@
  * not tell. It must not look like the rows it does have a view on, so it gets
  * no monospace quote -- there is nothing to quote. */
 .noEvidence {
+  font-family: var(--font-ui);
   font-size: var(--size-12);
   font-style: italic;
-  color: var(--ink-500);
+  letter-spacing: normal;
+  color: var(--text-ghost);
 }
 
 /* The honest row, marked by ground rather than by colour: Second has no view
- * here, so nothing about it should look like a verdict. */
+ * here, so nothing about it should look like a verdict. The ground reaches a
+ * little past the columns so its text is not pressed against the edge; the
+ * padding and the negative margin cancel, so the columns stay aligned with the
+ * rows around it. It is a rounded block, so the rules either side of it give
+ * way. */
 .row[data-unknown='true'] {
+  margin-inline: calc(-1 * var(--space-3));
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-input);
+  border-bottom-color: transparent;
   background: var(--bg-inset);
+}
+
+.row:has(+ .row[data-unknown='true']) {
+  border-bottom-color: transparent;
 }
 
 .answers {
@@ -85,13 +122,21 @@
   flex: none;
 }
 
+/* Ghost pills on a white ground of their own, so they still read as buttons on
+ * the Cloud Gray of an unknown row. Hover borrows the hue of the answer, in the
+ * text and the edge only: action is never filled with a colour. */
 .did,
 .didnt {
   padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--rule-strong);
-  font-size: var(--size-12);
-  color: var(--text-dim);
+  background: var(--color-paper);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--text);
   white-space: nowrap;
+  transition: color var(--beat) var(--ease), border-color var(--beat) var(--ease);
 }
 
 .did:hover:not(:disabled) {
@@ -104,10 +149,17 @@
   border-color: var(--slip-dim);
 }
 
-/* The answer is recorded, not celebrated. */
+/* The answer is recorded, not celebrated: a plain tag in the row's own grey. */
 .recorded {
   flex: none;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
   font-size: var(--size-12);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
   color: var(--text-ghost);
   white-space: nowrap;
 }
@@ -116,5 +168,6 @@
   grid-column: 1 / -1;
   font-family: var(--font-mono);
   font-size: var(--size-12);
+  letter-spacing: normal;
   color: var(--slip);
 }

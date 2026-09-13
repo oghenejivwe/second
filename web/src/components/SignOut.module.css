@@ -1,0 +1,36 @@
+/* A ghost pill: the Letters secondary action. Transparent, a hairline border
+ * and Obsidian text, so it sits in the rail without competing with the filled
+ * pill that marks the current screen.
+ *
+ * In a fixtures build the note above already carries the rail's auto top
+ * margin, so the negative margin here only pulls the button a little closer to
+ * that note than the rail's gap would. */
+.signOut {
+  align-self: flex-start;
+  margin-top: calc(-1 * var(--space-2));
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: var(--size-14);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: var(--tracking-body);
+  color: var(--color-obsidian);
+  transition:
+    background-color var(--beat) var(--ease),
+    border-color var(--beat) var(--ease);
+}
+
+/* Without the fixtures note the button follows the nav list directly and has
+ * to push itself to the bottom. It cannot simply always take an auto margin:
+ * two auto margins in one column split the free space between them and would
+ * float the note into the middle of the rail. */
+ul + .signOut {
+  margin-top: auto;
+}
+
+.signOut:hover {
+  border-color: var(--color-slate);
+  background: var(--color-cloud);
+}

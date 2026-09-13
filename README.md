@@ -167,7 +167,7 @@ refuses to build if one is missing or an extra one was injected.
 
 ## Testing it as a judge
 
-The quickest look needs nothing installed: https://second-blush-ten.vercel.app runs the web app on the same example data,
+The quickest look needs nothing installed: https://second-blush-ten.vercel.app (sign in with judge / second-demo, both pre-filled) runs the web app on the same example data,
 labelled "fixtures". Open it at the root; screens switch from the rail, not by URL.
 
 Three ways in, fastest first. The first two need no accounts: no AWS, no Google, no model key.

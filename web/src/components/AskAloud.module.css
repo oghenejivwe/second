@@ -1,0 +1,65 @@
+/* A small ghost pill on Memory's question card, and one line under it saying
+ * what the voice and the recogniser are doing. */
+
+.aloud {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* The tag recipe: 100px radius, hairline border, 4px 12px, 13px weight 500. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font-size: var(--size-13);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--color-obsidian);
+  white-space: nowrap;
+  transition: border-color var(--beat) var(--ease);
+}
+
+.pill:hover:not(:disabled) {
+  border-color: var(--color-slate);
+}
+
+.pill:disabled {
+  border-color: var(--rule);
+  color: var(--color-slate);
+}
+
+.pill:disabled svg {
+  stroke: var(--color-slate);
+}
+
+.status {
+  min-height: 1.4em;
+  font-size: var(--size-13);
+  line-height: 1.4;
+  color: var(--text-dim);
+  max-width: var(--measure);
+}
+
+.status:empty {
+  min-height: 0;
+}
+
+/* The words as they form, before they are poured into the box. */
+.heard {
+  font-size: var(--size-14);
+  line-height: 1.4;
+  color: var(--text);
+  max-width: var(--measure);
+}

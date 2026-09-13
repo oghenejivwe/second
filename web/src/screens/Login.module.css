@@ -1,0 +1,143 @@
+/* The login is the one screen that uses the sky gradient (tokens.css, rule 4).
+ * It fills the viewport so the door reads as a place, and everything past it
+ * is white. */
+.band {
+  /* The colour of the words set straight on the sky. It lives in one property
+   * because white on this gradient measures under 3:1 (2.9:1 at the top stop,
+   * about 2.4:1 where the title sits), so if the title has to meet the contrast
+   * rule on its own, this is the single line to change. */
+  --on-sky: var(--color-paper);
+
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: var(--space-7) var(--space-4);
+  background: var(--gradient-sky);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.title {
+  font-size: var(--size-44);
+  line-height: 1.1;
+  letter-spacing: var(--tracking-tight);
+  color: var(--on-sky);
+}
+
+.tagline {
+  margin-top: var(--space-3);
+  font-size: var(--size-18);
+  line-height: 1.4;
+  letter-spacing: var(--tracking-body);
+  color: color-mix(in srgb, var(--on-sky) 90%, transparent);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding: calc(var(--space-6) + var(--space-1));
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-card);
+  text-align: left;
+}
+
+@media (max-width: 420px) {
+  .card {
+    padding: var(--space-5);
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fieldLabel {
+  font-family: var(--font-ui);
+  font-size: var(--size-13);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: normal;
+  color: var(--color-ink);
+}
+
+/* 16px text, so a phone does not zoom the page when a field is tapped. The
+ * border darkens on hover the way a drop zone does; focus is the global
+ * Obsidian ring from base.css, which already reads on white. */
+.input {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-input);
+  background: var(--color-paper);
+  font-size: var(--size-16);
+  line-height: 1.25;
+  letter-spacing: var(--tracking-body);
+  color: var(--text);
+  transition: border-color var(--beat) var(--ease);
+}
+
+.input:hover {
+  border-color: var(--color-slate);
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--slip);
+}
+
+.error {
+  font-size: var(--size-14);
+  line-height: 1.4;
+  color: var(--slip);
+}
+
+/* The Letters primary action: an Obsidian pill with white text and the short
+ * button shadow, stretched to the card so it is the obvious thing to press. */
+.submit {
+  width: 100%;
+  margin-top: var(--space-1);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-pill);
+  background: var(--color-obsidian);
+  box-shadow: var(--shadow-button);
+  font-size: var(--size-16);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: var(--tracking-body);
+  color: var(--color-paper);
+  transition: background-color var(--beat) var(--ease);
+}
+
+.submit:hover {
+  background: var(--color-ink);
+}
+
+/* The button is focused by script on mount, which browsers do not always count
+ * as :focus-visible. The ring is drawn on plain :focus here so a keyboard user
+ * can see from the first frame that Enter will sign in. */
+.submit:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.preset {
+  font-size: var(--size-13);
+  line-height: 1.4;
+  letter-spacing: normal;
+  color: var(--color-charcoal);
+}
+
+/* The pair wraps as one piece, never at the hyphen in the password. */
+.pair {
+  white-space: nowrap;
+}
