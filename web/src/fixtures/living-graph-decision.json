@@ -297,6 +297,36 @@
         }
       ],
       "extraction_confidence": 0.97
+    },
+    {
+      "id": "g-week-book",
+      "title": "Finish three chapters of the public speaking book",
+      "horizon": "week",
+      "contributes_to": "g-speaking",
+      "deadline": "2026-09-13",
+      "status": "active",
+      "routes": [],
+      "extraction_confidence": 0.93
+    },
+    {
+      "id": "g-week-gym",
+      "title": "Hit the gym three times this week",
+      "horizon": "week",
+      "contributes_to": "g-fitness",
+      "deadline": "2026-09-13",
+      "status": "active",
+      "routes": [],
+      "extraction_confidence": 0.88
+    },
+    {
+      "id": "g-week-deck",
+      "title": "Draft the Series A pitch deck outline",
+      "horizon": "week",
+      "contributes_to": "g-raise",
+      "deadline": "2026-09-13",
+      "status": "active",
+      "routes": [],
+      "extraction_confidence": 0.9
     }
   ],
   "person": {
