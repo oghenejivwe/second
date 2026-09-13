@@ -565,25 +565,36 @@ function Waveform({ analyser, active }: { analyser: AnalyserNode | null; active:
       context.clearRect(0, 0, width, height)
       context.lineWidth = weight
       context.strokeStyle = stroke
-      context.beginPath()
-
       if (analyser && active) {
+        // Bars, not a trace: ordinary speech moves a time-domain line by a few
+        // pixels, which reads as nothing on a recording. Each bar is the
+        // loudness of one slice, amplified, over a small breathing floor, so
+        // the row visibly listens even in a pause.
         analyser.getByteTimeDomainData(samples)
-        const middle = height / 2
-        const reach = middle - weight
-        for (let index = 0; index < samples.length; index += 1) {
-          const x = (index / (samples.length - 1)) * width
-          // 128 is silence, so the line rests in the middle on its own.
-          const y = middle + ((samples[index] - 128) / 128) * reach
-          if (index === 0) context.moveTo(x, y)
-          else context.lineTo(x, y)
+        const bars = 48
+        const slice = Math.max(1, Math.floor(samples.length / bars))
+        const gap = width / bars
+        const bar = Math.max(2, gap * 0.5)
+        const beat = performance.now() / 400
+        context.fillStyle = stroke
+        for (let index = 0; index < bars; index += 1) {
+          let sum = 0
+          for (let at = index * slice; at < (index + 1) * slice && at < samples.length; at += 1) {
+            const value = (samples[at] - 128) / 128
+            sum += value * value
+          }
+          const level = Math.min(1, Math.sqrt(sum / slice) * 6)
+          const floor = 0.08 + 0.05 * Math.sin(beat + index * 0.5)
+          const tall = Math.max(floor, level) * height
+          context.fillRect(index * gap + (gap - bar) / 2, (height - tall) / 2, bar, tall)
         }
       } else {
+        context.beginPath()
         context.moveTo(0, height / 2)
         context.lineTo(width, height / 2)
+        context.stroke()
       }
 
-      context.stroke()
       if (active) frame = requestAnimationFrame(paint)
     }
 

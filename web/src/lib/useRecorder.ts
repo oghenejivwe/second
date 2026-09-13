@@ -136,10 +136,13 @@ export function useRecorder(): Recorder {
     setPhase(session.began ? 'stopped' : 'idle')
   }, [])
 
+  const startedRef = useRef(0)
+
   const start = useCallback(() => {
     // A second click on a button already asking, and nothing else: StrictMode
     // cannot reach here, because no effect calls this.
     if (sessionRef.current) return
+    startedRef.current = Date.now()
 
     // The previous recogniser may still be finalising. It has had its chance;
     // from here its words would land in a transcript that belongs to a
@@ -209,10 +212,15 @@ export function useRecorder(): Recorder {
         }
         if (LIVE_CONSTRUCTOR) attachRecognition(session, setLive, setLiveProblem)
 
+        // Counted from the press, not from here, and read off the clock rather
+        // than incremented, so a slow permission prompt or a throttled tab
+        // cannot make the seconds lag.
+        const tick = () => setSeconds(Math.floor((Date.now() - startedRef.current) / 1000))
+        tick()
         session.timer = window.setInterval(() => {
           if (epochRef.current !== epoch) return
-          setSeconds((value) => value + 1)
-        }, 1000)
+          tick()
+        }, 250)
 
         setPhase('recording')
       })
