@@ -15,7 +15,7 @@ never sends. So every fixture here comes out of the real thing:
 * ``ScriptedModel`` supplies the model's *choices* while the real ``Graph``,
   the real ``@tool`` dispatch and the real hook registries run.
 * The payloads are dumped from ``second.graphs.service`` -- the same functions
-  the nine routes call -- so a fixture cannot have a shape the route does not.
+  the routes call -- so a fixture cannot have a shape the route does not.
 
 Run it whenever the contract moves:
 
@@ -37,9 +37,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from contextlib import contextmanager
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 import boto3
 from moto import mock_aws
@@ -58,9 +60,10 @@ from second.core.models import (
 from second.graphs import service
 from second.graphs.brief import blocks_on
 from second.graphs.composition import AgentSpec, ToolRegistry
+from second.graphs.wording import plural, quoted
 from second.persistence.store import LivingGraphStore
 from second.testing import demo_scenario
-from second.testing.fake_connectors import ALL_FAKE_CONNECTORS
+from second.testing.fake_connectors import ALL_FAKE_CONNECTORS, read_fake_calendar
 from second.testing.scripted_model import ScriptedModel, Structured, Text, ToolUse
 from second.tools.graph_tools import ALL_GRAPH_TOOLS
 
@@ -116,6 +119,19 @@ def registry() -> ToolRegistry:
 
 def fixed_clock(on=None) -> Clock:
     return Clock.fixed(on or TODAY, zone_name=TIMEZONE)
+
+
+@contextmanager
+def pinned_zone():
+    """Make ``service`` resolve the demo's zone without asking a real calendar.
+
+    ``service._clock_for`` calls ``resolve_clock()``, which reads the timezone from Google when a
+    token is configured and from the machine otherwise. Either way the fixture would depend on
+    where it was generated, which is the thing ``TIMEZONE`` above is pinned to prevent. Used around
+    the schedule and memory fixtures only, so every earlier fixture is generated exactly as before.
+    """
+    with mock.patch.object(service, "resolve_clock", lambda *_args, **_kwargs: fixed_clock()):
+        yield
 
 
 def write(name: str, payload: Any) -> None:
@@ -276,11 +292,26 @@ LEAVE_DRAFT = {
     ),
     "external_ref": "draft-0001",
     "awaiting": "Read it and press send.",
+    # The task the draft carries forward, so Memory can show the leave deadline and this draft as
+    # one item. A scripted choice like every other field here, and the id is the graph's own.
+    "task_id": "t-leave",
 }
+
+
+def received(message_id: str) -> str:
+    """The reminder's evidence, with the message's age read from the message's own date.
+
+    This was the literal "received 6 days ago" while the message was nine days old. A hand-written
+    age is true for exactly one value of ``demo_scenario.TODAY``, and it had already stopped being.
+    """
+    message = next(message for message in demo_scenario.inbox() if message["id"] == message_id)
+    age = (TODAY - date.fromisoformat(message["date"][:10])).days
+    return f"{message_id}, {quoted(message['subject'])}, received {plural(age, 'day')} ago."
+
 
 REMINDER = {
     "what": "Your sister asked whether the flights are booked. You have not replied.",
-    "evidence": "m-wedding, 'Wedding week - are you booked yet?', received 6 days ago.",
+    "evidence": received("m-wedding"),
     "source": "email",
 }
 
@@ -439,6 +470,28 @@ async def make_daily_fixtures() -> None:
             # can diff them.
             if name == "brief-prepared.json":
                 write("living-graph-after-run.json", store.load(USER).model_dump(mode="json"))
+
+                # Memory and Schedule come from the same store as this brief, after the run, so the
+                # three screens agree about the day. Memory reads what the run left behind: the
+                # email reminder and the prepared draft live on the cached brief. Schedule reads the
+                # graph the Adapter rewrote: the gym route is now Mon/Wed/Fri 07:00 and its
+                # rationale cites the abandoned 18:00 slots, so the gym sits at 07:00 here exactly
+                # as on Today. The refusal story is carried by the proposed blocks' why, but not in
+                # this default week: the Adapter placed the gym on every Mon/Wed/Fri up to Wed 16,
+                # so there is no gym proposal and no 18:00 refusal to show. The first gym proposal,
+                # with that rationale as its why, is Fri 18 Sep, which only a 14-day span reaches.
+                with pinned_zone():
+                    memory = service.get_memory(USER, today=on, calendar=read_fake_calendar)
+                    schedule = service.get_schedule(USER, today=on)
+                write("memory.json", memory.model_dump(mode="json"))
+                write("schedule.json", schedule.model_dump(mode="json"))
+
+            if name == "brief-quiet.json":
+                # Memory beside the quiet brief: no reminder and no draft, because this run produced
+                # neither. The frontend picks this or memory.json by which brief is on screen.
+                with pinned_zone():
+                    memory = service.get_memory(USER, today=on, calendar=read_fake_calendar)
+                write("memory-quiet.json", memory.model_dump(mode="json"))
 
             service.set_store(None)
 
@@ -616,6 +669,183 @@ def make_goal_fixtures() -> None:
 
 
 # ---------------------------------------------------------------------------
+# The recurring question: answered, and skipped
+# ---------------------------------------------------------------------------
+
+WEEK_DEADLINE = TODAY + timedelta(days=8)
+"""Friday 18 September on the demo date. Derived, so the spoken answer and the goal cannot disagree."""
+
+WEEK_ANSWER = (
+    "Send the leave request today, and book the flights to Lisbon by "
+    f"{WEEK_DEADLINE:%A} {WEEK_DEADLINE.day} {WEEK_DEADLINE:%B}."
+)
+
+LEAVE_SLOT = datetime.combine(TODAY, datetime.min.time()).replace(hour=12)
+FLIGHTS_SLOT = LEAVE_SLOT + timedelta(days=1)
+
+
+def lisbon_week_goal(*, placed: bool) -> dict[str, Any]:
+    """The week goal the answer becomes, with its route and two tasks.
+
+    Written twice, as a real run writes it: by the Route Planner without slots, then by the
+    Scheduler with the slots it chose. ``placed`` says which of the two this is.
+    """
+    return {
+        "id": "g-lisbon-week",
+        "title": "Send the leave request and book the Lisbon flights",
+        "horizon": "week",
+        "contributes_to": "g-lisbon",
+        "deadline": WEEK_DEADLINE.isoformat(),
+        "status": "active",
+        "extraction_confidence": 0.95,
+        "routes": [
+            {
+                "id": "r-lisbon-week",
+                "goal_id": "g-lisbon-week",
+                "title": "Leave request first, then the flights",
+                "cadence": "One-off, this week",
+                "rationale": (
+                    "Booking the flights has slipped twice because leave was not confirmed, so the "
+                    "request goes first. Both sit at midday because nothing goes before 09:00 for you."
+                ),
+                "status": "proposed",
+                "tasks": [
+                    {
+                        "id": "t-lisbon-leave",
+                        "route_id": "r-lisbon-week",
+                        "title": "Send the leave request",
+                        "deadline": TODAY.isoformat(),
+                        "scheduled_slots": [LEAVE_SLOT.isoformat()] if placed else [],
+                    },
+                    {
+                        "id": "t-lisbon-flights",
+                        "route_id": "r-lisbon-week",
+                        "title": "Book the flights to Lisbon",
+                        "depends_on": ["t-lisbon-leave"],
+                        "deadline": WEEK_DEADLINE.isoformat(),
+                        "scheduled_slots": [FLIGHTS_SLOT.isoformat()] if placed else [],
+                    },
+                ],
+            }
+        ],
+    }
+
+
+def assert_the_week_slots_are_free() -> None:
+    """Stop the generator rather than script a placement into a slot that is not free.
+
+    Each slot must be one the fake calendar offers, at or after 09:00 (the person's own rule), still
+    ahead on the demo clock, inside the deadline, and clear of every block already placed that day.
+    """
+    graph = demo_scenario.living_graph()
+    clock = fixed_clock()
+    offered = {slot["start"] for slot in demo_scenario.free_slots(60)}
+    for slot in (LEAVE_SLOT, FLIGHTS_SLOT):
+        begins = clock.local(slot)
+        assert slot.isoformat() in offered, f"{slot} is not a free slot in the fake calendar"
+        assert slot.hour >= 9, f"{slot} breaks the rule 'No meetings before 09:00'"
+        assert begins > clock.now, f"{slot} is already in the past"
+        assert slot.date() <= WEEK_DEADLINE, f"{slot} is after the deadline"
+        for block in blocks_on(graph, clock, slot.date()):
+            ends = block.start + timedelta(minutes=block.duration_min)
+            assert not (block.start < begins + timedelta(hours=1) and begins < ends), (
+                f"{slot} overlaps {block.title} at {block.start:%H:%M}"
+            )
+
+
+def answer_specs() -> dict[str, AgentSpec]:
+    shallow = {key: value for key, value in lisbon_week_goal(placed=False).items() if key != "routes"}
+    decision = {
+        "placed": [
+            {"task_id": "t-lisbon-leave", "start": LEAVE_SLOT.isoformat(), "duration_min": 60},
+            {"task_id": "t-lisbon-flights", "start": FLIGHTS_SLOT.isoformat(), "duration_min": 60},
+        ],
+        "deprioritised": [],
+        "rationale": (
+            "12:00 today is the first free slot after 09:00, so the leave request goes there. The "
+            "flights wait on it, so they take 12:00 tomorrow, the next free slot after 09:00 and a "
+            "week before the deadline. Nothing already placed had to move."
+        ),
+    }
+    return {
+        "extractor": spec(
+            "extractor",
+            [Structured({"goals": [shallow], "clarifying_questions": []})],
+            tools=("read_graph",),
+            output_model=ExtractionResult,
+        ),
+        "cascader": spec("cascader", [Text("Already a week goal. Nothing to walk down.")]),
+        "route_planner": spec(
+            "route_planner",
+            [
+                ToolUse(
+                    "write_graph",
+                    {"user_id": USER, "layer": "goals", "patch": {"goals": [lisbon_week_goal(placed=False)]}},
+                ),
+                Text("One route: the leave request, then the flights."),
+            ],
+            tools=("read_graph", "write_graph"),
+        ),
+        "scheduler": spec(
+            "scheduler",
+            [
+                ToolUse(
+                    "find_free_slots",
+                    {
+                        "start": f"{TODAY}T09:00:00",
+                        "end": f"{WEEK_DEADLINE + timedelta(days=1)}T00:00:00",
+                        "duration_min": 60,
+                    },
+                ),
+                ToolUse(
+                    "create_event",
+                    {"title": "Send the leave request", "start": LEAVE_SLOT.isoformat(), "duration_min": 60},
+                ),
+                ToolUse(
+                    "create_event",
+                    {"title": "Book the flights to Lisbon", "start": FLIGHTS_SLOT.isoformat(), "duration_min": 60},
+                ),
+                ToolUse(
+                    "write_graph",
+                    {"user_id": USER, "layer": "goals", "patch": {"goals": [lisbon_week_goal(placed=True)]}},
+                ),
+                Structured(decision),
+            ],
+            tools=("read_graph", "find_free_slots", "create_event", "write_graph"),
+            output_model=ScheduleDecision,
+        ),
+    }
+
+
+async def make_question_fixtures() -> None:
+    """The week question, answered through the real intake path, and skipped."""
+    assert_the_week_slots_are_free()
+
+    with mock_aws():
+        fresh_store(None)
+        with pinned_zone():
+            result = await service.answer_question(
+                USER,
+                "week",
+                WEEK_ANSWER,
+                today=TODAY,
+                model=object(),
+                registry=registry(),
+                include_resource_finder=False,
+                specs=answer_specs(),
+            )
+        write("question-answer-week.json", result.model_dump(mode="json"))
+        service.set_store(None)
+
+    with mock_aws():
+        fresh_store(None)
+        with pinned_zone():
+            skipped = service.skip_question(USER, "week", today=TODAY)
+        write("question-skip-week.json", skipped.model_dump(mode="json"))
+        service.set_store(None)
+
+
+# ---------------------------------------------------------------------------
 # The schema, for the type layer
 # ---------------------------------------------------------------------------
 
@@ -652,9 +882,14 @@ def make_schema() -> None:
         contract.FeedbackUpdate,
         contract.Goal,
         contract.GoalStatusChange,
+        contract.HorizonAsked,
+        contract.HorizonQuestion,
         contract.IntakeResult,
         contract.Link,
         contract.LivingGraph,
+        contract.Memory,
+        contract.MemoryItem,
+        contract.MemorySourceStatus,
         contract.Observation,
         contract.ObservationReport,
         contract.PersonModel,
@@ -664,8 +899,11 @@ def make_schema() -> None:
         contract.Risk,
         contract.Route,
         contract.RoutePlan,
+        contract.Schedule,
+        contract.ScheduleDay,
         contract.ScheduleDecision,
         contract.ScheduledBlock,
+        contract.SkippedProposal,
         contract.Slip,
         contract.Task,
     ]
@@ -710,6 +948,7 @@ def main() -> None:
     make_goal_fixtures()
     asyncio.run(make_daily_fixtures())
     asyncio.run(make_intake_fixtures())
+    asyncio.run(make_question_fixtures())
     make_schema()
     print("Done.")
 

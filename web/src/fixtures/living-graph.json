@@ -318,7 +318,8 @@
       "Fri 18:00"
     ],
     "recurring_blockers": [],
-    "resources_served": []
+    "resources_served": [],
+    "asked_on": {}
   },
   "links": [
     {
@@ -341,7 +342,7 @@
     }
   ],
   "version": 1,
-  "updated_at": "2026-09-12T19:16:12.890648Z",
+  "updated_at": "2026-09-13T07:15:25.088302Z",
   "stalled_ambition_ids": [],
   "broken_link_ids": []
 }

@@ -92,6 +92,18 @@ def get_calendar_events(start: str, end: str, tool_context: ToolContext) -> list
     ]
 
 
+def read_fake_calendar(start: str, end: str) -> list[dict]:
+    """``get_calendar_events`` as a plain call, for code that reads the calendar outside an agent.
+
+    The memory tab reads today's calendar on a GET, where there is no agent and so no
+    ``ToolContext``. This read records no effect and never touches the context, so a bare stand-in
+    is enough -- and it goes through the same fake, filter included, that the agents are tested on.
+    """
+    from types import SimpleNamespace
+
+    return get_calendar_events(start, end, SimpleNamespace(invocation_state={}))
+
+
 @tool(context=True)
 def find_free_slots(start: str, end: str, duration_min: int, tool_context: ToolContext) -> list[dict]:
     """Find gaps in the calendar big enough for a given duration.

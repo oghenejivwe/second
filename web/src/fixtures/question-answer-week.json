@@ -1,7 +1,4 @@
 {
-  "goal_id": "g-speaking",
-  "goal_title": "Get comfortable speaking to a room",
-  "status": "retired",
   "graph": {
     "user_id": "demo",
     "goals": [
@@ -41,7 +38,7 @@
         "horizon": "year",
         "contributes_to": "g-raise",
         "deadline": "2026-12-09",
-        "status": "retired",
+        "status": "active",
         "routes": [
           {
             "id": "r-club",
@@ -301,6 +298,59 @@
           }
         ],
         "extraction_confidence": 0.97
+      },
+      {
+        "id": "g-lisbon-week",
+        "title": "Send the leave request and book the Lisbon flights",
+        "horizon": "week",
+        "contributes_to": "g-lisbon",
+        "deadline": "2026-09-18",
+        "status": "active",
+        "routes": [
+          {
+            "id": "r-lisbon-week",
+            "goal_id": "g-lisbon-week",
+            "title": "Leave request first, then the flights",
+            "cadence": "One-off, this week",
+            "rationale": "Booking the flights has slipped twice because leave was not confirmed, so the request goes first. Both sit at midday because nothing goes before 09:00 for you.",
+            "status": "proposed",
+            "tasks": [
+              {
+                "id": "t-lisbon-leave",
+                "route_id": "r-lisbon-week",
+                "title": "Send the leave request",
+                "depends_on": [],
+                "deadline": "2026-09-10",
+                "scheduled_slots": [
+                  "2026-09-10T12:00:00"
+                ],
+                "slip_count": 0,
+                "slips": [],
+                "status": "pending",
+                "known_blocker": null,
+                "resource_url": null
+              },
+              {
+                "id": "t-lisbon-flights",
+                "route_id": "r-lisbon-week",
+                "title": "Book the flights to Lisbon",
+                "depends_on": [
+                  "t-lisbon-leave"
+                ],
+                "deadline": "2026-09-18",
+                "scheduled_slots": [
+                  "2026-09-11T12:00:00"
+                ],
+                "slip_count": 0,
+                "slips": [],
+                "status": "pending",
+                "known_blocker": null,
+                "resource_url": null
+              }
+            ]
+          }
+        ],
+        "extraction_confidence": 0.95
       }
     ],
     "person": {
@@ -323,7 +373,9 @@
       ],
       "recurring_blockers": [],
       "resources_served": [],
-      "asked_on": {}
+      "asked_on": {
+        "week": "2026-09-10"
+      }
     },
     "links": [
       {
@@ -345,61 +397,28 @@
         "note": "Recording and listening back suits someone who learns by video."
       }
     ],
-    "version": 2,
-    "updated_at": "2026-09-13T07:15:25.515100Z",
+    "version": 4,
+    "updated_at": "2026-09-13T07:15:29.578062Z",
     "stalled_ambition_ids": [],
     "broken_link_ids": []
   },
-  "freed": [
-    {
-      "task_id": "t-recording",
-      "goal_id": "g-speaking",
-      "goal_title": "Get comfortable speaking to a room",
-      "horizon": "year",
-      "serves": [
-        "Raise a Series A",
-        "Build a company that outlives me"
-      ],
-      "title": "Record five minutes and listen back",
-      "start": "2026-09-10T08:00:00+01:00",
-      "duration_min": 60,
-      "resource_url": null,
-      "status": "placed",
-      "why": ""
-    },
-    {
-      "task_id": "t-pitch",
-      "goal_id": "g-speaking",
-      "goal_title": "Get comfortable speaking to a room",
-      "horizon": "year",
-      "serves": [
-        "Raise a Series A",
-        "Build a company that outlives me"
-      ],
-      "title": "Draft the talk pitch",
-      "start": "2026-09-10T17:00:00+01:00",
-      "duration_min": 60,
-      "resource_url": null,
-      "status": "placed",
-      "why": ""
-    },
-    {
-      "task_id": "t-club",
-      "goal_id": "g-speaking",
-      "goal_title": "Get comfortable speaking to a room",
-      "horizon": "year",
-      "serves": [
-        "Raise a Series A",
-        "Build a company that outlives me"
-      ],
-      "title": "Attend speaking club",
-      "start": "2026-09-11T19:00:00+01:00",
-      "duration_min": 60,
-      "resource_url": null,
-      "status": "placed",
-      "why": ""
-    }
-  ],
-  "freed_minutes": 180,
-  "note": "3 slots over the next four weeks, 3 hours in all, are now free. The next daily run reallocates the time to the goals still active."
+  "clarifying_questions": [],
+  "schedule": {
+    "placed": [
+      {
+        "task_id": "t-lisbon-leave",
+        "start": "2026-09-10T12:00:00",
+        "duration_min": 60,
+        "calendar_event_id": null
+      },
+      {
+        "task_id": "t-lisbon-flights",
+        "start": "2026-09-11T12:00:00",
+        "duration_min": 60,
+        "calendar_event_id": null
+      }
+    ],
+    "deprioritised": [],
+    "rationale": "12:00 today is the first free slot after 09:00, so the leave request goes there. The flights wait on it, so they take 12:00 tomorrow, the next free slot after 09:00 and a week before the deadline. Nothing already placed had to move."
+  }
 }

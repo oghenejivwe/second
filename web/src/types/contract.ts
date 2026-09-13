@@ -286,6 +286,14 @@ export interface ScheduledBlock {
    * Material attached to the slot, so the thing to watch is already there.
    */
   resource_url: string | null
+  /**
+   * placed: the task holds this slot in the Living Graph. proposed: Second's projection of the route's own cadence onto a day where nothing is placed for it. A proposal is never written anywhere, so a screen must not show it as booked.
+   */
+  status: 'placed' | 'proposed'
+  /**
+   * For a proposed block, the cadence and the facts it rests on. Empty on a placed block, whose reason is the ladder in serves.
+   */
+  why: string
 }
 /**
  * Work carried up to the last click, and stopped there.
@@ -314,6 +322,10 @@ export interface PreparedAction {
    * The single thing left for the user to do.
    */
   awaiting: string
+  /**
+   * The task this carries forward, copied exactly from the graph. Null when it serves no single task. Never constructed: a wrong id files the work under the wrong deadline.
+   */
+  task_id: string | null
 }
 /**
  * Something with a deadline that will not be met on the current plan.
@@ -585,6 +597,12 @@ export interface PersonModel {
    * Already shown to the user. The Resource Finder never repeats one.
    */
   resources_served: string[]
+  /**
+   * When Second last asked about each horizon, e.g. {"week": "2026-09-10"}. Written when the user answers or skips, so a question is not repeated inside its cadence.
+   */
+  asked_on: {
+    [k: string]: string
+  }
 }
 /**
  * An edge between the goals layer and the person layer.
@@ -608,6 +626,41 @@ export interface Link {
    */
   to_ref: string
   note: string
+}
+/**
+ * What skipping a question recorded, and when it comes back.
+ *
+ * This interface was referenced by `SecondContract`'s JSON-Schema
+ * via the `definition` "HorizonAsked".
+ */
+export interface HorizonAsked {
+  horizon: 'week' | 'month'
+  asked_on: string
+  next_due: string
+}
+/**
+ * "What do you want to do this week, and by when?", asked because the goals have a gap.
+ *
+ * This interface was referenced by `SecondContract`'s JSON-Schema
+ * via the `definition` "HorizonQuestion".
+ */
+export interface HorizonQuestion {
+  horizon: 'week' | 'month'
+  question: string
+  /**
+   * Why it is asked now: the gap in the goals, and when it was last asked.
+   */
+  evidence: string
+  /**
+   * The goal with nothing at this rung. None for a general question.
+   */
+  anchor_goal_id: string | null
+  anchor_goal_title: string | null
+  last_asked: string | null
+  /**
+   * How many days pass before this horizon is asked about again.
+   */
+  every_days: number
 }
 /**
  * What one spoken brain dump produced.
@@ -656,6 +709,74 @@ export interface Placement {
   start: string
   duration_min: number
   calendar_event_id: string | null
+}
+/**
+ * Every important thing for today, the status of every source, and any question that is due.
+ *
+ * This interface was referenced by `SecondContract`'s JSON-Schema
+ * via the `definition` "Memory".
+ */
+export interface Memory {
+  on: string
+  items: MemoryItem[]
+  /**
+   * Every registered source, connected or not, in the order their items are listed.
+   */
+  sources: MemorySourceStatus[]
+  /**
+   * At most one per horizon, and only for a horizon whose cadence has elapsed.
+   */
+  questions: HorizonQuestion[]
+}
+/**
+ * One thing worth remembering today, and where Second read it.
+ *
+ * ``evidence`` is required and must say something. ``Reminder`` is written by a model, so its
+ * missing evidence is filtered in ``brief._evidenced`` rather than raised on. A memory item is
+ * built in Python by a source in ``graphs/memory.py``, so a missing one is a bug in that source,
+ * and it is refused at construction where a test will see it rather than dropped where nobody
+ * will.
+ *
+ * This interface was referenced by `SecondContract`'s JSON-Schema
+ * via the `definition` "MemoryItem".
+ */
+export interface MemoryItem {
+  what: string
+  /**
+   * What this rests on, quotable: the calendar entry, the email, the graph fact.
+   */
+  evidence: string
+  source: 'calendar' | 'email' | 'graph'
+  kind: 'event' | 'deadline' | 'waiting_on_you' | 'told_second' | 'constraint' | 'reminder'
+  /**
+   * When it happens, timezone-aware. Set for an event.
+   */
+  at: string | null
+  /**
+   * When it is due. Set for a deadline.
+   */
+  due: string | null
+}
+/**
+ * Whether one source could be read today, and what it said about itself.
+ *
+ * Listed for every registered source, so "no calendar items" can be told apart from "the
+ * calendar could not be read".
+ *
+ * This interface was referenced by `SecondContract`'s JSON-Schema
+ * via the `definition` "MemorySourceStatus".
+ */
+export interface MemorySourceStatus {
+  name: string
+  /**
+   * False when the source could not be read; its lack of items then means nothing.
+   */
+  connected: boolean
+  /**
+   * What was read, or why it could not be.
+   */
+  reason: string
+  items: number
 }
 /**
  * What the Observer could work out about one scheduled slot.
@@ -722,4 +843,62 @@ export interface RoutePlan {
    * Ask rather than invent a cadence the user will abandon in week two.
    */
   clarifying_questions: string[]
+}
+/**
+ * Today and the days after it.
+ *
+ * Every day in the span is present even when it is empty, so a screen can tell an empty
+ * Saturday from a day the server did not send.
+ *
+ * This interface was referenced by `SecondContract`'s JSON-Schema
+ * via the `definition` "Schedule".
+ */
+export interface Schedule {
+  start: string
+  days: ScheduleDay[]
+  /**
+   * Routes that could not be projected onto any day, e.g. a cadence Second cannot read.
+   */
+  skipped: SkippedProposal[]
+}
+/**
+ * One day: what is placed and proposed on it, in time order, and what was refused.
+ *
+ * This interface was referenced by `SecondContract`'s JSON-Schema
+ * via the `definition` "ScheduleDay".
+ */
+export interface ScheduleDay {
+  on: string
+  /**
+   * Placed and proposed together, in time order. Read status to tell them apart.
+   */
+  blocks: ScheduledBlock[]
+  skipped: SkippedProposal[]
+}
+/**
+ * A block Second could have proposed and did not, and why.
+ *
+ * Recorded rather than left out. An empty Monday reads as "nothing to do" when the truth is "the
+ * gym keeps failing at 18:00, so Second did not put it back there", and only the second one is
+ * something the user can act on.
+ *
+ * This interface was referenced by `SecondContract`'s JSON-Schema
+ * via the `definition` "SkippedProposal".
+ */
+export interface SkippedProposal {
+  route_id: string
+  route_title: string
+  task_id: string | null
+  /**
+   * The day it would have landed. None when the route could not be projected onto any day.
+   */
+  on: string | null
+  /**
+   * The slot it would have taken, e.g. "Mon 18:00", or the cadence that could not be read.
+   */
+  wanted: string
+  /**
+   * Why it was not proposed, citing the person-layer fact or the cadence.
+   */
+  reason: string
 }

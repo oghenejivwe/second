@@ -7,6 +7,37 @@
   border-bottom: 1px solid var(--rule);
 }
 
+/* A suggestion, drawn so it cannot pass for a booking. The dashed edge is the
+ * mark the fixture switcher already uses for "not the real thing", and the
+ * negative margin keeps the time column aligned with the placed rows around it.
+ * Time and title step down one grey, so on a day that has both, the placed
+ * block is the brightest thing in the list. */
+.block[data-status='proposed'] {
+  margin-left: calc(-1 * var(--space-3) - 1px);
+  padding-left: var(--space-3);
+  border-left: 1px dashed var(--ink-500);
+}
+
+.block[data-status='proposed'] .time {
+  color: var(--text-ghost);
+}
+
+.block[data-status='proposed'] .title {
+  color: var(--text-dim);
+}
+
+.suggested {
+  font-size: var(--size-11);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* `.evidence` supplies the mono and the colour; this only keeps it readable. */
+.why {
+  max-width: var(--measure);
+}
+
 .block:first-child {
   padding-top: var(--space-2);
 }

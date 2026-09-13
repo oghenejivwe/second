@@ -782,8 +782,12 @@ function Answer() {
  * the graph this same result carried. When an id is not in it, the id is shown
  * as it stands: inventing a title for a task Second cannot find is exactly the
  * kind of plausible-looking fiction this product must not produce.
+ *
+ * Exported for the Memory screen, which shows what an answer to its week or
+ * month question planned. That answer is planned by the same graph as a brain
+ * dump and returns the same `ScheduleDecision`, so it is drawn the same way.
  */
-function Planned({ schedule, graph }: { schedule: ScheduleDecision; graph: LivingGraph }) {
+export function Planned({ schedule, graph }: { schedule: ScheduleDecision; graph: LivingGraph }) {
   const named = useMemo(() => taskIndex(graph), [graph])
 
   return (

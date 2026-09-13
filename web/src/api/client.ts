@@ -1,5 +1,5 @@
 /**
- * The nine routes, and nothing else.
+ * The thirteen routes, and nothing else.
  *
  * **Errors say what failed.** The product's voice is evidence-first and that
  * applies to its failures: no "Something went wrong". An `ApiError` carries the
@@ -20,8 +20,12 @@ import type {
   FeedbackResult,
   Goal,
   GoalStatusChange,
+  HorizonAsked,
+  HorizonQuestion,
   IntakeResult,
   LivingGraph,
+  Memory,
+  Schedule,
 } from '../types/contract'
 
 import auditFixture from '../fixtures/audit.json'
@@ -35,6 +39,11 @@ import graphAfterRunFixture from '../fixtures/living-graph-after-run.json'
 import graphFixture from '../fixtures/living-graph.json'
 import intakePlannedFixture from '../fixtures/intake-planned.json'
 import intakeQuestionsFixture from '../fixtures/intake-questions.json'
+import memoryQuietFixture from '../fixtures/memory-quiet.json'
+import memoryFixture from '../fixtures/memory.json'
+import questionAnswerWeekFixture from '../fixtures/question-answer-week.json'
+import questionSkipWeekFixture from '../fixtures/question-skip-week.json'
+import scheduleFixture from '../fixtures/schedule.json'
 
 export const USING_FIXTURES = import.meta.env.VITE_SOURCE === 'fixtures'
 
@@ -124,6 +133,47 @@ export interface VoiceJob {
   detail?: string | null
 }
 
+export type QuestionHorizon = HorizonQuestion['horizon']
+
+/**
+ * What answering or skipping the month question comes back with when there is no backend.
+ *
+ * The week question has generated replies: make_fixtures.py sends one answer
+ * through the real intake graph and one skip through `service.skip_question`,
+ * and those two payloads are returned below. Nothing was generated for the
+ * month question. `intake-planned.json` is a plan for a different sentence, and
+ * the week skip names the week's cadence; returning either would show the user
+ * a result that never happened. So the month question gets this, which says
+ * what did happen, and the screen shows it in place of a result.
+ */
+export interface FixtureAcknowledgement {
+  fixture: true
+  line: string
+}
+
+export function isFixtureAcknowledgement(reply: object): reply is FixtureAcknowledgement {
+  return 'fixture' in reply && reply.fixture === true
+}
+
+/**
+ * The answer `question-answer-week.json` was generated from.
+ *
+ * Restated from `WEEK_ANSWER` in web/scripts/make_fixtures.py, because the
+ * payload carries the plan and not the words. Fixture mode shows that plan for
+ * whatever is typed, so the Memory screen puts this sentence in the box and says
+ * so when the words sent differ from it: a plan shown under a sentence it was
+ * not made from is a plan for a different sentence. Change the two together.
+ */
+export const FIXTURE_WEEK_ANSWER =
+  'Send the leave request today, and book the flights to Lisbon by Friday 18 September.'
+
+/** The cadence the generated memory fixture carries for a horizon, quoted
+ * rather than restated, so the fixture-mode line cannot drift from settings.py. */
+function fixtureCadence(horizon: QuestionHorizon): string {
+  const asked = (memoryFixture as Memory).questions.find((question) => question.horizon === horizon)
+  return asked ? ` Live, this question is not asked again for ${asked.every_days} days.` : ''
+}
+
 export const api = {
   graph(): Promise<LivingGraph> {
     if (USING_FIXTURES) return fixture(graphFixture)
@@ -139,6 +189,71 @@ export const api = {
   runDaily(): Promise<DailyBrief> {
     if (USING_FIXTURES) return fixture(briefPreparedFixture, 1400)
     return call<DailyBrief>('/api/daily/run', { method: 'POST' })
+  },
+
+  /** Today and the days after it, placed and proposed. A read: no model, no write.
+   * With no `days`, the server's own default window applies. */
+  schedule(days?: number): Promise<Schedule> {
+    if (USING_FIXTURES) {
+      // The fixture holds the seven days the generator produced. A shorter
+      // window is the start of it; a longer one gets those seven, because a day
+      // the generator did not compute is not one this file can make up.
+      const generated = scheduleFixture as Schedule
+      return fixture({ ...generated, days: generated.days.slice(0, days ?? generated.days.length) })
+    }
+    return call<Schedule>(days === undefined ? '/api/schedule' : `/api/schedule?days=${days}`)
+  },
+
+  /** Today's items from every source, each source's status, and any due question. A read.
+   *
+   * `briefOnScreen` matters only in fixture mode, and the store passes it. The
+   * two memory fixtures were generated after two different morning runs:
+   * memory.json after the run that prepared a draft and read a reminder from
+   * email, memory-quiet.json after the quiet one. Only the store knows which
+   * brief Today is showing, so it says, and Memory cannot contradict Today by
+   * listing a draft the brief on screen never prepared. Live, the server reads
+   * its own store and the argument is not sent. */
+  memory(briefOnScreen: DailyBrief | null = null): Promise<Memory> {
+    if (USING_FIXTURES) {
+      return fixture(briefOnScreen === briefPreparedFixture ? memoryFixture : memoryQuietFixture)
+    }
+    return call<Memory>('/api/memory')
+  },
+
+  /** Answer a recurring question. Live, it is planned like a brain dump, so tens of seconds. */
+  answerQuestion(horizon: QuestionHorizon, text: string): Promise<IntakeResult | FixtureAcknowledgement> {
+    if (USING_FIXTURES) {
+      // The week answer was generated through the real intake graph. The month
+      // answer never was, so it gets a line saying nothing happened rather than
+      // a plan made for some other sentence.
+      if (horizon === 'week') return fixture(questionAnswerWeekFixture, 1600)
+      return fixture(
+        {
+          fixture: true,
+          line:
+            'Fixture mode: no answer to the month question was generated, so this one was not ' +
+            'sent, nothing was planned and nothing was written.',
+        } satisfies FixtureAcknowledgement,
+        900,
+      )
+    }
+    return call<IntakeResult>('/api/questions/answer', json({ horizon, text }))
+  },
+
+  /** Not now. Live, the server records the day and says when the question may come back. */
+  skipQuestion(horizon: QuestionHorizon): Promise<HorizonAsked | FixtureAcknowledgement> {
+    if (USING_FIXTURES) {
+      // Generated from `service.skip_question` for the week only, for the same
+      // reason as the answer above.
+      if (horizon === 'week') return fixture(questionSkipWeekFixture)
+      return fixture({
+        fixture: true,
+        line:
+          'Fixture mode: no skip of the month question was generated, so it was not recorded ' +
+          `and reloading the page brings it back.${fixtureCadence(horizon)}`,
+      } satisfies FixtureAcknowledgement)
+    }
+    return call<HorizonAsked>('/api/questions/skip', json({ horizon }))
   },
 
   audit(limit = 50): Promise<AuditEntry[]> {

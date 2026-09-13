@@ -90,6 +90,33 @@ def test_a_deadline_with_nothing_booked_is_at_risk(graph, clock):
     assert risks["t-leave"].days_left == 5
 
 
+@pytest.mark.parametrize(
+    ("days", "status", "evidence"),
+    [
+        (5, "pending", "Due in 5 days with nothing booked before then."),
+        (2, "pending", "Due in 2 days with nothing booked before then."),
+        (1, "pending", "Due tomorrow with nothing booked before then."),
+        (0, "pending", "Due today with nothing booked before then."),
+        (-3, "pending", "Overdue by 3 days with nothing booked before then."),
+        (-1, "pending", "Overdue by 1 day with nothing booked before then."),
+        (1, "blocked", "Marked blocked, and due tomorrow."),
+        (7, "blocked", "Marked blocked, and due in 7 days."),
+    ],
+)
+def test_a_risk_reads_as_a_sentence_not_day_s(graph, clock, days, status, evidence):
+    """This text is shown on Today and on Memory. "Due in 5 day(s)" is a form, not a sentence.
+
+    Mutation-tested: putting ``day(s)`` back in ``brief._due_in`` makes this fail.
+    """
+    task = graph.task_by_id("t-leave")
+    task.deadline = TODAY + timedelta(days=days)
+    task.status = status
+
+    risk = next(risk for risk in deadline_risks(graph, clock) if risk.task_id == "t-leave")
+
+    assert risk.evidence == evidence
+
+
 def test_a_blocked_task_names_what_is_blocking_it(graph, clock):
     """UNMET_DEPENDENCY, surfaced as a fact rather than a diagnosis."""
     graph.task_by_id("t-flights").status = "blocked"

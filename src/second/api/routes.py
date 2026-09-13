@@ -1,4 +1,7 @@
-"""The nine routes. Every one is a call into ``graphs.service`` plus serialisation.
+"""The HTTP routes. Every one is a call into ``graphs.service`` plus serialisation.
+
+Not counted here on purpose: this line said "nine" long after there were more, and a count in a
+docstring is a claim nothing checks.
 
 **There is no logic in this file and that is the design.** HTTP shape is a UI
 concern; agent orchestration is not. The seam between them is where the two
@@ -28,9 +31,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from second.api.voice import WEBM, read_job, resolve_voice
-from second.core.models import GoalStatus
+from second.core.models import GoalStatus, QuestionHorizon
 from second.graphs import service
-from second.settings import DEMO_USER_ID
+from second.settings import DEMO_USER_ID, SCHEDULE_DAYS, SCHEDULE_MAX_DAYS
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +57,15 @@ class FeedbackIn(BaseModel):
 
 class GoalStatusIn(BaseModel):
     status: GoalStatus
+
+
+class QuestionAnswerIn(BaseModel):
+    horizon: QuestionHorizon
+    text: str = Field(min_length=1, max_length=8_000)
+
+
+class QuestionSkipIn(BaseModel):
+    horizon: QuestionHorizon
 
 
 # --- the graph --------------------------------------------------------------
@@ -132,6 +144,47 @@ async def run_daily() -> JSONResponse:
     """
     brief = await service.run_daily(DEMO_USER_ID)
     return sent(brief)
+
+
+@router.get("/schedule")
+def read_schedule(days: int = Query(default=SCHEDULE_DAYS, ge=1, le=SCHEDULE_MAX_DAYS)) -> JSONResponse:
+    """Today and the days after it, placed and proposed.
+
+    A read, like ``/today``: computed from the Living Graph, no model, no write. A proposed block
+    carries ``status: "proposed"`` and a ``why`` and exists only in this response. ``skipped`` on a
+    day, and on the schedule itself, says what was deliberately not proposed and why.
+    """
+    return sent(service.get_schedule(DEMO_USER_ID, days=days))
+
+
+@router.get("/memory")
+def read_memory() -> JSONResponse:
+    """What to remember today, every source's status, and any question that is due.
+
+    Sync because the calendar read blocks, the same reasoning as ``/voice``. A source that could not
+    be read comes back with ``connected: false`` and its reason, never as an empty list.
+    """
+    return sent(service.get_memory(DEMO_USER_ID))
+
+
+# --- the recurring question -------------------------------------------------
+
+
+@router.post("/questions/answer")
+async def answer_question(body: QuestionAnswerIn) -> JSONResponse:
+    """Answer "what do you want to do this week, or this month, and by when?".
+
+    Returns the ``IntakeResult`` verbatim, because the answer is planned by intake exactly like a
+    brain dump, and ``clarifying_questions`` means the same thing here as it does there.
+    """
+    result = await service.answer_question(DEMO_USER_ID, body.horizon, body.text)
+    return sent(result)
+
+
+@router.post("/questions/skip")
+def skip_question(body: QuestionSkipIn) -> JSONResponse:
+    """Not now. Recorded, so the question stays away until its cadence has passed."""
+    return sent(service.skip_question(DEMO_USER_ID, body.horizon))
 
 
 # --- intake -----------------------------------------------------------------

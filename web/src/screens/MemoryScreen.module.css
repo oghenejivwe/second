@@ -1,0 +1,308 @@
+.screen {
+  max-width: 940px;
+  padding: var(--space-7) var(--space-7) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.title {
+  font-size: var(--size-24);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.what {
+  max-width: var(--measure);
+  font-size: var(--size-13);
+  color: var(--text-faint);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.waiting,
+.nothing {
+  font-size: var(--size-13);
+  color: var(--text-ghost);
+}
+
+/* --- sources ------------------------------------------------------------ */
+
+/* One column per source between two rules, the same separation the capture row
+ * on Record uses. A source that could not be read is marked by the one hue for
+ * something that did not hold, on its edge only. */
+.sources {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.source {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--rule-strong);
+  min-width: 0;
+}
+
+.source[data-connected='false'] {
+  border-left-color: var(--slip-dim);
+}
+
+.sourceHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.sourceName {
+  font-size: var(--size-13);
+  color: var(--text-dim);
+}
+
+.sourceState {
+  font-size: var(--size-11);
+  color: var(--text-ghost);
+  white-space: nowrap;
+}
+
+.source[data-connected='false'] .sourceState {
+  color: var(--slip);
+}
+
+.sourceReason {
+  font-family: var(--font-mono);
+  font-size: var(--size-11);
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.unread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* The Problem band's shape, because an unread source is a real gap in what
+ * follows -- but no retry, because reading again does not change why. */
+.unreadItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-left: 2px solid var(--slip-dim);
+  background: var(--slip-wash);
+}
+
+.unreadWhat {
+  font-size: var(--size-13);
+  color: var(--text-dim);
+}
+
+/* --- the recurring question -------------------------------------------- */
+
+.asks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Today's decision treatment: the inset ground and the strong edge are what
+ * this app gives the one thing that asks for something back. */
+.ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg-inset);
+  border-left: 2px solid var(--ink-600);
+}
+
+.ask[data-settled='true'] {
+  border-left-color: var(--rule-strong);
+}
+
+.ask[data-settled='true'] .question {
+  color: var(--text-dim);
+}
+
+.askHead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+.cadenceNote {
+  font-size: var(--size-12);
+  color: var(--text-ghost);
+}
+
+.question {
+  max-width: 56ch;
+  font-size: var(--size-16);
+  line-height: 1.45;
+}
+
+.answer {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-2);
+}
+
+.boxLabel {
+  display: block;
+  font-size: var(--size-12);
+  color: var(--text-ghost);
+}
+
+/* Record's transcript box, restated for the reason Record gives: base.css loads
+ * after the modules, so `.evidence` would win on size and colour. */
+.box {
+  width: 100%;
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: var(--size-13);
+  line-height: 1.6;
+  color: var(--text);
+  resize: vertical;
+}
+
+.box:read-only {
+  color: var(--text-dim);
+}
+
+.send {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.primary {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--rule-strong);
+  font-size: var(--size-13);
+  color: var(--text-dim);
+  transition: color var(--beat) var(--ease), border-color var(--beat) var(--ease);
+}
+
+.primary:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--ink-600);
+}
+
+/* Today's ghost button. Skipping is allowed and quiet, so it never looks like
+ * the main action. */
+.skip {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--size-13);
+  color: var(--text-faint);
+}
+
+.skip:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.working {
+  font-size: var(--size-13);
+  color: var(--text-faint);
+}
+
+.outcome {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule);
+}
+
+.said {
+  white-space: pre-wrap;
+}
+
+.outcomeLine {
+  max-width: var(--measure);
+  font-size: var(--size-13);
+  color: var(--text-dim);
+}
+
+.rationale {
+  max-width: var(--measure);
+  font-size: var(--size-13);
+  color: var(--text-faint);
+}
+
+.askedBack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--rule-strong);
+  font-size: var(--size-14);
+}
+
+/* --- items -------------------------------------------------------------- */
+
+.items {
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-4);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.itemWhat {
+  font-size: var(--size-14);
+  min-width: 0;
+}
+
+.when {
+  font-size: var(--size-13);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* `.evidence` supplies the mono and the colour; this only spans the grid. */
+.quote {
+  grid-column: 1 / -1;
+}
+
+.from {
+  color: var(--text-dim);
+}
+
+/* Fixture mode only: what came off the list after a goal was paused or
+ * retired, and why. A step brighter than the header copy,
+ * because it explains a list that is shorter than the file it was read from. */
+.withdrawn {
+  max-width: var(--measure);
+  font-size: var(--size-13);
+  color: var(--text-dim);
+}

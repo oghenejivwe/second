@@ -1,0 +1,109 @@
+{
+  "on": "2026-09-10",
+  "items": [
+    {
+      "what": "Gym session",
+      "evidence": "In today's plan from 07:00 to 08:00: “Gym session”, towards “Train three times a week”.",
+      "source": "graph",
+      "kind": "event",
+      "at": "2026-09-10T07:00:00+01:00",
+      "due": null
+    },
+    {
+      "what": "Record five minutes and listen back",
+      "evidence": "In today's plan from 08:00 to 09:00: “Record five minutes and listen back”, towards “Get comfortable speaking to a room”.",
+      "source": "graph",
+      "kind": "event",
+      "at": "2026-09-10T08:00:00+01:00",
+      "due": null
+    },
+    {
+      "what": "Draft the talk pitch",
+      "evidence": "In today's plan from 17:00 to 18:00: “Draft the talk pitch”, towards “Get comfortable speaking to a room”.",
+      "source": "graph",
+      "kind": "event",
+      "at": "2026-09-10T17:00:00+01:00",
+      "due": null
+    },
+    {
+      "what": "Request leave for the wedding week, due Tue 15 Sep",
+      "evidence": "Due Tue 15 Sep. A draft is waiting in Gmail (draft-0001): read it and press send.",
+      "source": "graph",
+      "kind": "waiting_on_you",
+      "at": null,
+      "due": "2026-09-15"
+    },
+    {
+      "what": "Book flights to Lisbon, due Thu 24 Sep",
+      "evidence": "Due in 14 days with nothing booked before then.",
+      "source": "graph",
+      "kind": "deadline",
+      "at": null,
+      "due": "2026-09-24"
+    },
+    {
+      "what": "No meetings before 09:00",
+      "evidence": "A standing rule Second plans around: “No meetings before 09:00”",
+      "source": "graph",
+      "kind": "constraint",
+      "at": null,
+      "due": null
+    },
+    {
+      "what": "Sundays are family",
+      "evidence": "A standing rule Second plans around: “Sundays are family”",
+      "source": "graph",
+      "kind": "constraint",
+      "at": null,
+      "due": null
+    },
+    {
+      "what": "Your sister asked whether the flights are booked. You have not replied.",
+      "evidence": "m-wedding, “Wedding week - are you booked yet?”, received 9 days ago.",
+      "source": "email",
+      "kind": "reminder",
+      "at": null,
+      "due": null
+    }
+  ],
+  "sources": [
+    {
+      "name": "graph",
+      "connected": true,
+      "reason": "Today's plan, deadlines at risk, what you told Second, and your standing rules.",
+      "items": 7
+    },
+    {
+      "name": "calendar",
+      "connected": true,
+      "reason": "Read today's calendar: nothing in it.",
+      "items": 0
+    },
+    {
+      "name": "email",
+      "connected": true,
+      "reason": "From the morning run's read of your email today.",
+      "items": 1
+    }
+  ],
+  "questions": [
+    {
+      "horizon": "week",
+      "question": "What do you want to do this week towards “Be at my sister's wedding in Lisbon”, and by when?",
+      "evidence": "Nothing is planned for this week under “Be at my sister's wedding in Lisbon”. Never asked before.",
+      "anchor_goal_id": "g-lisbon",
+      "anchor_goal_title": "Be at my sister's wedding in Lisbon",
+      "last_asked": null,
+      "every_days": 2
+    },
+    {
+      "horizon": "month",
+      "question": "What do you want to do this month towards “Get comfortable speaking to a room”, and by when?",
+      "evidence": "“Get comfortable speaking to a room” has 3 sessions placed this month but no goal set for the month. Never asked before.",
+      "anchor_goal_id": "g-speaking",
+      "anchor_goal_title": "Get comfortable speaking to a room",
+      "last_asked": null,
+      "every_days": 3
+    }
+  ]
+}

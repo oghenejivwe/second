@@ -12,7 +12,9 @@
       "title": "Gym session",
       "start": "2026-09-11T07:00:00+01:00",
       "duration_min": 60,
-      "resource_url": null
+      "resource_url": null,
+      "status": "placed",
+      "why": ""
     },
     {
       "task_id": "t-club",
@@ -26,7 +28,9 @@
       "title": "Attend speaking club",
       "start": "2026-09-11T19:00:00+01:00",
       "duration_min": 60,
-      "resource_url": null
+      "resource_url": null,
+      "status": "placed",
+      "why": ""
     }
   ],
   "prepared": [],
@@ -37,7 +41,7 @@
       "what": "Request leave for the wedding week",
       "deadline": "2026-09-15",
       "days_left": 4,
-      "evidence": "Due in 4 day(s) with nothing booked before then."
+      "evidence": "Due in 4 days with nothing booked before then."
     },
     {
       "task_id": "t-flights",
@@ -45,7 +49,7 @@
       "what": "Book flights to Lisbon",
       "deadline": "2026-09-24",
       "days_left": 13,
-      "evidence": "Due in 13 day(s) with nothing booked before then."
+      "evidence": "Due in 13 days with nothing booked before then."
     }
   ],
   "reminders": [],

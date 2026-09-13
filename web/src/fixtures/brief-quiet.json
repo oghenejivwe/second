@@ -12,7 +12,9 @@
       "title": "Gym session",
       "start": "2026-09-10T07:00:00+01:00",
       "duration_min": 60,
-      "resource_url": null
+      "resource_url": null,
+      "status": "placed",
+      "why": ""
     },
     {
       "task_id": "t-recording",
@@ -26,7 +28,9 @@
       "title": "Record five minutes and listen back",
       "start": "2026-09-10T08:00:00+01:00",
       "duration_min": 60,
-      "resource_url": null
+      "resource_url": null,
+      "status": "placed",
+      "why": ""
     },
     {
       "task_id": "t-pitch",
@@ -40,7 +44,9 @@
       "title": "Draft the talk pitch",
       "start": "2026-09-10T17:00:00+01:00",
       "duration_min": 60,
-      "resource_url": null
+      "resource_url": null,
+      "status": "placed",
+      "why": ""
     }
   ],
   "prepared": [],
@@ -51,7 +57,7 @@
       "what": "Request leave for the wedding week",
       "deadline": "2026-09-15",
       "days_left": 5,
-      "evidence": "Due in 5 day(s) with nothing booked before then."
+      "evidence": "Due in 5 days with nothing booked before then."
     },
     {
       "task_id": "t-flights",
@@ -59,7 +65,7 @@
       "what": "Book flights to Lisbon",
       "deadline": "2026-09-24",
       "days_left": 14,
-      "evidence": "Due in 14 day(s) with nothing booked before then."
+      "evidence": "Due in 14 days with nothing booked before then."
     }
   ],
   "reminders": [],

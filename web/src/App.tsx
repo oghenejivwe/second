@@ -3,16 +3,25 @@ import { useEffect } from 'react'
 import { USING_FIXTURES } from './api/client'
 import { Goals } from './screens/Goals'
 import { LivingGraphScreen } from './screens/LivingGraphScreen'
+import { MemoryScreen } from './screens/MemoryScreen'
 import { Record } from './screens/Record'
+import { ScheduleScreen } from './screens/ScheduleScreen'
 import { Today } from './screens/Today'
 import { useSecond, type Screen } from './store/useSecond'
 import styles from './App.module.css'
 
-/** Four screens. The order is the order of the day: speak, see, do, decide. */
+/** Six screens. The order is the order of the day: speak, see the plan, today,
+ * the days ahead, what to remember, decide. Schedule sits directly after Today
+ * because it is the same list carried forward, and the two are the pair a
+ * person flips between. Memory follows them because what is waiting on you and
+ * what is due reads best once the days are in view, and its week and month
+ * questions are about those days. Goals stays last. */
 const SCREENS: { id: Screen; label: string }[] = [
   { id: 'record', label: 'Record' },
   { id: 'graph', label: 'Living Graph' },
   { id: 'today', label: 'Today' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'memory', label: 'Memory' },
   { id: 'goals', label: 'Goals' },
 ]
 
@@ -63,6 +72,8 @@ export function App() {
         {screen === 'record' && <Record />}
         {screen === 'graph' && <LivingGraphScreen />}
         {screen === 'today' && <Today />}
+        {screen === 'schedule' && <ScheduleScreen />}
+        {screen === 'memory' && <MemoryScreen />}
         {screen === 'goals' && <Goals />}
       </main>
     </div>

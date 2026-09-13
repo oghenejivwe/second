@@ -35,6 +35,7 @@ from second.core.models import (
     ScheduledBlock,
     Task,
 )
+from second.graphs.wording import plural
 
 RISK_WINDOW_DAYS = 14
 """How far ahead a deadline has to be before it stops being today's problem."""
@@ -209,19 +210,38 @@ def _risk_reason(
             names = ", ".join(
                 dep.title for blocker in blockers if (dep := graph.task_by_id(blocker))
             )
-            return f"Blocked on {names}, and due in {days_left} day(s)."
-        return f"Marked blocked, and due in {days_left} day(s)."
+            return f"Blocked on {names}, and {_due_in(days_left)}."
+        return f"Marked blocked, and {_due_in(days_left)}."
 
     if not booked_in_time:
-        return f"Due in {days_left} day(s) with nothing booked before then."
+        return f"{_due_in(days_left).capitalize()} with nothing booked before then."
 
     if task.slip_count > 2:
-        return f"Slipped {task.slip_count} times and still due in {days_left} day(s)."
+        return f"Slipped {task.slip_count} times and still {_due_in(days_left)}."
 
     return None
 
 
+def _due_in(days_left: int) -> str:
+    """"due in 5 days", "due tomorrow", "due today".
+
+    Shown on Today and on Memory as the reason a deadline is at risk, so it reads as a sentence.
+    """
+    if days_left < 0:
+        return f"overdue by {plural(-days_left, 'day')}"
+    if days_left == 0:
+        return "due today"
+    if days_left == 1:
+        return "due tomorrow"
+    return f"due in {plural(days_left, 'day')}"
+
+
 NO_EVIDENCE = "Second could not point to anything supporting this."
+
+NO_JUDGEMENT = "No judgement was produced this run; showing the schedule only."
+"""The silence reason on a brief the Communicator did not finish. Named so the email source can tell
+"the run found nothing" from "the run did not get that far", which are different things to tell a
+person."""
 
 
 def _evidenced(judgement: BriefJudgement) -> tuple[list[Reminder], list[Decision], list[str]]:
@@ -299,7 +319,7 @@ def assemble(
             at_risk=risks,
             check_in=check_in if check_in.needs_answer else None,
             notify=bool(prepared),
-            silence_reason="No judgement was produced this run; showing the schedule only.",
+            silence_reason=NO_JUDGEMENT,
         )
 
     reminders, decisions, dropped_notes = _evidenced(judgement)

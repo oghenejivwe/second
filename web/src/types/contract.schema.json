@@ -632,6 +632,109 @@
       "title": "GoalStatusChange",
       "type": "object"
     },
+    "HorizonAsked": {
+      "description": "What skipping a question recorded, and when it comes back.",
+      "properties": {
+        "horizon": {
+          "enum": [
+            "week",
+            "month"
+          ],
+          "title": "Horizon",
+          "type": "string"
+        },
+        "asked_on": {
+          "format": "date",
+          "title": "Asked On",
+          "type": "string"
+        },
+        "next_due": {
+          "format": "date",
+          "title": "Next Due",
+          "type": "string"
+        }
+      },
+      "required": [
+        "horizon",
+        "asked_on",
+        "next_due"
+      ],
+      "title": "HorizonAsked",
+      "type": "object"
+    },
+    "HorizonQuestion": {
+      "description": "\"What do you want to do this week, and by when?\", asked because the goals have a gap.",
+      "properties": {
+        "horizon": {
+          "enum": [
+            "week",
+            "month"
+          ],
+          "title": "Horizon",
+          "type": "string"
+        },
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "evidence": {
+          "description": "Why it is asked now: the gap in the goals, and when it was last asked.",
+          "title": "Evidence",
+          "type": "string"
+        },
+        "anchor_goal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The goal with nothing at this rung. None for a general question.",
+          "title": "Anchor Goal Id"
+        },
+        "anchor_goal_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Anchor Goal Title"
+        },
+        "last_asked": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Asked"
+        },
+        "every_days": {
+          "description": "How many days pass before this horizon is asked about again.",
+          "title": "Every Days",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "horizon",
+        "question",
+        "evidence",
+        "every_days"
+      ],
+      "title": "HorizonQuestion",
+      "type": "object"
+    },
     "IntakeResult": {
       "description": "What one spoken brain dump produced.\n\n``clarifying_questions`` being non-empty means the Intake graph stopped after\nthe Extractor on purpose: it was not clear enough what the user wanted to\njustify putting anything in their calendar. ``schedule`` is ``None`` in that\ncase, and the caller asks rather than shows a plan.",
       "properties": {
@@ -771,6 +874,146 @@
       "title": "LivingGraph",
       "type": "object"
     },
+    "Memory": {
+      "description": "Every important thing for today, the status of every source, and any question that is due.",
+      "properties": {
+        "on": {
+          "format": "date",
+          "title": "On",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/MemoryItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "sources": {
+          "description": "Every registered source, connected or not, in the order their items are listed.",
+          "items": {
+            "$ref": "#/$defs/MemorySourceStatus"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "questions": {
+          "description": "At most one per horizon, and only for a horizon whose cadence has elapsed.",
+          "items": {
+            "$ref": "#/$defs/HorizonQuestion"
+          },
+          "title": "Questions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "on"
+      ],
+      "title": "Memory",
+      "type": "object"
+    },
+    "MemoryItem": {
+      "description": "One thing worth remembering today, and where Second read it.\n\n``evidence`` is required and must say something. ``Reminder`` is written by a model, so its\nmissing evidence is filtered in ``brief._evidenced`` rather than raised on. A memory item is\nbuilt in Python by a source in ``graphs/memory.py``, so a missing one is a bug in that source,\nand it is refused at construction where a test will see it rather than dropped where nobody\nwill.",
+      "properties": {
+        "what": {
+          "title": "What",
+          "type": "string"
+        },
+        "evidence": {
+          "description": "What this rests on, quotable: the calendar entry, the email, the graph fact.",
+          "title": "Evidence",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "calendar",
+            "email",
+            "graph"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "event",
+            "deadline",
+            "waiting_on_you",
+            "told_second",
+            "constraint",
+            "reminder"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When it happens, timezone-aware. Set for an event.",
+          "title": "At"
+        },
+        "due": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When it is due. Set for a deadline.",
+          "title": "Due"
+        }
+      },
+      "required": [
+        "what",
+        "evidence",
+        "source",
+        "kind"
+      ],
+      "title": "MemoryItem",
+      "type": "object"
+    },
+    "MemorySourceStatus": {
+      "description": "Whether one source could be read today, and what it said about itself.\n\nListed for every registered source, so \"no calendar items\" can be told apart from \"the\ncalendar could not be read\".",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "connected": {
+          "description": "False when the source could not be read; its lack of items then means nothing.",
+          "title": "Connected",
+          "type": "boolean"
+        },
+        "reason": {
+          "description": "What was read, or why it could not be.",
+          "title": "Reason",
+          "type": "string"
+        },
+        "items": {
+          "default": 0,
+          "title": "Items",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "connected",
+        "reason"
+      ],
+      "title": "MemorySourceStatus",
+      "type": "object"
+    },
     "Observation": {
       "description": "What the Observer could work out about one scheduled slot.\n\nInference only. The calendar can show an invite was declined and the inbox\ncan show a mail was never sent, but **nothing in either can tell you whether\nsomebody actually did the five-minute recording.** That is what the check-in\nis for, and it is why ``outcome`` is allowed to be ``\"unknown\"`` rather than\nbeing forced into a guess.",
       "properties": {
@@ -886,6 +1129,15 @@
           },
           "title": "Resources Served",
           "type": "array"
+        },
+        "asked_on": {
+          "additionalProperties": {
+            "format": "date",
+            "type": "string"
+          },
+          "description": "When Second last asked about each horizon, e.g. {\"week\": \"2026-09-10\"}. Written when the user answers or skips, so a question is not repeated inside its cadence.",
+          "title": "Asked On",
+          "type": "object"
         }
       },
       "title": "PersonModel",
@@ -971,6 +1223,19 @@
           "description": "The single thing left for the user to do.",
           "title": "Awaiting",
           "type": "string"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The task this carries forward, copied exactly from the graph. Null when it serves no single task. Never constructed: a wrong id files the work under the wrong deadline.",
+          "title": "Task Id"
         }
       },
       "required": [
@@ -1136,6 +1401,66 @@
       "title": "RoutePlan",
       "type": "object"
     },
+    "Schedule": {
+      "description": "Today and the days after it.\n\nEvery day in the span is present even when it is empty, so a screen can tell an empty\nSaturday from a day the server did not send.",
+      "properties": {
+        "start": {
+          "format": "date",
+          "title": "Start",
+          "type": "string"
+        },
+        "days": {
+          "items": {
+            "$ref": "#/$defs/ScheduleDay"
+          },
+          "title": "Days",
+          "type": "array"
+        },
+        "skipped": {
+          "description": "Routes that could not be projected onto any day, e.g. a cadence Second cannot read.",
+          "items": {
+            "$ref": "#/$defs/SkippedProposal"
+          },
+          "title": "Skipped",
+          "type": "array"
+        }
+      },
+      "required": [
+        "start"
+      ],
+      "title": "Schedule",
+      "type": "object"
+    },
+    "ScheduleDay": {
+      "description": "One day: what is placed and proposed on it, in time order, and what was refused.",
+      "properties": {
+        "on": {
+          "format": "date",
+          "title": "On",
+          "type": "string"
+        },
+        "blocks": {
+          "description": "Placed and proposed together, in time order. Read status to tell them apart.",
+          "items": {
+            "$ref": "#/$defs/ScheduledBlock"
+          },
+          "title": "Blocks",
+          "type": "array"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/SkippedProposal"
+          },
+          "title": "Skipped",
+          "type": "array"
+        }
+      },
+      "required": [
+        "on"
+      ],
+      "title": "ScheduleDay",
+      "type": "object"
+    },
     "ScheduleDecision": {
       "description": "The Scheduler's verdict across ALL active goals at once.\n\n``deprioritised`` is not optional output. A scheduler that only reports what\nit placed is hiding the decision it actually made.",
       "properties": {
@@ -1228,6 +1553,22 @@
           "default": null,
           "description": "Material attached to the slot, so the thing to watch is already there.",
           "title": "Resource Url"
+        },
+        "status": {
+          "default": "placed",
+          "description": "placed: the task holds this slot in the Living Graph. proposed: Second's projection of the route's own cadence onto a day where nothing is placed for it. A proposal is never written anywhere, so a screen must not show it as booked.",
+          "enum": [
+            "placed",
+            "proposed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "why": {
+          "default": "",
+          "description": "For a proposed block, the cadence and the facts it rests on. Empty on a placed block, whose reason is the ladder in serves.",
+          "title": "Why",
+          "type": "string"
         }
       },
       "required": [
@@ -1240,6 +1581,63 @@
         "duration_min"
       ],
       "title": "ScheduledBlock",
+      "type": "object"
+    },
+    "SkippedProposal": {
+      "description": "A block Second could have proposed and did not, and why.\n\nRecorded rather than left out. An empty Monday reads as \"nothing to do\" when the truth is \"the\ngym keeps failing at 18:00, so Second did not put it back there\", and only the second one is\nsomething the user can act on.",
+      "properties": {
+        "route_id": {
+          "title": "Route Id",
+          "type": "string"
+        },
+        "route_title": {
+          "title": "Route Title",
+          "type": "string"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "on": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The day it would have landed. None when the route could not be projected onto any day.",
+          "title": "On"
+        },
+        "wanted": {
+          "description": "The slot it would have taken, e.g. \"Mon 18:00\", or the cadence that could not be read.",
+          "title": "Wanted",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why it was not proposed, citing the person-layer fact or the cadence.",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "route_id",
+        "route_title",
+        "wanted",
+        "reason"
+      ],
+      "title": "SkippedProposal",
       "type": "object"
     },
     "Slip": {
@@ -1428,6 +1826,12 @@
     "goal_status_change": {
       "$ref": "#/$defs/GoalStatusChange"
     },
+    "horizon_asked": {
+      "$ref": "#/$defs/HorizonAsked"
+    },
+    "horizon_question": {
+      "$ref": "#/$defs/HorizonQuestion"
+    },
     "intake_result": {
       "$ref": "#/$defs/IntakeResult"
     },
@@ -1436,6 +1840,15 @@
     },
     "living_graph": {
       "$ref": "#/$defs/LivingGraph"
+    },
+    "memory": {
+      "$ref": "#/$defs/Memory"
+    },
+    "memory_item": {
+      "$ref": "#/$defs/MemoryItem"
+    },
+    "memory_source_status": {
+      "$ref": "#/$defs/MemorySourceStatus"
     },
     "observation": {
       "$ref": "#/$defs/Observation"
@@ -1464,11 +1877,20 @@
     "route_plan": {
       "$ref": "#/$defs/RoutePlan"
     },
+    "schedule": {
+      "$ref": "#/$defs/Schedule"
+    },
+    "schedule_day": {
+      "$ref": "#/$defs/ScheduleDay"
+    },
     "schedule_decision": {
       "$ref": "#/$defs/ScheduleDecision"
     },
     "scheduled_block": {
       "$ref": "#/$defs/ScheduledBlock"
+    },
+    "skipped_proposal": {
+      "$ref": "#/$defs/SkippedProposal"
     },
     "slip": {
       "$ref": "#/$defs/Slip"

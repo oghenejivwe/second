@@ -298,6 +298,30 @@ Required, not hygiene. The SDK writes reserved names -- ``agent``, ``model``,
 ``scripts/phase0_proof.py`` claim 4b asserts this against the live SDK."""
 
 
+# --- The day ahead and the questions ----------------------------------------
+
+SCHEDULE_DAYS = 7
+"""How many days ``GET /api/schedule`` shows by default: today and the six after it.
+
+A week is the shortest span in which every weekly cadence in the graph shows up at least once, so
+a Tuesday-only route is never missing from the default view just because today is Wednesday."""
+
+SCHEDULE_MAX_DAYS = 28
+"""The furthest a caller may ask for. The same four weeks ``set_goal_status`` counts freed time
+over, so the two screens never disagree about how far ahead "upcoming" reaches."""
+
+QUESTION_CADENCE_DAYS: dict[str, int] = {"week": 2, "month": 3}
+"""How many days pass before Second asks about a horizon again.
+
+The founder asked for a check "every one, two or three days". Week is every two days because a
+week has only seven, and asking daily would put the same question in front of someone before they
+had acted on the last answer. Month is every three because it moves more slowly and three days is
+the longest gap the founder named. Answering or skipping both reset the clock, so a skip really
+does buy quiet for that long.
+
+Keys must match ``core.models.QuestionHorizon``; a test holds them together."""
+
+
 # --- Routing ---------------------------------------------------------------
 
 CONFIDENCE_FLOOR = 0.7

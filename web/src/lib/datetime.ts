@@ -103,6 +103,21 @@ export function weekdayShort(iso: string): string {
   return WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()].slice(0, 3)
 }
 
+/** `Saturday` -- a day's name alone, for a run of days where the week is obvious. */
+export function weekday(iso: string): string {
+  const parts = dateParts(iso)
+  if (!parts) return ''
+  const { year, month, day } = parts
+  return WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]
+}
+
+/** `12 September` -- the date without its weekday, for when the weekday sits beside it. */
+export function dayMonth(iso: string): string {
+  const parts = dateParts(iso)
+  if (!parts) return iso
+  return `${parts.day} ${MONTHS[parts.month - 1]}`
+}
+
 /** `1h`, `45 min`, `1h 30`. Durations are minutes in the contract. */
 export function duration(minutes: number): string {
   if (minutes < 60) return `${minutes} min`

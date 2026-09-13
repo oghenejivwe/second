@@ -1,0 +1,119 @@
+.screen {
+  max-width: 940px;
+  padding: var(--space-7) var(--space-7) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.title {
+  font-size: var(--size-24);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.what {
+  max-width: var(--measure);
+  font-size: var(--size-13);
+  color: var(--text-faint);
+}
+
+.tally {
+  font-size: var(--size-12);
+  color: var(--text-ghost);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.waiting,
+.nothing {
+  font-size: var(--size-13);
+  color: var(--text-ghost);
+}
+
+.nothing {
+  max-width: var(--measure);
+}
+
+.blocks {
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- what Second did not suggest --------------------------------------- */
+
+.refused {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+.refusals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* The wanted slot sits in the time column BlockRow uses, so a refused 18:00
+ * lines up under the blocks it would have joined. */
+.refusal {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  align-items: baseline;
+}
+
+/* Struck through, the way Goals strikes a freed slot: a time that was on the
+ * table and is not happening. Grey, because a refusal is Second's decision and
+ * not the user's slip. */
+.wanted {
+  font-size: var(--size-13);
+  color: var(--text-ghost);
+  white-space: nowrap;
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-500);
+}
+
+.route {
+  font-size: var(--size-13);
+  color: var(--text-dim);
+}
+
+/* `.evidence` supplies the mono and the colour; this only places it. */
+.reason {
+  grid-column: 2;
+}
+
+.unlaid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--rule);
+}
+
+.cadence {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+/* Fixture mode only: what came off the list after a goal was paused or
+ * retired, and why. A step brighter than the header copy and the tally,
+ * because it explains a list that is shorter than the file it was read from. */
+.withdrawn {
+  max-width: var(--measure);
+  font-size: var(--size-13);
+  color: var(--text-dim);
+}

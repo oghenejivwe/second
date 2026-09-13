@@ -24,10 +24,13 @@ from second.core.models import (
     FeedbackResult,
     GoalStatus,
     GoalStatusChange,
+    HorizonAsked,
     IntakeResult,
     LivingGraph,
+    Memory,
     ObservationReport,
     PreparedAction,
+    Schedule,
     ScheduledBlock,
     ScheduleDecision,
 )
@@ -38,9 +41,12 @@ from second.graphs.conditions import typed_result
 from second.graphs.daily import build_daily_graph
 from second.graphs.feedback import build_feedback_graph
 from second.graphs.intake import build_intake_graph
+from second.graphs.memory import CalendarReader, MemoryContext, MemorySource, collect_memory, default_sources
+from second.graphs.questions import due_questions, mark_asked, next_due, question_for
+from second.graphs.schedule import build_schedule
 from second.persistence.serde import decimals_to_native
 from second.persistence.store import LivingGraphStore
-from second.settings import DEMO_TODAY_ENV, DEMO_USER_ID
+from second.settings import DEMO_TODAY_ENV, DEMO_USER_ID, SCHEDULE_DAYS
 
 logger = logging.getLogger(__name__)
 
@@ -356,3 +362,112 @@ async def run_feedback(
 
     interpreted = typed_result(result, "interpreter", FeedbackResult)  # type: ignore[arg-type]
     return interpreted or FeedbackResult()
+
+
+# ---------------------------------------------------------------------------
+# The days ahead, what to remember, and the recurring question
+# ---------------------------------------------------------------------------
+
+
+def _cached_brief(user_id: str, on: date) -> DailyBrief | None:
+    """The brief the daily run saved for a day, or None. Read, never computed."""
+    cached = get_store().load_brief(user_id, on)
+    return DailyBrief.model_validate(decimals_to_native(cached)) if cached else None
+
+
+def get_schedule(
+    user_id: str = DEMO_USER_ID,
+    today: date | None = None,
+    days: int = SCHEDULE_DAYS,
+) -> Schedule:
+    """Today and the days after it: what is placed, and what the routes' own cadence proposes.
+
+    A read, for the reason ``get_today`` became one: a GET is something a browser polls. It is
+    computed from the Living Graph in Python, so it calls no model and writes nothing, and a
+    proposed block exists only in this response.
+    """
+    return build_schedule(load_living_graph(user_id), _clock_for(today), days=days)
+
+
+def get_memory(
+    user_id: str = DEMO_USER_ID,
+    today: date | None = None,
+    *,
+    calendar: CalendarReader | None = None,
+    sources: list[MemorySource] | None = None,
+) -> Memory:
+    """Everything worth remembering today, every source's status, and any question that is due.
+
+    A read. The calendar source reads the calendar and the email source reads the brief the morning
+    run cached; nothing here runs a graph, calls a model or writes. A question being due changes
+    nothing stored -- only answering or skipping it does.
+
+    Args:
+        user_id: Whose day.
+        today: Pin the day, for reproducible scenarios.
+        calendar: Replaces the live calendar read, e.g. with the fake connector.
+        sources: Replaces the registered sources entirely, for tests of the seam itself.
+    """
+    clock = _clock_for(today)
+    graph = load_living_graph(user_id)
+    context = MemoryContext(
+        user_id=user_id, graph=graph, clock=clock, brief=_cached_brief(user_id, clock.today)
+    )
+    return collect_memory(
+        context,
+        sources if sources is not None else default_sources(calendar),
+        questions=due_questions(graph, clock.today),
+    )
+
+
+async def answer_question(
+    user_id: str,
+    horizon: str,
+    text: str,
+    *,
+    today: date | None = None,
+    **build_kwargs: Any,
+) -> IntakeResult:
+    """Take the answer to "what do you want to do this week, and by when?" and plan it.
+
+    The answer goes through ``run_intake`` like any other brain dump, so it becomes goals with
+    deadlines by the same path and under the same rules, including stopping to ask when it was not
+    clear. The question travels with it: "the pitch deck, by Friday" means little to the Extractor
+    without "this week".
+
+    ``asked_on`` is recorded after intake returns, not before, and only when intake planned. If
+    intake fails, or stops to ask clarifying questions, nothing was planned, and marking the
+    question as heard would keep it quiet for days with nothing to show for the answer. So it stays
+    due, and the clarifying questions go back to the user.
+
+    Returns:
+        What intake returned. When it planned, ``graph`` is replaced by the graph as written once
+        ``asked_on`` was recorded, so the caller is not handed a graph one write out of date.
+
+    Raises:
+        ValueError: If Second does not ask about that horizon.
+    """
+    clock = _clock_for(today)
+    question = question_for(load_living_graph(user_id), horizon, clock.today)
+    transcript = f"Second asked: {question.question}\nMy answer: {text}"
+
+    result = await run_intake(user_id, transcript, today=today, **build_kwargs)
+    if result.clarifying_questions:
+        return result
+
+    written = get_store().mutate(user_id, lambda graph: mark_asked(graph, horizon, clock.today))
+    return result.model_copy(update={"graph": written})
+
+
+def skip_question(user_id: str, horizon: str, *, today: date | None = None) -> HorizonAsked:
+    """Record that the user saw the question and chose not to answer it now.
+
+    Written exactly as an answer is, so a skip buys the same quiet: the question does not come back
+    until its cadence has passed.
+
+    Raises:
+        ValueError: If Second does not ask about that horizon.
+    """
+    clock = _clock_for(today)
+    get_store().mutate(user_id, lambda graph: mark_asked(graph, horizon, clock.today))
+    return HorizonAsked(horizon=horizon, asked_on=clock.today, next_due=next_due(horizon, clock.today))

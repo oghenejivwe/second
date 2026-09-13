@@ -12,7 +12,9 @@
       "title": "Gym session",
       "start": "2026-09-10T07:00:00+01:00",
       "duration_min": 60,
-      "resource_url": null
+      "resource_url": null,
+      "status": "placed",
+      "why": ""
     },
     {
       "task_id": "t-recording",
@@ -26,7 +28,9 @@
       "title": "Record five minutes and listen back",
       "start": "2026-09-10T08:00:00+01:00",
       "duration_min": 60,
-      "resource_url": null
+      "resource_url": null,
+      "status": "placed",
+      "why": ""
     },
     {
       "task_id": "t-pitch",
@@ -40,7 +44,9 @@
       "title": "Draft the talk pitch",
       "start": "2026-09-10T17:00:00+01:00",
       "duration_min": 60,
-      "resource_url": null
+      "resource_url": null,
+      "status": "placed",
+      "why": ""
     }
   ],
   "prepared": [
@@ -49,7 +55,8 @@
       "summary": "Leave request for the wedding week, drafted and waiting in Gmail.",
       "detail": "To: manager@example.com\nSubject: Annual leave request: wedding week\n\nHi,\n\nI'd like to request leave for the week of 28 September. My sister's wedding is in Lisbon that week and I need to travel on the Friday before.\n\nThanks",
       "external_ref": "draft-0001",
-      "awaiting": "Read it and press send."
+      "awaiting": "Read it and press send.",
+      "task_id": "t-leave"
     }
   ],
   "at_risk": [
@@ -59,7 +66,7 @@
       "what": "Request leave for the wedding week",
       "deadline": "2026-09-15",
       "days_left": 5,
-      "evidence": "Due in 5 day(s) with nothing booked before then."
+      "evidence": "Due in 5 days with nothing booked before then."
     },
     {
       "task_id": "t-flights",
@@ -67,13 +74,13 @@
       "what": "Book flights to Lisbon",
       "deadline": "2026-09-24",
       "days_left": 14,
-      "evidence": "Due in 14 day(s) with nothing booked before then."
+      "evidence": "Due in 14 days with nothing booked before then."
     }
   ],
   "reminders": [
     {
       "what": "Your sister asked whether the flights are booked. You have not replied.",
-      "evidence": "m-wedding, 'Wedding week - are you booked yet?', received 6 days ago.",
+      "evidence": "m-wedding, “Wedding week - are you booked yet?”, received 9 days ago.",
       "source": "email"
     }
   ],

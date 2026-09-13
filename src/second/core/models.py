@@ -50,6 +50,15 @@ HORIZON_ORDER: tuple[Horizon, ...] = (
     "day",
 )
 
+QuestionHorizon = Literal["week", "month"]
+"""The rungs Second asks about on a rhythm: "what do you want to do this week, this month, and
+by when?"
+
+Only these two, because they are the rungs a person can answer on the spot and the ones the
+Scheduler can act on the same day. Asking about the decade every three days is a nag. The
+cadence for each lives in ``settings.QUESTION_CADENCE_DAYS``, and a test holds the two
+together."""
+
 SCHEDULABLE_HORIZONS: frozenset[str] = frozenset({"year", "quarter", "month", "week", "day"})
 """Goals near enough to hold routes and tasks that go in a calendar.
 
@@ -185,6 +194,18 @@ class PersonModel(BaseModel):
         default_factory=list,
         description="Already shown to the user. The Resource Finder never repeats one.",
     )
+    asked_on: dict[str, date] = Field(
+        default_factory=dict,
+        description=(
+            'When Second last asked about each horizon, e.g. {"week": "2026-09-10"}. '
+            "Written when the user answers or skips, so a question is not repeated inside its cadence."
+        ),
+    )
+    """Something the system did, not something it inferred, so it belongs here.
+
+    Keyed by horizon name as a plain string rather than ``QuestionHorizon`` so a graph written
+    before a horizon is added or removed still loads. ``update_person_model`` does not accept this
+    field: no agent can make Second believe it already asked."""
 
 
 # ---------------------------------------------------------------------------
@@ -478,11 +499,23 @@ class PreparedAction(BaseModel):
     detail: str = Field(default="", description="The draft body, the compared options, the retrieved value.")
     external_ref: str | None = Field(default=None, description="Gmail draft id, calendar event id.")
     awaiting: str = Field(default="", description="The single thing left for the user to do.")
+    task_id: str | None = Field(
+        default=None,
+        description=(
+            "The task this carries forward, copied exactly from the graph. Null when it serves no "
+            "single task. Never constructed: a wrong id files the work under the wrong deadline."
+        ),
+    )
+    """Lets Memory show a deadline and the draft that meets it as one item rather than two that
+    seem to disagree. Matched on this id alone, because matching on similar titles is a guess."""
 
     @property
     def is_real(self) -> bool:
         """Whether anything was actually prepared."""
         return self.kind != "nothing"
+
+
+BlockStatus = Literal["placed", "proposed"]
 
 
 class ScheduledBlock(BaseModel):
@@ -519,6 +552,88 @@ class ScheduledBlock(BaseModel):
     resource_url: str | None = Field(
         default=None,
         description="Material attached to the slot, so the thing to watch is already there.",
+    )
+    status: BlockStatus = Field(
+        default="placed",
+        description=(
+            "placed: the task holds this slot in the Living Graph. proposed: Second's projection of "
+            "the route's own cadence onto a day where nothing is placed for it. A proposal is never "
+            "written anywhere, so a screen must not show it as booked."
+        ),
+    )
+    why: str = Field(
+        default="",
+        description=(
+            "For a proposed block, the cadence and the facts it rests on. Empty on a placed block, "
+            "whose reason is the ladder in serves."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _a_proposal_says_why(self) -> "ScheduledBlock":
+        """A proposed block with no reason is refused outright.
+
+        Raised rather than coerced, the opposite of ``Diagnosis``, and for the opposite reason.
+        Proposals are built in Python by ``graphs/schedule.py``, never by a forced tool call, so a
+        raise fails a test instead of handing a model an error loop it escapes by inventing
+        something. A proposal that cannot say why it exists is a block Second made up.
+        """
+        if self.status == "proposed" and not self.why.strip():
+            raise ValueError(f"proposed block for {self.task_id!r} does not say why it is proposed")
+        return self
+
+
+class SkippedProposal(BaseModel):
+    """A block Second could have proposed and did not, and why.
+
+    Recorded rather than left out. An empty Monday reads as "nothing to do" when the truth is "the
+    gym keeps failing at 18:00, so Second did not put it back there", and only the second one is
+    something the user can act on.
+    """
+
+    route_id: str
+    route_title: str
+    task_id: str | None = None
+    on: date | None = Field(
+        default=None,
+        description="The day it would have landed. None when the route could not be projected onto any day.",
+    )
+    wanted: str = Field(
+        description='The slot it would have taken, e.g. "Mon 18:00", or the cadence that could not be read.'
+    )
+    reason: str = Field(description="Why it was not proposed, citing the person-layer fact or the cadence.")
+
+    @model_validator(mode="after")
+    def _a_refusal_says_why(self) -> "SkippedProposal":
+        """A refusal with no reason is as unhelpful as silence, so it cannot be built."""
+        if not self.reason.strip():
+            raise ValueError(f"skipped proposal for {self.route_id!r} does not say why")
+        return self
+
+
+class ScheduleDay(BaseModel):
+    """One day: what is placed and proposed on it, in time order, and what was refused."""
+
+    on: date
+    blocks: list[ScheduledBlock] = Field(
+        default_factory=list,
+        description="Placed and proposed together, in time order. Read status to tell them apart.",
+    )
+    skipped: list[SkippedProposal] = Field(default_factory=list)
+
+
+class Schedule(BaseModel):
+    """Today and the days after it.
+
+    Every day in the span is present even when it is empty, so a screen can tell an empty
+    Saturday from a day the server did not send.
+    """
+
+    start: date
+    days: list[ScheduleDay] = Field(default_factory=list)
+    skipped: list[SkippedProposal] = Field(
+        default_factory=list,
+        description="Routes that could not be projected onto any day, e.g. a cadence Second cannot read.",
     )
 
 
@@ -576,6 +691,98 @@ class Reminder(BaseModel):
     what: str
     evidence: str
     source: Literal["email", "calendar", "graph"]
+
+
+# ---------------------------------------------------------------------------
+# Memory -- every important thing for the day, from every source
+# ---------------------------------------------------------------------------
+
+MemorySourceName = Literal["calendar", "email", "graph"]
+"""Where a memory item was read. A new source adds its name here, so the browser can label it."""
+
+MemoryKind = Literal["event", "deadline", "waiting_on_you", "told_second", "constraint", "reminder"]
+
+
+class MemoryItem(BaseModel):
+    """One thing worth remembering today, and where Second read it.
+
+    ``evidence`` is required and must say something. ``Reminder`` is written by a model, so its
+    missing evidence is filtered in ``brief._evidenced`` rather than raised on. A memory item is
+    built in Python by a source in ``graphs/memory.py``, so a missing one is a bug in that source,
+    and it is refused at construction where a test will see it rather than dropped where nobody
+    will.
+    """
+
+    what: str
+    evidence: str = Field(description="What this rests on, quotable: the calendar entry, the email, the graph fact.")
+    source: MemorySourceName
+    kind: MemoryKind
+    at: datetime | None = Field(default=None, description="When it happens, timezone-aware. Set for an event.")
+    due: date | None = Field(default=None, description="When it is due. Set for a deadline.")
+
+    @model_validator(mode="after")
+    def _no_evidence_no_item(self) -> "MemoryItem":
+        if not self.what.strip():
+            raise ValueError(f"a memory item from {self.source} does not say what it is")
+        if not self.evidence.strip():
+            raise ValueError(f"memory item {self.what!r} from {self.source} cites no evidence")
+        return self
+
+
+class MemorySourceStatus(BaseModel):
+    """Whether one source could be read today, and what it said about itself.
+
+    Listed for every registered source, so "no calendar items" can be told apart from "the
+    calendar could not be read".
+    """
+
+    name: str
+    connected: bool = Field(description="False when the source could not be read; its lack of items then means nothing.")
+    reason: str = Field(description="What was read, or why it could not be.")
+    items: int = 0
+
+
+class HorizonQuestion(BaseModel):
+    """"What do you want to do this week, and by when?", asked because the goals have a gap."""
+
+    horizon: QuestionHorizon
+    question: str
+    evidence: str = Field(description="Why it is asked now: the gap in the goals, and when it was last asked.")
+    anchor_goal_id: str | None = Field(
+        default=None, description="The goal with nothing at this rung. None for a general question."
+    )
+    anchor_goal_title: str | None = None
+    last_asked: date | None = None
+    every_days: int = Field(description="How many days pass before this horizon is asked about again.")
+
+    @model_validator(mode="after")
+    def _asked_for_a_reason(self) -> "HorizonQuestion":
+        if not self.evidence.strip():
+            raise ValueError(f"the {self.horizon} question does not say why it is being asked")
+        return self
+
+
+class HorizonAsked(BaseModel):
+    """What skipping a question recorded, and when it comes back."""
+
+    horizon: QuestionHorizon
+    asked_on: date
+    next_due: date
+
+
+class Memory(BaseModel):
+    """Every important thing for today, the status of every source, and any question that is due."""
+
+    on: date
+    items: list[MemoryItem] = Field(default_factory=list)
+    sources: list[MemorySourceStatus] = Field(
+        default_factory=list,
+        description="Every registered source, connected or not, in the order their items are listed.",
+    )
+    questions: list[HorizonQuestion] = Field(
+        default_factory=list,
+        description="At most one per horizon, and only for a horizon whose cadence has elapsed.",
+    )
 
 
 class Decision(BaseModel):
