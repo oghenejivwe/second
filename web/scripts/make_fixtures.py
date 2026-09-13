@@ -440,19 +440,24 @@ DECISION_JUDGEMENT = {
 
 
 DAILY_VARIANTS = [
-    # brief, memory, schedule, day, diagnosis, judgement, prepared, audit
-    ("brief-quiet.json", "memory-quiet.json", "schedule-quiet.json", TODAY, GYM_CONFLICT, QUIET, None, None),
-    ("brief-prepared.json", "memory.json", "schedule.json", TODAY, GYM_CONFLICT, PREPARED_JUDGEMENT, LEAVE_DRAFT, "audit.json"),
-    ("brief-decision.json", "memory-decision.json", "schedule-decision.json", TODAY, HONEST_UNKNOWN, DECISION_JUDGEMENT, None, None),
-    ("brief-checkin.json", "memory-checkin.json", "schedule-checkin.json", NEXT_MORNING, GYM_CONFLICT, QUIET, None, None),
+    # brief, memory, schedule, living graph, day, diagnosis, judgement, prepared, audit
+    ("brief-quiet.json", "memory-quiet.json", "schedule-quiet.json", "living-graph-quiet.json", TODAY, GYM_CONFLICT, QUIET, None, None),
+    ("brief-prepared.json", "memory.json", "schedule.json", "living-graph-after-run.json", TODAY, GYM_CONFLICT, PREPARED_JUDGEMENT, LEAVE_DRAFT, "audit.json"),
+    ("brief-decision.json", "memory-decision.json", "schedule-decision.json", "living-graph-decision.json", TODAY, HONEST_UNKNOWN, DECISION_JUDGEMENT, None, None),
+    ("brief-checkin.json", "memory-checkin.json", "schedule-checkin.json", "living-graph-checkin.json", NEXT_MORNING, GYM_CONFLICT, QUIET, None, None),
 ]
-"""One world per state Today has: the brief, and the Memory and Schedule read from the same store
-straight after that brief's run.
+"""One world per state Today has: the brief, and the Living Graph, Memory and Schedule read from
+the same store straight after that brief's run.
 
 memory.json and schedule.json used to be written after the prepared run only, and the frontend
 showed them beside every brief. In the decision state Today put the gym at 18:00, because its
 Adapter never ran, while Schedule put it at 07:00 from a run that did, and Memory listed the quiet
-morning's items. ``memory.json`` and ``schedule.json`` keep their names for the prepared state."""
+morning's items. ``memory.json`` and ``schedule.json`` keep their names for the prepared state.
+
+The Living Graph had the same fault after that was fixed: one after-run graph, from the prepared
+run, beside every state, and the seeded graph on first load while the quiet state's Today showed
+the world after its run. ``living-graph-after-run.json`` keeps its name for the prepared state, and
+``living-graph.json`` stays the seeded world, which the Living Graph screen diffs against."""
 
 
 async def run_variant(on: date, diagnosis: dict, judgement: dict, prepared: dict | None) -> DailyBrief:
@@ -500,9 +505,33 @@ def assert_one_world(name: str, brief: DailyBrief, schedule: Schedule) -> None:
     )
 
 
+def assert_one_gym(name: str, graph: LivingGraph, schedule: Schedule) -> None:
+    """The graph's r-gym slots on the state's day are exactly the schedule's placed gym blocks.
+
+    The gym is the one thing every state moves or keeps, so it is where a graph from the wrong run
+    shows: 07:00 in the Living Graph beside 18:00 on Schedule is two worlds on one screen.
+    """
+    first = schedule.days[0]
+    clock = fixed_clock(first.on)
+    route = next((route for goal in graph.goals for route in goal.routes if route.id == "r-gym"), None)
+    assert route is not None, f"{name}: the graph has no r-gym route"
+    tasks = {task.id for task in route.tasks}
+    slots = sorted(
+        (task.id, clock.local(slot))
+        for task in route.tasks
+        for slot in task.scheduled_slots
+        if clock.local(slot).date() == first.on
+    )
+    placed = sorted(
+        (block.task_id, block.start) for block in first.blocks if block.status == "placed" and block.task_id in tasks
+    )
+    assert slots, f"{name}: the graph holds no gym slot on {first.on}, so there is nothing to compare"
+    assert slots == placed, f"{name}: the graph and the schedule disagree about the gym on {first.on}: {slots} vs {placed}"
+
+
 async def make_daily_fixtures() -> None:
-    """Four briefs, one per state Today has to render, each with its own Memory and Schedule."""
-    for brief_name, memory_name, schedule_name, on, diagnosis, judgement, prepared, audit_name in DAILY_VARIANTS:
+    """Four briefs, one per state Today has to render, each with its own Living Graph, Memory and Schedule."""
+    for brief_name, memory_name, schedule_name, graph_name, on, diagnosis, judgement, prepared, audit_name in DAILY_VARIANTS:
         with mock_aws():
             store = fresh_store(None)
             brief = await run_variant(on, diagnosis, judgement, prepared)
@@ -512,12 +541,11 @@ async def make_daily_fixtures() -> None:
                 entries = service.read_audit(USER, limit=200)
                 write(audit_name, [entry.model_dump(mode="json") for entry in entries])
 
-            # The Adapter moved the gym slots and rewrote the route's cadence and
-            # rationale. The Living Graph screen has to show the world AFTER a
-            # run, not before it, so both states are checked in and the screen
-            # can diff them.
-            if brief_name == "brief-prepared.json":
-                write("living-graph-after-run.json", store.load(USER).model_dump(mode="json"))
+            # Where the Adapter ran it moved the gym slots and rewrote the route's cadence and
+            # rationale; in the decision state it did not. The Living Graph screen shows the world
+            # after this state's run and diffs it against the seeded one in living-graph.json.
+            graph = store.load(USER)
+            write(graph_name, graph.model_dump(mode="json"))
 
             # Memory reads what this run left behind: the reminder and any prepared draft live on
             # the brief it cached. Schedule reads the graph this run wrote, so the gym is at 07:00
@@ -526,6 +554,7 @@ async def make_daily_fixtures() -> None:
                 memory = service.get_memory(USER, today=on, calendar=read_fake_calendar)
                 schedule = service.get_schedule(USER, today=on)
             assert_one_world(brief_name, brief, schedule)
+            assert_one_gym(graph_name, graph, schedule)
             write(memory_name, memory.model_dump(mode="json"))
             write(schedule_name, schedule.model_dump(mode="json"))
 

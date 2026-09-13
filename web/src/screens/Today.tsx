@@ -5,8 +5,9 @@ import { BlockRow } from '../components/BlockRow'
 import { CheckInList } from '../components/CheckInList'
 import { Problem } from '../components/Problem'
 import { Section } from '../components/Section'
-import { USING_FIXTURES, api, errorLine, type FixtureState } from '../api/client'
-import { duration, longDate } from '../lib/datetime'
+import { USING_FIXTURES, api, errorLine, fixtureBrief, type FixtureState } from '../api/client'
+import { duration, longDate, shortDate, weekdayShort } from '../lib/datetime'
+import { plural, takenOffLine, withdrawFromBrief, type BriefWithdrawal } from '../lib/withdrawn'
 import { useSecond } from '../store/useSecond'
 import type { DailyBrief } from '../types/contract'
 import styles from './Today.module.css'
@@ -34,9 +35,15 @@ import styles from './Today.module.css'
  * that it is for the audit log and never shown to the user, and an earlier
  * brief addendum that said otherwise was withdrawn. It appears in the audit
  * panel, where it belongs.
+ *
+ * **Fixture mode takes a paused or retired goal's work off**, by the rule
+ * Schedule and Memory use and in the same sentence. The checked-in brief cannot
+ * be asked again, so without it Today went on listing blocks, a draft and
+ * deadlines for a goal the other two screens had already let go.
  */
 export function Today() {
-  const brief = useSecond((state) => state.brief)
+  const loaded = useSecond((state) => state.brief)
+  const graph = useSecond((state) => state.graph)
   const loading = useSecond((state) => state.loading)
   const errors = useSecond((state) => state.errors)
   const loadBrief = useSecond((state) => state.loadBrief)
@@ -46,7 +53,7 @@ export function Today() {
 
   const [auditOpen, setAuditOpen] = useState(false)
 
-  if (errors.brief && !brief) {
+  if (errors.brief && !loaded) {
     return (
       <div className={styles.screen}>
         <Problem what={errors.brief} onRetry={loadBrief} />
@@ -54,13 +61,19 @@ export function Today() {
     )
   }
 
-  if (!brief) {
+  if (!loaded) {
     return (
       <div className={styles.screen}>
         <p className={styles.waiting}>{loading.brief ? 'Reading today.' : 'No day loaded.'}</p>
       </div>
     )
   }
+
+  // Live, a paused or retired goal is left out by the server. Fixture mode
+  // takes its work off against the graph in the store, which carries the status.
+  const withdrawn = USING_FIXTURES ? withdrawFromBrief(loaded, graph) : null
+  const brief = withdrawn?.brief ?? loaded
+  const withdrawnSentence = withdrawn ? withdrawnLine(withdrawn) : null
 
   const quiet = !brief.notify && brief.decisions.length === 0
 
@@ -70,6 +83,7 @@ export function Today() {
         <div>
           <h1 className={styles.date}>{longDate(brief.on)}</h1>
           <Standing brief={brief} quiet={quiet} />
+          {withdrawnSentence && <p className={styles.withdrawn}>{withdrawnSentence}</p>}
         </div>
 
         <div className={styles.actions}>
@@ -107,7 +121,11 @@ export function Today() {
           aside={brief.blocks.length > 0 ? totalTime(brief) : undefined}
         >
           {brief.blocks.length === 0 ? (
-            <p className={styles.nothing}>Nothing is scheduled today.</p>
+            <p className={styles.nothing}>
+              {withdrawn?.emptied
+                ? 'Nothing is left today: every block here was for a goal that is now paused or retired.'
+                : 'Nothing is scheduled today.'}
+            </p>
           ) : (
             <ol className={styles.blocks}>
               {brief.blocks.map((block) => (
@@ -264,6 +282,21 @@ function totalTime(brief: DailyBrief): string {
   return duration(brief.blocks.reduce((sum, block) => sum + block.duration_min, 0))
 }
 
+/** `2 blocks were taken off Today because “X” is retired.` Null when nothing came off.
+ * Counted in the order the sections below list them. */
+function withdrawnLine(withdrawn: BriefWithdrawal): string | null {
+  const { blocks, prepared, atRisk, decisions, goals } = withdrawn
+
+  const parts = [
+    blocks > 0 ? plural(blocks, 'block', 'blocks') : null,
+    prepared > 0 ? plural(prepared, 'item already done for you', 'items already done for you') : null,
+    atRisk > 0 ? plural(atRisk, 'item at risk', 'items at risk') : null,
+    decisions > 0 ? plural(decisions, 'decision', 'decisions') : null,
+  ].filter((part): part is string => part !== null)
+
+  return takenOffLine(parts, blocks + prepared + atRisk + decisions, 'Today', goals)
+}
+
 /**
  * Fixture-mode only: step through the four states Today has.
  *
@@ -279,13 +312,20 @@ function BriefSwitcher({
   onPick: (state: FixtureState) => void
   current: FixtureState
 }) {
-  // Picking a state switches Schedule and Memory with Today: the store holds the
-  // state, and those two screens read the files generated in it.
+  // Picking a state switches the Living Graph, Schedule, Memory and Goals with
+  // Today: the store holds the state, and those screens read the files
+  // generated in it.
+  //
+  // The check-in was generated on the next morning from a fresh seeded world,
+  // not after the prepared run, so it is named with its own date. Listed as a
+  // bare fourth step it read as the morning after "prepared". The date is the
+  // check-in brief's own, so the label cannot drift from the file.
+  const checkInOn = fixtureBrief('checkIn').on
   const options: [string, FixtureState][] = [
     ['quiet', 'quiet'],
     ['prepared', 'prepared'],
     ['decision', 'decision'],
-    ['check-in', 'checkIn'],
+    [`check-in (${weekdayShort(checkInOn)} ${shortDate(checkInOn)}, a separate morning)`, 'checkIn'],
   ]
 
   return (

@@ -232,7 +232,7 @@ def alternates_for(node_id: str, provider: str | None = None) -> tuple[str, ...]
     """Models this node may fall back to when the refusal names the model.
 
     "This model is currently experiencing high demand" is a sentence about one
-    model, and the third live Daily run died on it while eleven other models sat
+    model, and the third live Daily run died on it while six other models sat
     idle in the same map. The spread already exists for quota reasons; this makes
     it a recovery path as well.
 

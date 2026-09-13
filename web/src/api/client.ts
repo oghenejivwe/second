@@ -36,6 +36,9 @@ import briefQuietFixture from '../fixtures/brief-quiet.json'
 import goalPausedFixture from '../fixtures/goal-paused.json'
 import goalRetiredFixture from '../fixtures/goal-retired.json'
 import graphAfterRunFixture from '../fixtures/living-graph-after-run.json'
+import graphCheckinFixture from '../fixtures/living-graph-checkin.json'
+import graphDecisionFixture from '../fixtures/living-graph-decision.json'
+import graphQuietFixture from '../fixtures/living-graph-quiet.json'
 import graphFixture from '../fixtures/living-graph.json'
 import intakePlannedFixture from '../fixtures/intake-planned.json'
 import intakeQuestionsFixture from '../fixtures/intake-questions.json'
@@ -49,6 +52,7 @@ import scheduleCheckinFixture from '../fixtures/schedule-checkin.json'
 import scheduleDecisionFixture from '../fixtures/schedule-decision.json'
 import scheduleQuietFixture from '../fixtures/schedule-quiet.json'
 import scheduleFixture from '../fixtures/schedule.json'
+import { longDate } from '../lib/datetime'
 
 export const USING_FIXTURES = import.meta.env.VITE_SOURCE === 'fixtures'
 
@@ -164,34 +168,179 @@ export function isFixtureAcknowledgement(reply: object): reply is FixtureAcknowl
 export type FixtureState = 'quiet' | 'prepared' | 'decision' | 'checkIn'
 
 /**
- * Fixture mode only: each morning run's brief, and the memory and schedule written from the same store.
+ * Fixture mode only: each morning run's brief, and the memory, schedule and graph written from the same store.
  *
- * make_fixtures.py writes all three straight after each run. One schedule for every brief put the
+ * make_fixtures.py writes all four straight after each run. One schedule for every brief put the
  * gym at 07:00 on Schedule while the decision brief, whose Adapter never ran, put it at 18:00 on
- * Today. The store names the state it is showing and the files are picked by that name, never by
- * looking at the brief, so the three screens cannot show two different mornings.
+ * Today. One graph for every brief did the same on the Living Graph and Goals: they drew the seeded
+ * world's 18:00 gym beside a quiet Today at 07:00. The store names the state it is showing and the
+ * files are picked by that name, never by looking at the brief, so no two screens can show two
+ * different mornings.
  */
-const FIXTURE_WORLDS: Record<FixtureState, { brief: DailyBrief; memory: Memory; schedule: Schedule }> = {
+const FIXTURE_WORLDS: Record<
+  FixtureState,
+  { brief: DailyBrief; memory: Memory; schedule: Schedule; graph: LivingGraph }
+> = {
   quiet: {
     brief: briefQuietFixture as DailyBrief,
     memory: memoryQuietFixture as Memory,
     schedule: scheduleQuietFixture as Schedule,
+    graph: graphQuietFixture as LivingGraph,
   },
   prepared: {
     brief: briefPreparedFixture as DailyBrief,
     memory: memoryFixture as Memory,
     schedule: scheduleFixture as Schedule,
+    graph: graphAfterRunFixture as LivingGraph,
   },
   decision: {
     brief: briefDecisionFixture as DailyBrief,
     memory: memoryDecisionFixture as Memory,
     schedule: scheduleDecisionFixture as Schedule,
+    graph: graphDecisionFixture as LivingGraph,
   },
   checkIn: {
     brief: briefCheckinFixture as DailyBrief,
     memory: memoryCheckinFixture as Memory,
     schedule: scheduleCheckinFixture as Schedule,
+    graph: graphCheckinFixture as LivingGraph,
   },
+}
+
+/**
+ * Fixture mode only: the goal statuses set this session, by goal id.
+ *
+ * Nothing can be written to a checked-in graph, so a pause or retire is kept as this and laid over
+ * whichever state's graph is on screen. That is the whole of what the write does to the graph:
+ * goal-retired.json and goal-paused.json differ from the graph they were made from in that one
+ * goal's status and nothing else. Laying it over each state's own graph keeps a retire through a
+ * state switch, and keeps a second change from undoing the first, which returning the whole
+ * checked-in graph did.
+ */
+export type GoalStatuses = Record<string, Goal['status']>
+
+function withStatuses(graph: LivingGraph, statuses: GoalStatuses): LivingGraph {
+  if (Object.keys(statuses).length === 0) return graph
+  return {
+    ...graph,
+    goals: graph.goals.map((goal) =>
+      statuses[goal.id] === undefined ? goal : { ...goal, status: statuses[goal.id] },
+    ),
+  }
+}
+
+/** Fixture mode only: the graph a state's run left, with this session's goal statuses laid over it. */
+export function fixtureGraph(state: FixtureState, statuses: GoalStatuses = {}): LivingGraph {
+  return withStatuses(FIXTURE_WORLDS[state].graph, statuses)
+}
+
+/**
+ * Fixture mode only: the seeded world before any run, with the same statuses laid over it.
+ *
+ * The Living Graph diffs a state's graph against this. The statuses go on both sides so a retire
+ * made this session is not reported as something a run changed.
+ */
+export function fixtureSeededGraph(statuses: GoalStatuses = {}): LivingGraph {
+  return withStatuses(graphFixture as LivingGraph, statuses)
+}
+
+/**
+ * The day the week answer, the week skip and the two goal status changes were generated on.
+ *
+ * make_fixtures.py makes all four from `prepared_world()`, the prepared run on TODAY, so the
+ * prepared brief's own date is that day and nothing here restates it.
+ */
+const GENERATED_ON = FIXTURE_WORLDS.prepared.brief.on
+
+/**
+ * Fixture mode only: the states the generated week answer and week skip are true in.
+ *
+ * Both were generated after the prepared run on Thursday 10 September. The quiet run leaves the
+ * same graph, so they hold there too. The decision run leaves a different graph, and the check-in
+ * is the next morning: the answer's placements were checked against a world neither state has, and
+ * the skip says it was recorded on a day that is not the check-in's. So those two get a line saying
+ * nothing was generated for them, in place of a reply that never happened there.
+ */
+const WEEK_REPLIES_HOLD_IN: readonly FixtureState[] = ['quiet', 'prepared']
+
+export function fixtureWeekRepliesHold(state: FixtureState): boolean {
+  return WEEK_REPLIES_HOLD_IN.includes(state)
+}
+
+const GENERATED_STATUS_CHANGES = [goalRetiredFixture, goalPausedFixture] as GoalStatusChange[]
+
+/**
+ * A goal with its status taken out, and the ids and titles of the goals above it.
+ *
+ * What a pause or retire frees is read off exactly these: the goal's own tasks and their slots, and
+ * the ladder each freed block names in `serves`. When they are the same in two graphs on the same
+ * day, the same change frees the same slots in both.
+ */
+function footprint(graph: LivingGraph, goalId: string): string | null {
+  const byId = new Map(graph.goals.map((goal) => [goal.id, goal]))
+  const goal = byId.get(goalId)
+  if (!goal) return null
+  const { status: _status, ...rest } = goal
+  const above: string[] = []
+  const seen = new Set([goal.id])
+  let parent = goal.contributes_to ? byId.get(goal.contributes_to) : undefined
+  while (parent && !seen.has(parent.id)) {
+    seen.add(parent.id)
+    above.push(`${parent.id}:${parent.title}`)
+    parent = parent.contributes_to ? byId.get(parent.contributes_to) : undefined
+  }
+  return JSON.stringify([rest, above])
+}
+
+/**
+ * Fixture mode only: the reply to a pause or retire, true of the state on screen.
+ *
+ * Two changes were generated: retiring one goal and pausing another, on the prepared world. A
+ * generated reply is returned only for that goal and that status, in a state on the same day whose
+ * graph gives that goal the same tasks, slots and ladder. Anywhere else the freed slots it lists are
+ * not known, so the reply names the change, which the graph does carry, and says why no freed time
+ * is shown.
+ */
+function fixtureStatusChange(
+  goalId: string,
+  status: Goal['status'],
+  state: FixtureState,
+  statuses: GoalStatuses,
+): GoalStatusChange {
+  const graph = fixtureGraph(state, { ...statuses, [goalId]: status })
+  const title = graph.goals.find((goal) => goal.id === goalId)?.title ?? goalId
+  const nothingFreed = (note: string): GoalStatusChange => ({
+    goal_id: goalId,
+    goal_title: title,
+    status,
+    graph,
+    freed: [],
+    freed_minutes: 0,
+    note,
+  })
+
+  if (status === 'active') return nothingFreed('Active again.')
+
+  const doing = status === 'retired' ? 'retiring' : 'pausing'
+  const opening = `Fixture mode: “${title}” is now ${status} on every screen.`
+
+  const generated = GENERATED_STATUS_CHANGES.find(
+    (change) => change.goal_id === goalId && change.status === status,
+  )
+  if (!generated) {
+    return nothingFreed(`${opening} What ${doing} it released was not generated, so no freed time is shown.`)
+  }
+
+  const sameDay = FIXTURE_WORLDS[state].brief.on === GENERATED_ON
+  const sameGoal = footprint(FIXTURE_WORLDS[state].graph, goalId) === footprint(generated.graph, goalId)
+  if (!sameDay || !sameGoal) {
+    return nothingFreed(
+      `${opening} What ${doing} it released was generated for ${longDate(GENERATED_ON)} ` +
+        'and does not hold for this state, so no freed time is shown.',
+    )
+  }
+
+  return { ...generated, graph }
 }
 
 /** The cadence the generated memory fixture carries for a horizon, quoted
@@ -202,8 +351,10 @@ function fixtureCadence(horizon: QuestionHorizon): string {
 }
 
 export const api = {
-  graph(): Promise<LivingGraph> {
-    if (USING_FIXTURES) return fixture(graphFixture)
+  /** `state` and `statuses` matter only in fixture mode: the graph the state's run left, with this
+   * session's goal statuses laid over it. Live, the server's graph already carries both. */
+  graph(state: FixtureState = 'quiet', statuses: GoalStatuses = {}): Promise<LivingGraph> {
+    if (USING_FIXTURES) return fixture(fixtureGraph(state, statuses))
     return call<{ graph: LivingGraph }>('/api/graph').then((body) => body.graph)
   },
 
@@ -247,13 +398,33 @@ export const api = {
     return call<Memory>('/api/memory')
   },
 
-  /** Answer a recurring question. Live, it is planned like a brain dump, so tens of seconds. */
-  answerQuestion(horizon: QuestionHorizon, text: string): Promise<IntakeResult | FixtureAcknowledgement> {
+  /** Answer a recurring question. Live, it is planned like a brain dump, so tens of seconds.
+   * `state` matters only in fixture mode, for the reason `fixtureWeekRepliesHold` gives. */
+  answerQuestion(
+    horizon: QuestionHorizon,
+    text: string,
+    state: FixtureState = 'quiet',
+  ): Promise<IntakeResult | FixtureAcknowledgement> {
     if (USING_FIXTURES) {
-      // The week answer was generated through the real intake graph. The month
-      // answer never was, so it gets a line saying nothing happened rather than
-      // a plan made for some other sentence.
-      if (horizon === 'week') return fixture(questionAnswerWeekFixture, 1600)
+      // The week answer was generated through the real intake graph, in one
+      // world. The month answer never was. Either way, where nothing was
+      // generated the reply is a line saying nothing happened rather than a
+      // plan made for some other sentence or some other morning.
+      if (horizon === 'week' && fixtureWeekRepliesHold(state)) {
+        return fixture(questionAnswerWeekFixture, 1600)
+      }
+      if (horizon === 'week') {
+        return fixture(
+          {
+            fixture: true,
+            line:
+              'Fixture mode: an answer to the week question was generated only for the quiet and ' +
+              `prepared states on ${longDate(GENERATED_ON)}. None was generated for this state, so ` +
+              'this one was not sent, nothing was planned and nothing was written.',
+          } satisfies FixtureAcknowledgement,
+          900,
+        )
+      }
       return fixture(
         {
           fixture: true,
@@ -268,11 +439,23 @@ export const api = {
   },
 
   /** Not now. Live, the server records the day and says when the question may come back. */
-  skipQuestion(horizon: QuestionHorizon): Promise<HorizonAsked | FixtureAcknowledgement> {
+  skipQuestion(
+    horizon: QuestionHorizon,
+    state: FixtureState = 'quiet',
+  ): Promise<HorizonAsked | FixtureAcknowledgement> {
     if (USING_FIXTURES) {
-      // Generated from `service.skip_question` for the week only, for the same
-      // reason as the answer above.
-      if (horizon === 'week') return fixture(questionSkipWeekFixture)
+      // Generated from `service.skip_question` for the week only, in the states
+      // the week answer holds in, for the same reason as the answer above.
+      if (horizon === 'week' && fixtureWeekRepliesHold(state)) return fixture(questionSkipWeekFixture)
+      if (horizon === 'week') {
+        return fixture({
+          fixture: true,
+          line:
+            'Fixture mode: a skip of the week question was generated only for the quiet and ' +
+            `prepared states on ${longDate(GENERATED_ON)}. None was generated for this state, so it ` +
+            `was not recorded and reloading the page brings it back.${fixtureCadence(horizon)}`,
+        } satisfies FixtureAcknowledgement)
+      }
       return fixture({
         fixture: true,
         line:
@@ -319,12 +502,15 @@ export const api = {
     return call<FeedbackResult>('/api/feedback', json({ text }))
   },
 
-  setGoalStatus(goalId: string, status: Goal['status']): Promise<GoalStatusChange> {
-    if (USING_FIXTURES) {
-      if (status === 'retired') return fixture(goalRetiredFixture, 420)
-      if (status === 'paused') return fixture(goalPausedFixture, 420)
-      return fixture({ graph: graphFixture, freed: [], freed_minutes: 0, note: 'Active again.' }, 420)
-    }
+  /** `state` and `statuses` matter only in fixture mode: the state on screen, and the statuses set
+   * earlier this session, which the returned graph carries along with this one. */
+  setGoalStatus(
+    goalId: string,
+    status: Goal['status'],
+    state: FixtureState = 'quiet',
+    statuses: GoalStatuses = {},
+  ): Promise<GoalStatusChange> {
+    if (USING_FIXTURES) return fixture(fixtureStatusChange(goalId, status, state, statuses), 420)
     return call<GoalStatusChange>(`/api/goals/${encodeURIComponent(goalId)}/status`, json({ status }))
   },
 
@@ -350,10 +536,6 @@ export const api = {
     return call<VoiceJob>(`/api/voice/${encodeURIComponent(jobId)}`)
   },
 }
-
-/** The graph as it stands after a Daily run. Fixture mode only -- live, the
- * screen simply refetches `/api/graph`, which is the point of the demo beat. */
-export const fixtureGraphAfterRun = graphAfterRunFixture as LivingGraph
 
 /** Every brief by state, so the demo can show each state Today has without
  * waiting for a live run to happen to produce one. */

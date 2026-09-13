@@ -18,7 +18,14 @@
  * can say why its list is shorter instead of shortening it silently.
  */
 
-import type { Goal, HorizonQuestion, LivingGraph, MemoryItem, Schedule } from '../types/contract'
+import type {
+  DailyBrief,
+  Goal,
+  HorizonQuestion,
+  LivingGraph,
+  MemoryItem,
+  Schedule,
+} from '../types/contract'
 
 /** Goals in the graph whose status is not active, by id. Empty with no graph. */
 function inactiveGoals(graph: LivingGraph | null): Map<string, Goal> {
@@ -126,6 +133,69 @@ export function withdrawFromMemory(items: MemoryItem[], graph: LivingGraph | nul
   }
 }
 
+export interface BriefWithdrawal {
+  brief: DailyBrief
+  /** The inactive goals something was taken off for, in graph order. */
+  goals: Goal[]
+  blocks: number
+  atRisk: number
+  prepared: number
+  decisions: number
+  /** Today held blocks before and holds none now. */
+  emptied: boolean
+}
+
+/**
+ * Today, by the same rule. A block and an item at risk carry their goal's id. A prepared action and
+ * a decision carry at most a task id, so they go when that task sits under an inactive goal, and
+ * stay when they name no task. A reminder names neither and stays, and so does the check-in, which
+ * is a record of what was scheduled yesterday, when the goal was still active.
+ *
+ * `notify` is true only when a decision is needed or something was prepared, so it is worked out
+ * again when either list gets shorter. Otherwise the line under the date would go on saying
+ * something was prepared after the draft itself came off.
+ */
+export function withdrawFromBrief(brief: DailyBrief, graph: LivingGraph | null): BriefWithdrawal {
+  const inactive = inactiveGoals(graph)
+  const owners = taskOwners(graph)
+  const hit = new Set<string>()
+
+  const out = (goalId: string | undefined): boolean => {
+    if (goalId === undefined || !inactive.has(goalId)) return false
+    hit.add(goalId)
+    return true
+  }
+  const ownerOf = (taskId: string | null): string | undefined =>
+    taskId === null ? undefined : owners.get(taskId)
+
+  const blocks = brief.blocks.filter((block) => !out(block.goal_id))
+  const atRisk = brief.at_risk.filter((risk) => !out(risk.goal_id))
+  const prepared = brief.prepared.filter((action) => !out(ownerOf(action.task_id)))
+  const decisions = brief.decisions.filter((decision) => !out(ownerOf(decision.task_id)))
+
+  const cut = {
+    blocks: brief.blocks.length - blocks.length,
+    atRisk: brief.at_risk.length - atRisk.length,
+    prepared: brief.prepared.length - prepared.length,
+    decisions: brief.decisions.length - decisions.length,
+  }
+  const promptsCut = cut.prepared > 0 || cut.decisions > 0
+
+  return {
+    brief: {
+      ...brief,
+      blocks,
+      at_risk: atRisk,
+      prepared,
+      decisions,
+      notify: promptsCut ? brief.notify && (prepared.length > 0 || decisions.length > 0) : brief.notify,
+    },
+    goals: (graph?.goals ?? []).filter((goal) => hit.has(goal.id)),
+    ...cut,
+    emptied: brief.blocks.length > 0 && blocks.length === 0,
+  }
+}
+
 export interface QuestionWithdrawal {
   questions: HorizonQuestion[]
   removed: HorizonQuestion[]
@@ -163,6 +233,23 @@ export function whyWithdrawn(goals: Goal[]): string {
     })
     .filter((clause): clause is string => clause !== null)
   return andList(clauses)
+}
+
+/**
+ * `2 blocks and 1 decision were taken off Today because “A” is retired.` Null when nothing came off.
+ *
+ * One sentence for Today, Schedule and Memory, so the same retire cannot be worded three ways on
+ * three screens. `parts` are the counted things, in the order the screen lists them.
+ */
+export function takenOffLine(parts: string[], total: number, from: string, goals: Goal[]): string | null {
+  if (total === 0 || parts.length === 0) return null
+  const counted = andList(parts)
+  return `${counted.charAt(0).toUpperCase()}${counted.slice(1)} ${total === 1 ? 'was' : 'were'} taken off ${from} because ${whyWithdrawn(goals)}.`
+}
+
+/** `1 block`, `3 blocks`. */
+export function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`
 }
 
 /** `a`, `a and b`, `a, b and c`. */

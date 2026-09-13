@@ -18,11 +18,13 @@ import {
   api,
   errorLine,
   fixtureBrief,
-  fixtureGraphAfterRun,
+  fixtureGraph,
+  fixtureSeededGraph,
   isFixtureAcknowledgement,
   USING_FIXTURES,
   type FixtureAcknowledgement,
   type FixtureState,
+  type GoalStatuses,
 } from '../api/client'
 import { diffGraphs, type GraphDiff } from '../lib/diff'
 import type {
@@ -104,13 +106,19 @@ interface State {
   graph: LivingGraph | null
   brief: DailyBrief | null
   /**
-   * Fixture mode only: which morning run Today, Schedule and Memory are all showing.
+   * Fixture mode only: which morning run every screen is showing.
    *
    * Set by whatever put the brief on screen: the first read (quiet), Run the day
-   * (prepared), or Today's state buttons. Schedule and Memory pick their files
-   * by this name, never by looking at the brief. Unused live.
+   * (prepared), or Today's state buttons. The graph, Schedule and Memory pick
+   * their files by this name, never by looking at the brief. Unused live.
    */
   fixtureState: FixtureState
+  /**
+   * Fixture mode only: goal statuses set this session, laid over each state's
+   * graph (api/client.ts says why). Kept through a state switch, because a
+   * retired goal does not come back by looking at another morning. Unused live.
+   */
+  goalStatuses: GoalStatuses
   audit: AuditEntry[]
   schedule: Schedule | null
   memory: Memory | null
@@ -157,6 +165,35 @@ interface State {
   showBrief: (state: FixtureState) => void
 }
 
+/**
+ * Fixture mode only: everything that moves when the screens move to another morning.
+ *
+ * The brief and the graph are that state's own, the graph carrying this
+ * session's goal statuses. A diff on screen is taken again against the seeded
+ * world, because a highlight worked out for another state's graph marks nodes
+ * that did not change in this one. Schedule and memory are dropped and read
+ * again on arrival. A settled question and the last status change are dropped
+ * only when the state really changes: an answer's placements and a retire's
+ * freed slots were generated for one morning and are not known to hold in
+ * another.
+ */
+function fixtureMove(
+  state: State,
+  to: FixtureState,
+): Pick<State, 'fixtureState' | 'brief' | 'diff' | 'schedule' | 'memory'> &
+  Partial<Pick<State, 'settled' | 'lastStatusChange'>> & { graph: LivingGraph } {
+  const graph = fixtureGraph(to, state.goalStatuses)
+  return {
+    fixtureState: to,
+    brief: fixtureBrief(to),
+    graph,
+    diff: state.diff ? diffGraphs(fixtureSeededGraph(state.goalStatuses), graph) : null,
+    schedule: null,
+    memory: null,
+    ...(state.fixtureState === to ? {} : { settled: {}, lastStatusChange: null }),
+  }
+}
+
 export const useSecond = create<State>((set, get) => ({
   screen: 'today',
   show: (screen) => set({ screen }),
@@ -164,6 +201,7 @@ export const useSecond = create<State>((set, get) => ({
   graph: null,
   brief: null,
   fixtureState: 'quiet',
+  goalStatuses: {},
   audit: [],
   schedule: null,
   memory: null,
@@ -183,9 +221,22 @@ export const useSecond = create<State>((set, get) => ({
   errors: { graph: null, brief: null, audit: null, run: null, schedule: null, memory: null },
 
   loadGraph: async () => {
+    // Fixture mode reads the graph of the state on screen, with the statuses
+    // set this session, so both are read here and passed along.
+    const shownState = get().fixtureState
+    const statuses = get().goalStatuses
     set((state) => ({ loading: { ...state.loading, graph: true } }))
     try {
-      const graph = await api.graph()
+      const graph = await api.graph(shownState, statuses)
+
+      // The state or a goal's status changed while this was read, so the graph
+      // in hand is of a world no longer on screen. Read again for the one that is.
+      if (USING_FIXTURES && (get().fixtureState !== shownState || get().goalStatuses !== statuses)) {
+        set((state) => ({ loading: { ...state.loading, graph: false } }))
+        void get().loadGraph()
+        return
+      }
+
       set((state) => ({
         graph,
         loading: { ...state.loading, graph: false },
@@ -206,10 +257,8 @@ export const useSecond = create<State>((set, get) => ({
       set((state) => ({
         brief,
         // Fixture mode answers this read with the quiet run's brief. If Today had
-        // moved to another state meanwhile, the reads made for it are dropped too.
-        ...(USING_FIXTURES && state.fixtureState !== 'quiet'
-          ? { fixtureState: 'quiet' as const, schedule: null, memory: null }
-          : {}),
+        // moved to another state meanwhile, every screen moves back with it.
+        ...(USING_FIXTURES && state.fixtureState !== 'quiet' ? fixtureMove(state, 'quiet') : {}),
         loading: { ...state.loading, brief: false },
         errors: { ...state.errors, brief: null },
       }))
@@ -309,15 +358,29 @@ export const useSecond = create<State>((set, get) => ({
     try {
       const brief = await api.runDaily()
 
-      // Live, the graph is refetched because the run wrote to it. In fixture
-      // mode there is a second checked-in graph showing the same writes, so the
-      // beat is identical without a backend.
-      const after = USING_FIXTURES ? fixtureGraphAfterRun : await api.graph()
+      // Fixture mode answers a run with the prepared run's brief, and every
+      // screen moves to that state. The graph is the one the prepared run left,
+      // diffed against the seeded world before any run, so the highlight shows
+      // what a run changed and not what separates two fixture states.
+      if (USING_FIXTURES) {
+        set((state) => {
+          const moved = fixtureMove(state, 'prepared')
+          return {
+            ...moved,
+            brief,
+            diff: diffGraphs(fixtureSeededGraph(state.goalStatuses), moved.graph),
+            loading: { ...state.loading, run: false },
+          }
+        })
+        void get().loadAudit()
+        return
+      }
+
+      // Live, the graph is refetched because the run wrote to it.
+      const after = await api.graph()
 
       set((state) => ({
         brief,
-        // Fixture mode answers a run with the prepared run's brief.
-        ...(USING_FIXTURES ? { fixtureState: 'prepared' as const } : {}),
         graph: after,
         diff: diffGraphs(before, after),
         // The run moved slots and cached the brief the email source reads, so
@@ -336,16 +399,29 @@ export const useSecond = create<State>((set, get) => ({
   },
 
   setGoalStatus: async (goalId, status) => {
+    const shownState = get().fixtureState
+    const statuses = get().goalStatuses
     set((state) => ({ loading: { ...state.loading, status: true } }))
     try {
-      const change = await api.setGoalStatus(goalId, status)
+      const change = await api.setGoalStatus(goalId, status, shownState, statuses)
+
+      // Fixture mode: the state moved, or another goal's status landed, while
+      // this was answered. The reply's graph and freed slots are for a world no
+      // longer on screen, so it is asked again for the one that is.
+      if (USING_FIXTURES && (get().fixtureState !== shownState || get().goalStatuses !== statuses)) {
+        set((state) => ({ loading: { ...state.loading, status: false } }))
+        return get().setGoalStatus(goalId, status)
+      }
+
       set((state) => ({
         graph: change.graph,
         lastStatusChange: change,
+        ...(USING_FIXTURES ? { goalStatuses: { ...state.goalStatuses, [goalId]: status } } : {}),
         // A paused or retired goal releases its slots and stops its routes
         // being proposed, so the schedule and memory built before it are wrong.
-        // Fixture mode reads the same checked-in files again, so the screens
-        // take that goal's work off against `graph` (lib/withdrawn.ts).
+        // Fixture mode reads the same checked-in files again, so Today,
+        // Schedule and Memory take that goal's work off against `graph`
+        // (lib/withdrawn.ts).
         schedule: null,
         memory: null,
         loading: { ...state.loading, status: false },
@@ -360,16 +436,21 @@ export const useSecond = create<State>((set, get) => ({
   },
 
   answerQuestion: async (question, text) => {
-    const reply = await api.answerQuestion(question.horizon, text)
+    // Fixture mode: which generated reply holds depends on the state on screen.
+    const shownState = get().fixtureState
+    const reply = await api.answerQuestion(question.horizon, text, shownState)
     const key = questionKey(question)
     const settled: SettledQuestion = { how: 'answered', question, text, reply }
 
     // Fixture mode writes nothing, whichever reply came back. The generated
-    // week answer carries the graph as intake wrote it on the seeded world,
-    // before any Daily run or retire in this session, so putting that graph in
-    // the store would quietly undo those on every other screen. The reply is
-    // shown on the question, and the question says it is shown nowhere else.
+    // week answer carries the graph as intake wrote it after the prepared run,
+    // before any retire in this session, so putting that graph in the store
+    // would quietly undo those on every other screen. The reply is shown on the
+    // question, and the question says it is shown nowhere else.
     if (USING_FIXTURES || isFixtureAcknowledgement(reply)) {
+      // The state moved while this was answered: the reply was for the morning
+      // that left, and so was the question that sent it.
+      if (USING_FIXTURES && get().fixtureState !== shownState) return
       set((state) => ({ settled: { ...state.settled, [key]: settled } }))
       return
     }
@@ -392,7 +473,9 @@ export const useSecond = create<State>((set, get) => ({
   },
 
   skipQuestion: async (question) => {
-    const reply = await api.skipQuestion(question.horizon)
+    const shownState = get().fixtureState
+    const reply = await api.skipQuestion(question.horizon, shownState)
+    if (USING_FIXTURES && get().fixtureState !== shownState) return
     // Nothing else in the browser reads `asked_on`, so a skip changes nothing
     // on screen but this question, and there is nothing to refetch.
     set((state) => ({
@@ -408,9 +491,7 @@ export const useSecond = create<State>((set, get) => ({
   // from minutes ago.
   clearStatusChange: () => set({ lastStatusChange: null }),
 
-  // Memory and Schedule in fixture mode are chosen by the state, so switching it
-  // drops both reads for the old one. Neither is on screen while the switcher
-  // is, and each reads again on arrival.
-  showBrief: (state) =>
-    set({ brief: fixtureBrief(state), fixtureState: state, memory: null, schedule: null }),
+  // The graph, Memory and Schedule in fixture mode are chosen by the state, so
+  // switching it moves all of them with the brief (`fixtureMove`).
+  showBrief: (to) => set((state) => fixtureMove(state, to)),
 }))

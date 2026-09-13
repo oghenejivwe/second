@@ -35,7 +35,7 @@ import { Problem } from '../components/Problem'
 import { Section } from '../components/Section'
 import { USING_FIXTURES } from '../api/client'
 import { dayMonth, longDate, weekday } from '../lib/datetime'
-import { andList, whyWithdrawn, withdrawFromSchedule, type ScheduleWithdrawal } from '../lib/withdrawn'
+import { plural, takenOffLine, withdrawFromSchedule, type ScheduleWithdrawal } from '../lib/withdrawn'
 import { useSecond } from '../store/useSecond'
 import type { Schedule, ScheduleDay, SkippedProposal } from '../types/contract'
 import styles from './ScheduleScreen.module.css'
@@ -237,8 +237,6 @@ function tally(schedule: Schedule): string {
 /** `8 blocks were taken off the schedule because “X” is retired.` Null when nothing came off. */
 function withdrawnLine(withdrawn: ScheduleWithdrawal): string | null {
   const { blocks, refused, unlaid, goals } = withdrawn
-  const total = blocks + refused + unlaid
-  if (total === 0) return null
 
   const parts = [
     blocks > 0 ? plural(blocks, 'block', 'blocks') : null,
@@ -246,9 +244,5 @@ function withdrawnLine(withdrawn: ScheduleWithdrawal): string | null {
     unlaid > 0 ? plural(unlaid, 'route not laid over any day', 'routes not laid over any day') : null,
   ].filter((part): part is string => part !== null)
 
-  return `${andList(parts)} ${total === 1 ? 'was' : 'were'} taken off the schedule because ${whyWithdrawn(goals)}.`
-}
-
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`
+  return takenOffLine(parts, blocks + refused + unlaid, 'the schedule', goals)
 }

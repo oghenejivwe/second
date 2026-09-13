@@ -283,6 +283,128 @@ def test_every_demo_cadence_still_reads(cadence):
     parse_cadence(cadence)
 
 
+@pytest.mark.parametrize(
+    ("cadence", "weekdays", "at", "fortnightly"),
+    [
+        ("Weekday mornings 08:00", {0, 1, 2, 3, 4}, time(8, 0), False),
+        ("Tuesdays 19:00", {1}, time(19, 0), False),
+        ("Mon/Wed/Fri 07:00", {0, 2, 4}, time(7, 0), False),
+        ("Mon/Wed/Fri 18:00", {0, 2, 4}, time(18, 0), False),
+        ("Every other Thursday", {3}, None, True),
+    ],
+)
+def test_the_demo_cadences_read_as_pinned_after_the_guessing_fixes(cadence, weekdays, at, fortnightly):
+    """The three refusals below must not cost the demo a single proposal."""
+    read = parse_cadence(cadence)
+    assert (set(read.weekdays), read.at, read.fortnightly) == (weekdays, at, fortnightly)
+
+
+def test_the_demo_one_off_is_still_refused():
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence("One-off, before the end of the month")
+    assert "one-off" in str(refused_with.value)
+
+
+@pytest.mark.parametrize(
+    "cadence",
+    ["Every other Tuesday and Thursday", "every other Tue/Thu 19:00", "Fortnightly on Mon-Wed"],
+)
+def test_a_fortnight_over_more_than_one_day_is_refused(cadence):
+    """"Every other Tuesday and Thursday" made both days fortnightly. It could as well mean Tuesday
+    fortnightly and Thursday weekly, and the parser cannot tell which days alternate.
+
+    Mutation-tested: removing the more-than-one-day fortnight refusal in ``parse_cadence`` reads
+    both days as fortnightly and this fails.
+    """
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence(cadence)
+    assert "cannot tell which of the days alternate" in str(refused_with.value)
+
+
+@pytest.mark.parametrize(
+    ("cadence", "weekday"),
+    [("Every other Thursday", 3), ("every 2 weeks on Tuesday", 1)],
+)
+def test_a_fortnight_on_one_day_still_reads(cadence, weekday):
+    read = parse_cadence(cadence)
+    assert read.weekdays == frozenset({weekday})
+    assert read.fortnightly is True
+
+
+@pytest.mark.parametrize("cadence", ["Friday nights 1am", "Friday nights 4:59am", "Friday nights midnight"])
+def test_a_night_time_after_midnight_is_refused_not_put_on_the_wrong_day(cadence):
+    """"Friday nights 1am" is 01:00 on Saturday, and it was proposed at 01:00 on Friday, the night
+    before the one the user meant.
+
+    Mutation-tested: removing the after-midnight refusal in ``parse_cadence`` reads it as Friday
+    01:00 and this fails.
+    """
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence(cadence)
+    reason = str(refused_with.value)
+    assert "midnight" in reason and "falls on the next day" in reason
+
+
+def test_a_night_time_before_midnight_still_reads():
+    read = parse_cadence("Friday nights 23:00")
+    assert (read.weekdays, read.at, read.part) == (frozenset({4}), time(23, 0), "night")
+
+
+@pytest.mark.parametrize(
+    "cadence",
+    ["Mon 7pm and Wed", "Monday 7pm and Wednesday", "Mon 7pm and Wed/Fri", "Weekdays 07:00 and Sat"],
+)
+def test_a_time_after_only_some_of_the_days_is_refused(cadence):
+    """"Monday 7pm and Wednesday" put Wednesday at 19:00, a time the user only wrote beside Monday.
+
+    Mutation-tested: letting ``_one_time`` return the time when days follow it reads Wednesday at
+    19:00 and this fails.
+    """
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence(cadence)
+    assert "a time after only some of its days" in str(refused_with.value)
+
+
+@pytest.mark.parametrize(
+    ("cadence", "weekdays", "at"),
+    [
+        ("Wed 7pm and Sun 7pm", {2, 6}, time(19, 0)),
+        ("7:30 pm Tuesdays", {1}, time(19, 30)),
+        ("Mon, Wed & Fri at 6:30am", {0, 2, 4}, time(6, 30)),
+        ("Weekdays and Sat 9am", {0, 1, 2, 3, 4, 5}, time(9, 0)),
+    ],
+)
+def test_a_time_every_day_shares_still_reads(cadence, weekdays, at):
+    read = parse_cadence(cadence)
+    assert (set(read.weekdays), read.at) == (weekdays, at)
+
+
+def test_days_with_different_times_are_refused_as_not_one_cadence():
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence("Mon 7pm and Wed 8pm")
+    assert "two different times are not one cadence" in str(refused_with.value)
+
+
+def test_two_times_on_one_day_are_still_refused_as_a_choice():
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence("Tue 07:00 and 19:00")
+    assert "more than one time" in str(refused_with.value)
+
+
+def test_a_count_of_mornings_a_week_gets_a_frequency_reason_not_a_clock_time_reason():
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence("3 mornings a week")
+    reason = str(refused_with.value)
+    assert "how many times, not which days" in reason
+    assert "19:00" not in reason
+
+
+def test_abbreviated_days_with_only_spaces_between_are_refused_with_how_to_write_them():
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence("mon wed fri 07:00")
+    assert "Write them as Mon/Wed/Fri" in str(refused_with.value)
+
+
 # A model writes cadences in many small variations. Each is pinned to what it reads as, or to a
 # refusal: never to "whatever the parser did".
 READ = [

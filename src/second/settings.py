@@ -145,22 +145,27 @@ it is a routing decision quietly made on a field that was never filled in.
 ``anthropic``, ``bedrock``, ``gemini``, ``litellm``, ``openai`` and
 ``openai_responses`` honour it. Those are the only providers this build uses."""
 
-GROQ_RESTRICTED = True
-"""Groq is unavailable to this account, and not for a reason a retry fixes.
+GROQ_FORCED_TOOL_CHOICE_VERIFIED = False
+"""Groq is reachable, but nothing here depends on it yet, and this is why.
 
-Signup completed normally; ``console.groq.com/keys`` then returned, before any
-API call had been made:
+The first Groq account was restricted at signup. ``console.groq.com/keys``
+returned, before any API call had been made:
 
     Restricted access
     Your organization has been restricted due to violating our terms of service.
 
 A fresh account with zero usage cannot have violated anything by using the
-product, so this is an automated block applied at signup -- the likeliest input
-is the country the account registered from, which is the same shape of problem as
-Bedrock refusing Anthropic models here. Recorded rather than deleted so the next
-person does not spend an hour rediscovering it.
+product, so that was an automated block at signup. A second account's console
+and key work.
 
-The entry above stays. It costs nothing, and it works the day the block lifts."""
+What has NOT been checked is the thing that matters: whether Groq honours a
+forced tool choice. Every routing decision in the Daily graph reads a typed field
+produced by a forced tool call, and a provider that accepts the parameter and
+ignores it raises no error. Run scripts/probe_provider.py against it and flip
+this only when all three checks pass.
+
+This replaces GROQ_RESTRICTED, which nothing read and which had stopped being
+true. The groq entry in OPENAI_COMPATIBLE stays."""
 
 TOOL_CHOICE_DISCARDING_PROVIDERS = frozenset(
     {"mistral", "ollama", "llamacpp", "llamaapi", "writer", "sagemaker"}

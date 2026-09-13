@@ -77,9 +77,14 @@ it gives Friday back, the exact day the user ruled out."""
 _FREQUENCY = re.compile(
     r"\b(?:twice|thrice)\b"
     r"|\b(?:\d+|one|two|three|four|five|six|seven|several|few|many)\s*(?:x|times?)\b"
+    r"|\b(?:\d+|one|two|three|four|five|six|seven)\s+(?:days?|mornings?|afternoons?|evenings?|nights?|sessions?)"
+    r"\s+(?:a|per|each|every)\s+(?:week|fortnight|month)\b"
 )
-"""A count per period: "twice a week", "3 times a week", "3x a week". It says how many, not which
-days, and choosing the days is the Scheduler's decision, not arithmetic."""
+"""A count per period: "twice a week", "3 times a week", "3x a week", "3 mornings a week". It says
+how many, not which days, and choosing the days is the Scheduler's decision, not arithmetic.
+
+"3 mornings a week" has no "times", and its 3 used to reach the bare-number rule, which told the
+user to write a clock time. The cadence was refused, but for the wrong thing."""
 
 _RELATIVE_TIME = re.compile(
     r"\b(?:before|after|around|about|roughly|approximately|earliest|latest)\b"
@@ -173,6 +178,10 @@ _DAY_PART_HOURS: dict[str, tuple[tuple[time, time], ...]] = {
 """Wide on purpose. These only catch a plain contradiction, "Tuesday mornings 19:00", where either
 word could be the mistake; they are not a definition of when a morning ends."""
 
+_NIGHT_ENDS = time(5, 0)
+"""A night's time before this is after midnight. "Friday nights 1am" is 01:00 on Saturday, a day the
+cadence never names, so it is refused rather than put on Friday or quietly moved to Saturday."""
+
 _WEEKLY = re.compile(r"\b(?:weekly|(?:every|each|per)\s+week)\b")
 _FILLER = re.compile(r"\b(?:on|at|every|each|and)\b")
 _WORD = re.compile(r"[a-z0-9]+")
@@ -255,8 +264,9 @@ def parse_cadence(text: str) -> Cadence:
 
     fortnightly = bool(_EVERY_OTHER_WEEKDAY.search(mask) or _FORTNIGHT.search(mask))
     mask = _blank(_FORTNIGHT, _blank(_EVERY_OTHER_WEEKDAY, mask))
-    at, mask = _read_time(mask, shown)
-    named, mask = _read_days(lowered, mask, shown)
+    marks, mask = _read_time(mask, shown)
+    named, day_starts, mask = _read_days(lowered, mask, shown)
+    day_starts += [match.start() for pattern in (_EVERY_DAY, _WEEKDAYS, _WEEKENDS) for match in pattern.finditer(mask)]
 
     grouped: frozenset[int] = frozenset()
     if _EVERY_DAY.search(mask):
@@ -277,6 +287,8 @@ def parse_cadence(text: str) -> Cadence:
             "length. A word it skipped could be the one that limits the rhythm, so nothing is proposed."
         )
 
+    at = _one_time(marks, day_starts, shown)
+
     if len(parts) > 1:
         raise CadenceUnreadable(f"{shown} names more than one part of the day, and Second will not pick one.")
     part = parts[0] if parts else None
@@ -285,12 +297,25 @@ def parse_cadence(text: str) -> Cadence:
             f"{shown} names {at:%H:%M}, which is not in the {part}, and Second will not choose which of "
             "the two you meant."
         )
+    if at is not None and part == "night" and at < _NIGHT_ENDS:
+        raise CadenceUnreadable(
+            f"{shown} names {at:%H:%M}, which is {'midnight' if at == time(0, 0) else 'after midnight'}, "
+            "so it falls on the next day, and the "
+            "cadence does not name that day. Second will not guess which day you meant."
+        )
 
     if fortnightly and (grouped or not named):
         # "Fortnightly" on its own has no single weekday to count the fortnight on, and reading it as
         # one would put a block on the wrong half of the days.
         raise CadenceUnreadable(
             f"{shown} alternates weeks, but not on a named weekday, so there is no fortnight to count."
+        )
+    if fortnightly and len(named) > 1:
+        # "Every other Tuesday and Thursday" could alternate both days, or only Tuesday with Thursday
+        # weekly. Both readings are common, and the wrong one halves or doubles a day's rhythm.
+        raise CadenceUnreadable(
+            f"{shown} alternates weeks on more than one day, and Second cannot tell which of the days "
+            "alternate, so nothing is proposed."
         )
 
     days = named | grouped
@@ -320,16 +345,17 @@ def _the_words(words: list[str]) -> str:
     return f"the words {', '.join(shown[:-1])} and {shown[-1]}"
 
 
-def _read_time(mask: str, shown: str) -> tuple[time | None, str]:
-    """The one time a cadence names, and the text with each time replaced by a mark.
+def _read_time(mask: str, shown: str) -> tuple[list[tuple[int, time]], str]:
+    """Every time a cadence names, where it was written, and the text with each replaced by a mark.
 
     am and pm are read before 24-hour times, because "7:30 pm" also contains "7:30", and reading
-    that half alone is the block twelve hours early.
+    that half alone is the block twelve hours early. Whether the times add up to one is decided in
+    :func:`_one_time`, once the days are known, because where a time sits among the days matters.
     """
-    found: set[time] = set()
+    found: list[tuple[int, time]] = []
 
     def marked(match: re.Match[str], value: time) -> str:
-        found.add(value)
+        found.append((match.start(), value))
         return _TIME_MARK + " " * (len(match.group(0)) - 1)
 
     def meridiem(match: re.Match[str]) -> str:
@@ -351,13 +377,52 @@ def _read_time(mask: str, shown: str) -> tuple[time | None, str]:
         raise CadenceUnreadable(
             f"{shown} has a number Second cannot read as a time. Write it as 19:00 or 7pm."
         )
-    if len(found) > 1:
+    return found, rest
+
+
+def _one_time(marks: list[tuple[int, time]], day_starts: list[int], shown: str) -> time | None:
+    """The one time a cadence names, if its days all share it, or refuse.
+
+    Days and times are read in the order they were written. A time that follows all the days ("Mon/
+    Wed 19:00") or comes before them all ("7pm Tuesdays") belongs to every day, and so does one
+    written after each group of days ("Wed 7pm and Sun 7pm"). A time with days on both sides of it
+    ("Mon 7pm and Wed") was put on Wednesday too, a time the user only ever wrote beside Monday.
+
+    Args:
+        marks: Where each time was written, and the time.
+        day_starts: Where each counted day, or group of days, was written.
+        shown: The cadence as the reason quotes it.
+    """
+    if not marks:
+        return None
+    runs: list[list[time | None]] = []
+    for _, value in sorted([(start, None) for start in day_starts] + marks, key=lambda item: item[0]):
+        if runs and (runs[-1][0] is None) == (value is None):
+            runs[-1].append(value)
+        else:
+            runs.append([value])
+    shape = "".join("D" if run[0] is None else "T" for run in runs)
+    each_group_timed = len(runs) >= 4 and re.fullmatch(r"(?:DT)+", shape) is not None
+
+    times = {value for _, value in marks}
+    if len(times) > 1:
+        if each_group_timed:
+            raise CadenceUnreadable(
+                f"{shown} gives its days different times, and two different times are not one cadence, "
+                "so Second will not pick one."
+            )
         raise CadenceUnreadable(f"{shown} names more than one time, and Second will not pick one.")
-    return (found.pop() if found else None), rest
+    if shape.find("T") > 0 and "D" in shape[shape.find("T") :] and not each_group_timed:
+        raise CadenceUnreadable(
+            f"{shown} puts a time after only some of its days, and Second will not guess whether the days "
+            "after it share that time."
+        )
+    return times.pop()
 
 
-def _read_days(lowered: str, mask: str, shown: str) -> tuple[frozenset[int], str]:
-    """Every weekday a cadence names, with ranges filled in, and the text with them blanked.
+def _read_days(lowered: str, mask: str, shown: str) -> tuple[frozenset[int], list[int], str]:
+    """Every weekday a cadence names, with ranges filled in, where each counted day was written, and
+    the text with them blanked.
 
     "Mon-Fri" is five days, not two. A range that does not run forwards through the week ("Fri-Mon")
     is refused rather than wrapped, because whether it means the weekend or the working week is
@@ -366,13 +431,16 @@ def _read_days(lowered: str, mask: str, shown: str) -> tuple[frozenset[int], str
     """
     tokens = list(_DAY_TOKEN.finditer(mask))
     joins = [_join(mask, tokens[index], tokens[index + 1]) for index in range(len(tokens) - 1)]
+    _refuse_spaced_abbreviations(mask, tokens, shown)
 
     days: set[int] = set()
+    starts: list[int] = []
     read: list[tuple[int, int]] = []
     for index, token in enumerate(tokens):
         joined = (index > 0 and joins[index - 1] is not None) or (index < len(joins) and joins[index] is not None)
         if _counts_as_day(lowered, mask, token, joined):
             days.add(_DAY_INDEX[token.group(0)[:2]])
+            starts.append(token.start())
             read.append(token.span())
 
     for index, join in enumerate(joins):
@@ -399,7 +467,31 @@ def _read_days(lowered: str, mask: str, shown: str) -> tuple[frozenset[int], str
 
     for begin, end in read:
         mask = mask[:begin] + " " * (end - begin) + mask[end:]
-    return frozenset(days), mask
+    return frozenset(days), starts, mask
+
+
+def _refuse_spaced_abbreviations(mask: str, tokens: list[re.Match[str]], shown: str) -> None:
+    """Refuse "mon wed fri 07:00", saying how to write it, rather than naming "mon" as a stray word.
+
+    Abbreviations with only spaces between them are not joined, so they do not count as days, and
+    the leftover rule used to refuse them as words Second does not read: true, and no help. The
+    reason now shows the user's own days written the way that reads.
+    """
+    run: list[re.Match[str]] = []
+    for token in tokens:
+        spaced = run and not mask[run[-1].end() : token.start()].strip()
+        if spaced and (token.group("short") or run[-1].group("short")):
+            run.append(token)
+            continue
+        if len(run) > 1:
+            break
+        run = [token]
+    if len(run) > 1:
+        written = "/".join(token.group(0).capitalize() for token in run)
+        raise CadenceUnreadable(
+            f"{shown} lists days with only spaces between them, so Second cannot tell they are a list. "
+            f"Write them as {written}."
+        )
 
 
 _RANGE_JOIN = re.compile(r"-|–|—|to|through|thru|until|till")
@@ -424,8 +516,12 @@ def _counts_as_day(lowered: str, mask: str, token: re.Match[str], joined: bool) 
     """Whether a day name is being used as a day.
 
     A spelled-out name always is. An abbreviation is when it is joined to another day ("Mon/Wed"),
-    stands alone as the whole cadence, follows "on" or "every", or is followed by a time or a part
-    of the day ("Sun 09:00", "Sat mornings"). Otherwise "sun" is the sun.
+    stands alone as the whole cadence, follows "on", "every" or a list word ("Mon 7pm and Wed"), or
+    is followed by a time or a part of the day ("Sun 09:00", "Sat mornings"). Otherwise "sun" is
+    the sun.
+
+    "and Wed" counts so that "Mon 7pm and Wed" is refused for what it is, a time beside only some of
+    its days, the same as "Monday 7pm and Wednesday", instead of for the word "wed".
 
     What follows is read from ``mask``, where a time is a mark; what comes before is read from the
     original, where "every other" is still there to see.
@@ -439,6 +535,8 @@ def _counts_as_day(lowered: str, mask: str, token: re.Match[str], joined: bool) 
         r"\b(?:on|every|each|next|this|alternate|every\s+(?:other|second|2nd|two|2))\s+$",
         lowered[: token.start()],
     ):
+        return True
+    if re.search(r"(?:,|&|\+|\band)\s*$", mask[: token.start()]):
         return True
     if re.match(rf"\s*,?\s*(?:at\s+)?{_TIME_MARK}\b", after):
         return True

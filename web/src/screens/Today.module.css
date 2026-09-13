@@ -231,3 +231,13 @@
   color: var(--text-dim);
   border-color: var(--rule-strong);
 }
+
+/* Fixture mode only: what came off the day after a goal was paused or retired,
+ * and why. The same weight Schedule and Memory give it, because it explains a
+ * day that is shorter than the brief it was read from. */
+.withdrawn {
+  max-width: var(--measure);
+  margin-top: var(--space-2);
+  font-size: var(--size-13);
+  color: var(--text-dim);
+}

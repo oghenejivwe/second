@@ -26,9 +26,10 @@
  * so the box stays open under the questions it asked.
  *
  * **Fixture mode shows the generated replies where there are any.** The week
- * question's answer and skip were generated from the real code, so they render
- * as a live reply would. Nothing was generated for the month question, and its
- * reply says so. A question anchored to a goal paused or retired this session is
+ * question's answer and skip were generated from the real code, after the
+ * prepared run, so they render as a live reply would in the quiet and prepared
+ * states. Nothing was generated for the decision or check-in mornings, or for
+ * the month question at all, and the reply there says so. A question anchored to a goal paused or retired this session is
  * taken off with a sentence saying why, because the checked-in memory cannot be
  * read again the way live memory is.
  */
@@ -37,12 +38,18 @@ import { useEffect, useState } from 'react'
 
 import { Problem } from '../components/Problem'
 import { Section } from '../components/Section'
-import { errorLine, isFixtureAcknowledgement, USING_FIXTURES, type QuestionHorizon } from '../api/client'
+import {
+  errorLine,
+  fixtureWeekRepliesHold,
+  isFixtureAcknowledgement,
+  USING_FIXTURES,
+  type QuestionHorizon,
+} from '../api/client'
 import { FIXTURE_WEEK_ANSWER } from '../api/weekAnswer'
 import { bySlot, clockTime, longDate, shortDate } from '../lib/datetime'
 import {
   andList,
-  whyWithdrawn,
+  takenOffLine,
   withdrawFromMemory,
   withdrawQuestions,
   type MemoryWithdrawal,
@@ -306,10 +313,8 @@ function withdrawnLine(
       ? `the ${horizons} ${removedQuestions.length === 1 ? 'question' : 'questions'}`
       : null,
   ].filter((part): part is string => part !== null)
-  const total = removedItems + removedQuestions.length
-  const first = parts.join(' and ')
 
-  return `${first.charAt(0).toUpperCase()}${first.slice(1)} ${total === 1 ? 'was' : 'were'} taken off Memory because ${whyWithdrawn(goalsOf(questions, items))}.`
+  return takenOffLine(parts, removedItems + removedQuestions.length, 'Memory', goalsOf(questions, items))
 }
 
 /** The goals either withdrawal named, once each, in the order the first list gave them. */
@@ -337,12 +342,17 @@ function stillOpen(settled: SettledQuestion): boolean {
 function Ask({ question, settled }: { question: HorizonQuestion; settled: SettledQuestion | undefined }) {
   const answerQuestion = useSecond((state) => state.answerQuestion)
   const skipQuestion = useSecond((state) => state.skipQuestion)
+  const fixtureState = useSecond((state) => state.fixtureState)
 
   // Fixture mode starts the week box with the sentence the generated answer was
   // made from, so what is sent is what the plan that comes back was made for.
   // Other words still get that plan, and the reply says it was made for these.
+  // In a state the answer was not generated for, the box starts empty: that
+  // sentence would promise a plan the reply then says does not exist here.
   const [text, setText] = useState(
-    USING_FIXTURES && question.horizon === 'week' ? FIXTURE_WEEK_ANSWER : '',
+    USING_FIXTURES && question.horizon === 'week' && fixtureWeekRepliesHold(fixtureState)
+      ? FIXTURE_WEEK_ANSWER
+      : '',
   )
   const [busy, setBusy] = useState<'answer' | 'skip' | null>(null)
   // Which action failed rather than a closure over it, so Try again sends the

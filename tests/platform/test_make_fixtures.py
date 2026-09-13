@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from second.core.models import Goal
+from second.graphs.schedule import build_schedule
 from second.testing import demo_scenario
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -75,6 +76,29 @@ def test_a_week_slot_on_top_of_a_placed_block_stops_the_generator(generator):
 
     with pytest.raises(AssertionError, match="overlaps Gym session"):
         generator.assert_the_week_slots_are_honest(graph)
+
+
+def test_the_graph_and_the_schedule_agree_about_the_gym_in_the_seeded_world(generator):
+    graph = demo_scenario.living_graph()
+    schedule = build_schedule(graph, generator.fixed_clock())
+
+    generator.assert_one_gym("seeded", graph, schedule)
+
+
+def test_a_graph_from_another_run_stops_the_generator(generator):
+    """A graph whose gym moved to 07:00 beside a schedule still at 18:00 is two worlds on one screen.
+
+    Mutation-tested: emptying the comparison in ``assert_one_gym`` lets this through and this fails.
+    """
+    graph = demo_scenario.living_graph()
+    schedule = build_schedule(graph, generator.fixed_clock())
+    gym = graph.task_by_id("t-gym")
+    gym.scheduled_slots = [
+        slot.replace(hour=7) if slot.date() == generator.TODAY else slot for slot in gym.scheduled_slots
+    ]
+
+    with pytest.raises(AssertionError, match="disagree about the gym"):
+        generator.assert_one_gym("moved", graph, schedule)
 
 
 def test_the_answer_and_the_frontend_quote_the_same_sentence(generator):

@@ -22,7 +22,7 @@ Preparer -- one node, two routes in, exactly one taken.
 **Context isolation across this graph**, enforced in ``composition.py``:
 
 ===============  ==========================================================
-observer         raw calendar, raw email -- the only node that sees them
+observer         raw calendar, raw email (the Preparer also searches mail, to draft)
 diagnostician    a sanitised evidence bundle; cannot reach Gmail or Calendar
 adapter          the verdict, plus the ability to move an event
 preparer         can draft an email; nothing in this system can send one
