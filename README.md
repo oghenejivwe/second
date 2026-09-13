@@ -57,6 +57,10 @@ planned at that horizon. Your answer goes through intake like anything else you 
 
 ## Architecture
 
+![Second architecture: the web app and FastAPI start three Strands graphs; dashed boxes (AgentCore, EventBridge, Lambda, Secrets Manager, the DynamoDB table, S3, Google Calendar, Gmail and web search) are built but not deployed or connected](docs/architecture.svg)
+
+Solid boxes run today. Dashed boxes are written and tested offline but not deployed or connected.
+
 Three Strands graphs share one store and one set of tools.
 
 ```mermaid
@@ -115,7 +119,7 @@ version number, so two nodes writing in one run cannot overwrite each other sile
 - Each agent receives only the tools it declares. `assert_privileges` checks this when the graph is
   built. The Adapter can change a task's time, title and cadence through `adapt_task`, and has no
   tool that can rewrite a whole goal, so it cannot erase slip history.
-- One audit hook is registered on the graph and on every agent, giving a single ordered log of node
+- One audit hook is registered on the graph and on every agent. It keeps a single ordered log of node
   spans and tool calls, including refused ones and the reason.
 - `RunawayGuard` caps model calls per node. `ResilientRetry` waits the delay a provider asks for.
   If the provider asks for more than about a minute, the daily allowance is gone, so it stops
@@ -123,16 +127,81 @@ version number, so two nodes writing in one run cannot overwrite each other sile
 - Run-wide state lives under one namespace in `invocation_state`, because the SDK writes its own
   keys into the same dictionary.
 
+### Least privilege
+
+Each agent module declares `REQUIRED_TOOLS` and `OUTPUT_MODEL` (`src/second/agents/`). This is the
+whole list.
+
+| Graph | Agent | Tools | Typed output |
+|---|---|---|---|
+| Intake | Extractor | `read_graph` | `ExtractionResult` |
+| Intake | Cascader | `read_graph`, `write_graph` | `CascadeResult` |
+| Intake | Route Planner | `read_graph` | `RoutePlan` |
+| Intake | Scheduler | `read_graph`, `get_calendar_events`, `find_free_slots`, `create_event`, `write_graph` | `ScheduleDecision` |
+| Intake | Resource Finder | `read_graph`, `web_search`, `update_person_model`, `write_graph` | None |
+| Daily | Observer | `read_graph`, `get_calendar_events`, `search_gmail`, `update_person_model` | `ObservationReport` |
+| Daily | Diagnostician | `read_graph`, `record_diagnosis` | `Diagnosis` |
+| Daily | Adapter | `read_graph`, `reschedule_event`, `adapt_task` | None |
+| Daily | Preparer | `read_graph`, `search_gmail`, `draft_email`, `web_search` | `PreparedAction` |
+| Daily | Communicator | none | `BriefJudgement` |
+| Feedback | Interpreter | `read_graph` | `FeedbackResult` |
+| Feedback | Graph Updater | `write_graph`, `update_person_model`, `set_goal_status`, `record_completion` | None |
+
+The Diagnostician has no calendar or email tool, so it never reads raw calendar events or email;
+it works from the Observer's report and the graph. The Communicator has no tools at all and cannot
+look anything up to pad a quiet morning. The Adapter has no tool that can rewrite a whole goal, so
+it cannot erase slip history while it moves a task. When a graph is built, `assert_privileges`
+(`src/second/core/deps.py`) compares the tools each agent was given with its declaration and
+refuses to build if one is missing or an extra one was injected.
+
 ## Status on 13 September 2026
 
 | Part | State |
 |---|---|
 | Daily graph on a live model | Seven end-to-end runs on the Gemini free tier. The Diagnostician cited the real evidence and returned `UNKNOWN` for the slip nothing explained. These runs used the fake calendar and inbox and an in-process DynamoDB. |
-| Web app | Runs on example data generated from the real graph code, labelled "fixtures" on screen. |
+| Web app | Runs on example data generated from the real graph code, labelled "fixtures" on screen. Not hosted yet. |
 | Google Calendar and Gmail | Tools, scopes and consent screen done. The OAuth app is not yet published and no token exists, so nothing has read a real calendar. |
 | AWS resources | Table, bucket and IAM policy are scripted (`scripts/bootstrap_aws.py`, `deploy/iam-policy.json`). Not yet created. |
 | AgentCore and the morning schedule | Entrypoint (`app.py`) and trigger (`deploy/lambda_shim.py`) written. Not deployed. |
 | Model provider | Gemini free tier verified. Groq pending a probe of forced tool choice. Bedrock refuses Anthropic models for this account's country. |
+
+## Testing it as a judge
+
+Three ways in, fastest first. The first two need no accounts: no AWS, no Google, no model key.
+
+**1. The web app on example data.** Needs Node 24.
+
+```bash
+cd web
+npm ci
+npm run dev
+```
+
+Open the localhost URL that Vite prints. The navigation rail shows `fixtures`, meaning every screen
+runs on data produced by running the real graphs with a scripted model, not on a live backend.
+The screens are Record, Living Graph, Today, Schedule, Memory and Goals.
+
+**2. The offline test suite.** Needs Python 3.12 and uv.
+
+```bash
+uv sync
+uv run pytest -q
+```
+
+DynamoDB runs in-process through `moto`, Google is replaced by fake connectors, and the model is
+scripted, so no credentials are needed.
+
+**3. A live Daily run.** Needs an account with one model provider. Copy `.env.example` to `.env`,
+set `SECOND_MODEL_PROVIDER` and that provider's key (the recorded runs used `gemini`), then:
+
+```bash
+uv run python scripts/live_daily.py
+```
+
+The five Daily agents run on the real model against the demo world. The calendar, inbox and web
+search are fakes and DynamoDB runs in-process, so this still needs no AWS or Google account. The
+things to watch are whether the Diagnostician quotes evidence from the Observer's report or returns
+`UNKNOWN`, and whether the Preparer stops at a draft.
 
 ## Running it
 
@@ -151,7 +220,7 @@ npm ci
 npm run dev
 ```
 
-A live Daily run against a model. Put a provider key in `.env` first; `.env.example` lists them.
+A live Daily run against a model. Set `SECOND_MODEL_PROVIDER` and that provider's key in `.env` first; `.env.example` lists them, and the recorded runs used `gemini`.
 
 ```bash
 uv run python scripts/live_daily.py
@@ -180,13 +249,31 @@ Testing expires after seven days.
 ## Demo build
 
 `npm run build:demo` builds a static bundle that runs on the generated example data with no API
-behind it. This is what the hosted demo uses (`web/vercel.json`). `npm run fixtures` regenerates
-that data by running the real graphs with a scripted model.
+behind it. This is what the Vercel deployment builds (`web/vercel.json`); it is not deployed yet.
+`npm run fixtures` regenerates that data by running the real graphs with a scripted model.
 
 ## Tests
 
 The suite runs offline: `moto` for DynamoDB, fake Google connectors, and a scripted model. Safety
 guards are mutation-checked: each one is broken on purpose to confirm a test fails, then restored.
+
+## How this was built
+
+Second was built from 10 to 14 September 2026, inside the hackathon's submission period, by one
+founder, Patrick Oghenejivwe, in Nigeria. He worked with an AI coding assistant, Claude Code, and
+the commits it helped write carry a `Co-Authored-By: Claude` line. The first commit is dated
+10 September 2026.
+
+No code from an earlier project is in this repository. Everything not written here is an
+open-source library, declared in `pyproject.toml` and `web/package.json`. Google Calendar, Gmail,
+web search and the model providers are called through their published APIs and used under their
+terms.
+
+The model provider changed during the build. Amazon Bedrock refused Anthropic models for this
+account's country, so the live runs moved to the Gemini free tier. Its per-model limits, five requests a
+minute and twenty a day, are why each node runs on its own model. Those runs exposed bugs that were then
+fixed: the retry ladder ignored Gemini's stated retry delay, and the Adapter ran out of output
+tokens retyping a whole goal, which is why `adapt_task` exists.
 
 ## Licence
 

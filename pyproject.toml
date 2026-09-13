@@ -1,7 +1,7 @@
 [project]
 name = "second"
 version = "0.1.0"
-description = "Add your description here"
+description = "A personal execution agent built with the Strands Agents SDK: it plans your goals into your calendar, checks what happened, and hands you the smallest next step."
 readme = "README.md"
 authors = [
     { name = "oghenejivwe", email = "oghenejivwe@users.noreply.github.com" }
