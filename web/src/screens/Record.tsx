@@ -6,6 +6,8 @@ import { api, errorLine } from '../api/client'
 import { clockTime, duration, shortDate } from '../lib/datetime'
 import { diffGraphs, type GraphDiff } from '../lib/diff'
 import { HORIZON_LABEL } from '../lib/horizon'
+import { confirmation } from '../lib/confirm'
+import { speak } from '../lib/speech'
 import { useRecorder, type Recorder, type RecorderPhase } from '../lib/useRecorder'
 import { useSecond } from '../store/useSecond'
 import type {
@@ -75,6 +77,18 @@ export function Record() {
   const [result, setResult] = useState<IntakeResult | null>(null)
   const [written, setWritten] = useState<Written | null>(null)
   const [intakeProblem, setIntakeProblem] = useState<string | null>(null)
+  const [heard, setHeard] = useState<string | null>(null)
+
+  // A spoken "got it" the moment the microphone stops with words in hand, so the
+  // person knows they were heard before they press send.
+  const acknowledged = useRef(false)
+  useEffect(() => {
+    if (recorder.phase === 'recording') acknowledged.current = false
+    if (recorder.phase === 'stopped' && !acknowledged.current && recorder.live.trim()) {
+      acknowledged.current = true
+      void speak('Got it. I heard you. Press send and I will plan it.')
+    }
+  }, [recorder.phase, recorder.live])
 
   const uploaded = useRef<Blob | null>(null)
 
@@ -211,6 +225,7 @@ export function Record() {
     setResult(null)
     setWritten(null)
     setIntakeProblem(null)
+    setHeard(null)
     uploaded.current = null
     recorder.start()
   }
@@ -229,6 +244,11 @@ export function Record() {
       .intake(transcript)
       .then((next) => {
         setResult(next)
+        // Say what happened, out loud and on screen, so a spoken request gets a
+        // spoken answer instead of a silent change further down the page.
+        const said = confirmation(transcript, next)
+        setHeard(said)
+        void speak(said)
         // With no before-graph there is no diff, and marking everything as new
         // would be a lie. `null` means the section is not shown at all.
         //
@@ -341,6 +361,13 @@ export function Record() {
         </div>
       </Section>
 
+      {recorder.phase === 'stopped' && draft.trim() && !result && !sending && (
+        <p className={styles.gotIt} role="status">
+          Got it. I heard <span className="tabular">{draft.trim().split(/\s+/).length}</span> words.
+          Press Send to Second and I will plan it.
+        </p>
+      )}
+
       {intakeProblem && <Problem what={intakeProblem} onRetry={send} />}
 
       {sending && (
@@ -353,6 +380,15 @@ export function Record() {
 
       {result && (
         <div className={styles.results}>
+          {heard && (
+            <p className={styles.heard} role="status">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              <span>{heard}</span>
+            </p>
+          )}
           <Outcome result={result} />
           {written && <Added graph={result.graph} written={written} />}
         </div>
