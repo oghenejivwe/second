@@ -159,13 +159,16 @@ refuses to build if one is missing or an extra one was injected.
 | Part | State |
 |---|---|
 | Daily graph on a live model | Seven end-to-end runs on the Gemini free tier. The Diagnostician cited the real evidence and returned `UNKNOWN` for the slip nothing explained. These runs used the fake calendar and inbox and an in-process DynamoDB. |
-| Web app | Runs on example data generated from the real graph code, labelled "fixtures" on screen. Not hosted yet. |
+| Web app | Runs on example data generated from the real graph code, labelled "fixtures" on screen. Hosted at https://second-blush-ten.vercel.app. |
 | Google Calendar and Gmail | Tools, scopes and consent screen done. The OAuth app is not yet published and no token exists, so nothing has read a real calendar. |
 | AWS resources | Table, bucket and IAM policy are scripted (`scripts/bootstrap_aws.py`, `deploy/iam-policy.json`). Not yet created. |
 | AgentCore and the morning schedule | Entrypoint (`app.py`) and trigger (`deploy/lambda_shim.py`) written. Not deployed. |
 | Model provider | Gemini free tier verified. Groq pending a probe of forced tool choice. Bedrock refuses Anthropic models for this account's country. |
 
 ## Testing it as a judge
+
+The quickest look needs nothing installed: https://second-blush-ten.vercel.app runs the web app on the same example data,
+labelled "fixtures". Open it at the root; screens switch from the rail, not by URL.
 
 Three ways in, fastest first. The first two need no accounts: no AWS, no Google, no model key.
 
@@ -249,7 +252,7 @@ Testing expires after seven days.
 ## Demo build
 
 `npm run build:demo` builds a static bundle that runs on the generated example data with no API
-behind it. This is what the Vercel deployment builds (`web/vercel.json`); it is not deployed yet.
+behind it. This is what the Vercel deployment builds (`web/vercel.json`), live at https://second-blush-ten.vercel.app.
 `npm run fixtures` regenerates that data by running the real graphs with a scripted model.
 
 ## Tests

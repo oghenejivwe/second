@@ -20,17 +20,17 @@ Status is one of: done, to do, blocked on (the thing it waits for).
 
 | Item | Owner | Status | Exactly what to do |
 |---|---|---|---|
-| Project name | You | to do | `Second` |
-| Tagline | You | to do | Paste the Tagline line from `SUBMISSION.md`: `Say your goals out loud. Second plans them into your calendar, checks each morning what really happened, fixes what it can and hands you the smallest piece.` |
+| Project name | CTO | done (13 Sep) | `Second` |
+| Tagline | CTO | done (13 Sep) | Paste the Tagline line from `SUBMISSION.md`: `Say your goals out loud. Second plans them into your calendar, checks each morning what really happened, fixes what it can and hands you the smallest piece.` |
 | Track | You | to do | Select Everyday Agents. |
 | Repository URL | You | done (public, checked 13 Sep) | Paste `https://github.com/oghenejivwe/second` |
 | Licence | You | done | Select MIT. `LICENSE` is at the repository root and GitHub detects it as MIT. |
-| Text description | CTO writes, you paste | to do (draft at `SUBMISSION.md`, repository root) | Paste it section by section into the matching boxes, in the file's order. Do not trim the status lines (AgentCore not deployed, AWS table and bucket not created, no real calendar or inbox read, demo runs on data labelled `fixtures`) or the build disclosure (one founder, 10 to 14 Sep 2026, Claude Code as coding assistant, no pre-existing project code, open-source libraries only). The rules require both. |
-| Built with | You | to do | Enter these tags: python, strands-agents, pydantic, fastapi, amazon-dynamodb, amazon-s3, amazon-transcribe, aws-secrets-manager, amazon-eventbridge-scheduler, aws-lambda, amazon-bedrock-agentcore, google-gemini, google-calendar-api, gmail-api, tavily, react, typescript, vite, react-flow, zustand, pytest, moto, uv. Add vercel once the demo is live. Leave out Amazon Bedrock (it refused Anthropic models for this account, so no run used it) and Groq (forced tool choice not verified). |
-| Architecture diagram | You upload | done: `docs/architecture.png` (3200x2000, labels checked legible on 13 Sep) | Upload `docs/architecture.png` to the form's image gallery, or to the diagram field if the form has one. |
+| Text description | CTO | done (13 Sep, in About the project) | Paste it section by section into the matching boxes, in the file's order. Do not trim the status lines (AgentCore not deployed, AWS table and bucket not created, no real calendar or inbox read, demo runs on data labelled `fixtures`) or the build disclosure (one founder, 10 to 14 Sep 2026, Claude Code as coding assistant, no pre-existing project code, open-source libraries only). The rules require both. |
+| Built with | CTO | done (13 Sep, 24 tags including vercel) | Enter these tags: python, strands-agents, pydantic, fastapi, amazon-dynamodb, amazon-s3, amazon-transcribe, aws-secrets-manager, amazon-eventbridge-scheduler, aws-lambda, amazon-bedrock-agentcore, google-gemini, google-calendar-api, gmail-api, tavily, react, typescript, vite, react-flow, zustand, pytest, moto, uv. Add vercel once the demo is live. Leave out Amazon Bedrock (it refused Anthropic models for this account, so no run used it) and Groq (forced tool choice not verified). |
+| Architecture diagram | CTO | done: uploaded to the gallery with a caption, and as the thumbnail. `docs/architecture.png` (3200x2000, labels checked legible on 13 Sep) | Upload `docs/architecture.png` to the form's image gallery, or to the diagram field if the form has one. |
 | Video URL | You | blocked on recording the video | Paste the YouTube or Vimeo URL after the video is set to Public. Checks are in section 5. |
 | Builder ID | You | blocked on Builder ID | Enter the Builder ID from section 1 exactly as the form asks for it. |
-| Testing access link | You | blocked on the Vercel deploy | Paste the Vercel production URL from section 3 into the Try it out field. Add the repository URL as a second link. |
+| Testing access link | CTO | done (13 Sep) | https://second-blush-ten.vercel.app is the first Try it out link and the repository the second. |
 
 ## 3. Testing access
 
@@ -38,22 +38,21 @@ The rules require a link judges can open. The link is a static build of the web 
 
 | Item | Owner | Status | Exactly what to do |
 |---|---|---|---|
-| Confirm `web/` is ready to ship | CTO | blocked on the workflow still editing `web/src` | When that workflow finishes: commit `web/`, run `npm run build:demo` inside `web/`, and tell you it passed. The Vercel CLI uploads your local folder, so deploying earlier would ship half-edited files. |
-| Deploy the demo build to Vercel | You | blocked on the row above | Run the commands below. Only you can, because they need your Vercel login. `web/vercel.json` already sets the framework (Vite), install (`npm ci`), build (`npm run build:demo`) and output (`dist`). When the CLI asks whether to change those settings, answer no. |
-| Open the link logged out | You | blocked on the deploy | In a private window, open the production domain shown under Domains in the Vercel dashboard (the short `something.vercel.app` one, not the long per-deployment URL). If it asks you to log in to Vercel, turn off Vercel Authentication in Project Settings, Deployment Protection. Check the rail shows `fixtures` and that Record, Living Graph, Today, Schedule, Memory and Goals all open. |
-| Put the link in the form | You | blocked on the deploy | Try it out field, first link. |
-| Name the link in the README | CTO | blocked on the deploy | The README status table says the web app is "Not hosted yet" and the Demo build section says "it is not deployed yet". Replace both with the live URL and push. |
+| Confirm `web/` is ready to ship | CTO | done (13 Sep) | `web/` is committed and `npm run build:demo` passed. |
+| Deploy the demo build to Vercel | CTO | done (13 Sep) | Deployed with the Vercel CLI from `web/` to the project `second` in Jivwe's projects. Production: https://second-blush-ten.vercel.app. The Vercel account signs in with a different GitHub account (cryptowarrybuffett), so a push does not redeploy; run the command below after changing `web/`. |
+| Open the link logged out | You | CTO checked 13 Sep (200 with no login, all six screens open); check once yourself | In a private window, open the production domain shown under Domains in the Vercel dashboard (the short `something.vercel.app` one, not the long per-deployment URL). If it asks you to log in to Vercel, turn off Vercel Authentication in Project Settings, Deployment Protection. Check the rail shows `fixtures` and that Record, Living Graph, Today, Schedule, Memory and Goals all open. |
+| Put the link in the form | CTO | done (13 Sep) | Try it out field, first link. |
+| Name the link in the README | CTO | done (13 Sep) | The status table, Testing it as a judge and Demo build all carry the live URL. |
 | Local run steps for judges who clone | CTO | done | Already in the README under "Testing it as a judge". Copied below so the form description can point to them. |
 
-Deploy, from the repository root:
+Redeploy after changing `web/`, from the repository root:
 
 ```bash
 cd web
-npx vercel login
-npx vercel --prod
+npx vercel deploy --prod
 ```
 
-On the first run the CLI asks to set up and link a project. Accept, create a new project, and say the code is in `./`. If the build log fails on the Node version, set Node.js Version to 24.x in Project Settings and redeploy.
+The CLI on this machine is logged in and `web/` is linked to the project, so it runs without prompts. The link lives in `web/.vercel/`, which is gitignored.
 
 Local run steps (from the README):
 
