@@ -94,7 +94,8 @@ def test_a_day_range_covers_every_day_in_it(cadence, weekdays):
         ("Tuesdays 7pm", time(19, 0)),
         ("Tuesdays 7 p.m.", time(19, 0)),
         ("Tuesdays 7am", time(7, 0)),
-        ("Tuesdays 12am", time(0, 0)),
+        # "Tuesdays 12am" was pinned here as 00:00. Midnight beside a named day could be the start of
+        # that day or the end of it, so it is refused now: see test_cadence_shape.py.
         ("Tuesdays 12pm", time(12, 0)),
         ("Tuesdays 12:30am", time(0, 30)),
         ("Tuesdays noon", time(12, 0)),
@@ -357,8 +358,8 @@ def test_a_night_time_before_midnight_still_reads():
 def test_a_time_after_only_some_of_the_days_is_refused(cadence):
     """"Monday 7pm and Wednesday" put Wednesday at 19:00, a time the user only wrote beside Monday.
 
-    Mutation-tested: letting ``_one_time`` return the time when days follow it reads Wednesday at
-    19:00 and this fails.
+    Mutation-tested: letting ``_refuse_unread_order`` accept every order reads Wednesday at 19:00
+    and this fails.
     """
     with pytest.raises(CadenceUnreadable) as refused_with:
         parse_cadence(cadence)
