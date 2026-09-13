@@ -7,7 +7,9 @@
       "source": "graph",
       "kind": "event",
       "at": "2026-09-10T07:00:00+01:00",
-      "due": null
+      "due": null,
+      "goal_id": "g-fitness",
+      "task_id": "t-gym"
     },
     {
       "what": "Record five minutes and listen back",
@@ -15,7 +17,9 @@
       "source": "graph",
       "kind": "event",
       "at": "2026-09-10T08:00:00+01:00",
-      "due": null
+      "due": null,
+      "goal_id": "g-speaking",
+      "task_id": "t-recording"
     },
     {
       "what": "Draft the talk pitch",
@@ -23,7 +27,9 @@
       "source": "graph",
       "kind": "event",
       "at": "2026-09-10T17:00:00+01:00",
-      "due": null
+      "due": null,
+      "goal_id": "g-speaking",
+      "task_id": "t-pitch"
     },
     {
       "what": "Request leave for the wedding week, due Tue 15 Sep",
@@ -31,7 +37,9 @@
       "source": "graph",
       "kind": "waiting_on_you",
       "at": null,
-      "due": "2026-09-15"
+      "due": "2026-09-15",
+      "goal_id": "g-lisbon",
+      "task_id": "t-leave"
     },
     {
       "what": "Book flights to Lisbon, due Thu 24 Sep",
@@ -39,7 +47,9 @@
       "source": "graph",
       "kind": "deadline",
       "at": null,
-      "due": "2026-09-24"
+      "due": "2026-09-24",
+      "goal_id": "g-lisbon",
+      "task_id": "t-flights"
     },
     {
       "what": "No meetings before 09:00",
@@ -47,7 +57,9 @@
       "source": "graph",
       "kind": "constraint",
       "at": null,
-      "due": null
+      "due": null,
+      "goal_id": null,
+      "task_id": null
     },
     {
       "what": "Sundays are family",
@@ -55,7 +67,9 @@
       "source": "graph",
       "kind": "constraint",
       "at": null,
-      "due": null
+      "due": null,
+      "goal_id": null,
+      "task_id": null
     },
     {
       "what": "Your sister asked whether the flights are booked. You have not replied.",
@@ -63,7 +77,9 @@
       "source": "email",
       "kind": "reminder",
       "at": null,
-      "due": null
+      "due": null,
+      "goal_id": null,
+      "task_id": null
     }
   ],
   "sources": [

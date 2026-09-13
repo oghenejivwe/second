@@ -37,8 +37,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -51,10 +52,13 @@ from second.core.clock import Clock
 from second.core.deps import AgentDeps
 from second.core.models import (
     BriefJudgement,
+    DailyBrief,
     Diagnosis,
     ExtractionResult,
+    LivingGraph,
     ObservationReport,
     PreparedAction,
+    Schedule,
     ScheduleDecision,
 )
 from second.graphs import service
@@ -128,7 +132,8 @@ def pinned_zone():
     ``service._clock_for`` calls ``resolve_clock()``, which reads the timezone from Google when a
     token is configured and from the machine otherwise. Either way the fixture would depend on
     where it was generated, which is the thing ``TIMEZONE`` above is pinned to prevent. Used around
-    the schedule and memory fixtures only, so every earlier fixture is generated exactly as before.
+    the schedule, memory, goal and question fixtures; the Daily and intake runs are generated
+    exactly as before.
     """
     with mock.patch.object(service, "resolve_clock", lambda *_args, **_kwargs: fixed_clock()):
         yield
@@ -258,7 +263,7 @@ def gym_adaptation(run_day, new_hour: int = 7) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Daily: the three states Today actually has
+# Daily: the states Today actually has
 # ---------------------------------------------------------------------------
 
 GYM_CONFLICT = {
@@ -434,31 +439,74 @@ DECISION_JUDGEMENT = {
 }
 
 
-async def make_daily_fixtures() -> None:
-    """Four briefs, one per state Today has to render."""
-    variants = [
-        ("brief-quiet.json", TODAY, GYM_CONFLICT, QUIET, None, None),
-        ("brief-prepared.json", TODAY, GYM_CONFLICT, PREPARED_JUDGEMENT, LEAVE_DRAFT, "audit.json"),
-        ("brief-decision.json", TODAY, HONEST_UNKNOWN, DECISION_JUDGEMENT, None, None),
-        ("brief-checkin.json", NEXT_MORNING, GYM_CONFLICT, QUIET, None, None),
-    ]
+DAILY_VARIANTS = [
+    # brief, memory, schedule, day, diagnosis, judgement, prepared, audit
+    ("brief-quiet.json", "memory-quiet.json", "schedule-quiet.json", TODAY, GYM_CONFLICT, QUIET, None, None),
+    ("brief-prepared.json", "memory.json", "schedule.json", TODAY, GYM_CONFLICT, PREPARED_JUDGEMENT, LEAVE_DRAFT, "audit.json"),
+    ("brief-decision.json", "memory-decision.json", "schedule-decision.json", TODAY, HONEST_UNKNOWN, DECISION_JUDGEMENT, None, None),
+    ("brief-checkin.json", "memory-checkin.json", "schedule-checkin.json", NEXT_MORNING, GYM_CONFLICT, QUIET, None, None),
+]
+"""One world per state Today has: the brief, and the Memory and Schedule read from the same store
+straight after that brief's run.
 
-    for name, on, diagnosis, judgement, prepared, audit_name in variants:
+memory.json and schedule.json used to be written after the prepared run only, and the frontend
+showed them beside every brief. In the decision state Today put the gym at 18:00, because its
+Adapter never ran, while Schedule put it at 07:00 from a run that did, and Memory listed the quiet
+morning's items. ``memory.json`` and ``schedule.json`` keep their names for the prepared state."""
+
+
+async def run_variant(on: date, diagnosis: dict, judgement: dict, prepared: dict | None) -> DailyBrief:
+    """One scripted morning run into the current store. Call inside ``mock_aws`` after ``fresh_store``."""
+    return await service.run_daily(
+        USER,
+        today=on,
+        model=object(),
+        registry=registry(),
+        specs=daily_specs(
+            diagnosis=diagnosis,
+            judgement=judgement,
+            prepared=prepared,
+            reconciling=on - timedelta(days=1),
+        ),
+    )
+
+
+async def prepared_world() -> LivingGraphStore:
+    """A store holding the world as it stands after the prepared morning run. Call inside ``mock_aws``.
+
+    The goal and question fixtures start here. Retiring a goal from the seeded world handed the
+    Living Graph a graph from before the run, so retiring the speaking goal after "Run the day"
+    quietly put the gym back at 18:00.
+    """
+    store = fresh_store(None)
+    await run_variant(TODAY, GYM_CONFLICT, PREPARED_JUDGEMENT, LEAVE_DRAFT)
+    assert_after_the_run(store.load(USER))
+    return store
+
+
+def assert_after_the_run(graph: LivingGraph) -> None:
+    """Stop the generator if a world that should be after the run is not."""
+    gym = next(route for goal in graph.goals for route in goal.routes if route.id == "r-gym")
+    assert gym.cadence == "Mon/Wed/Fri 07:00", f"expected the Adapter's gym cadence, found {gym.cadence!r}"
+
+
+def assert_one_world(name: str, brief: DailyBrief, schedule: Schedule) -> None:
+    """Today's blocks on the brief are exactly the placed blocks on the schedule's first day."""
+    first = schedule.days[0]
+    assert first.on == brief.on, f"{name}: schedule starts {first.on}, brief is for {brief.on}"
+    placed = [(block.task_id, block.start) for block in first.blocks if block.status == "placed"]
+    assert placed == [(block.task_id, block.start) for block in brief.blocks], (
+        f"{name}: the brief and the schedule disagree about today: {brief.blocks} vs {placed}"
+    )
+
+
+async def make_daily_fixtures() -> None:
+    """Four briefs, one per state Today has to render, each with its own Memory and Schedule."""
+    for brief_name, memory_name, schedule_name, on, diagnosis, judgement, prepared, audit_name in DAILY_VARIANTS:
         with mock_aws():
             store = fresh_store(None)
-            brief = await service.run_daily(
-                USER,
-                today=on,
-                model=object(),
-                registry=registry(),
-                specs=daily_specs(
-                    diagnosis=diagnosis,
-                    judgement=judgement,
-                    prepared=prepared,
-                    reconciling=on - timedelta(days=1),
-                ),
-            )
-            write(name, brief.model_dump(mode="json"))
+            brief = await run_variant(on, diagnosis, judgement, prepared)
+            write(brief_name, brief.model_dump(mode="json"))
 
             if audit_name:
                 entries = service.read_audit(USER, limit=200)
@@ -468,30 +516,18 @@ async def make_daily_fixtures() -> None:
             # rationale. The Living Graph screen has to show the world AFTER a
             # run, not before it, so both states are checked in and the screen
             # can diff them.
-            if name == "brief-prepared.json":
+            if brief_name == "brief-prepared.json":
                 write("living-graph-after-run.json", store.load(USER).model_dump(mode="json"))
 
-                # Memory and Schedule come from the same store as this brief, after the run, so the
-                # three screens agree about the day. Memory reads what the run left behind: the
-                # email reminder and the prepared draft live on the cached brief. Schedule reads the
-                # graph the Adapter rewrote: the gym route is now Mon/Wed/Fri 07:00 and its
-                # rationale cites the abandoned 18:00 slots, so the gym sits at 07:00 here exactly
-                # as on Today. The refusal story is carried by the proposed blocks' why, but not in
-                # this default week: the Adapter placed the gym on every Mon/Wed/Fri up to Wed 16,
-                # so there is no gym proposal and no 18:00 refusal to show. The first gym proposal,
-                # with that rationale as its why, is Fri 18 Sep, which only a 14-day span reaches.
-                with pinned_zone():
-                    memory = service.get_memory(USER, today=on, calendar=read_fake_calendar)
-                    schedule = service.get_schedule(USER, today=on)
-                write("memory.json", memory.model_dump(mode="json"))
-                write("schedule.json", schedule.model_dump(mode="json"))
-
-            if name == "brief-quiet.json":
-                # Memory beside the quiet brief: no reminder and no draft, because this run produced
-                # neither. The frontend picks this or memory.json by which brief is on screen.
-                with pinned_zone():
-                    memory = service.get_memory(USER, today=on, calendar=read_fake_calendar)
-                write("memory-quiet.json", memory.model_dump(mode="json"))
+            # Memory reads what this run left behind: the reminder and any prepared draft live on
+            # the brief it cached. Schedule reads the graph this run wrote, so the gym is at 07:00
+            # where the Adapter ran and still at 18:00 in the decision state, where it did not.
+            with pinned_zone():
+                memory = service.get_memory(USER, today=on, calendar=read_fake_calendar)
+                schedule = service.get_schedule(USER, today=on)
+            assert_one_world(brief_name, brief, schedule)
+            write(memory_name, memory.model_dump(mode="json"))
+            write(schedule_name, schedule.model_dump(mode="json"))
 
             service.set_store(None)
 
@@ -652,36 +688,51 @@ async def make_intake_fixtures() -> None:
 # ---------------------------------------------------------------------------
 
 
-def make_goal_fixtures() -> None:
+async def make_goal_fixtures() -> None:
     with mock_aws():
         fresh_store(None)
         write("living-graph.json", service.load_living_graph(USER).model_dump(mode="json"))
-
-        change = service.set_goal_status(USER, "g-speaking", "retired", today=TODAY)
-        write("goal-retired.json", change.model_dump(mode="json"))
         service.set_store(None)
 
-    with mock_aws():
-        fresh_store(None)
-        change = service.set_goal_status(USER, "g-lisbon", "paused", today=TODAY)
-        write("goal-paused.json", change.model_dump(mode="json"))
-        service.set_store(None)
+    for goal_id, status, name in (
+        ("g-speaking", "retired", "goal-retired.json"),
+        ("g-lisbon", "paused", "goal-paused.json"),
+    ):
+        with mock_aws():
+            await prepared_world()
+            with pinned_zone():
+                change = service.set_goal_status(USER, goal_id, status, today=TODAY)
+            assert_after_the_run(change.graph)
+            write(name, change.model_dump(mode="json"))
+            service.set_store(None)
 
 
 # ---------------------------------------------------------------------------
 # The recurring question: answered, and skipped
 # ---------------------------------------------------------------------------
 
-WEEK_DEADLINE = TODAY + timedelta(days=8)
-"""Friday 18 September on the demo date. Derived, so the spoken answer and the goal cannot disagree."""
+WEEK_DEADLINE = TODAY + timedelta(days=9)
+"""Saturday 19 September on the demo date. Derived, so the spoken answer and the goal cannot disagree."""
 
 WEEK_ANSWER = (
-    "Send the leave request today, and book the flights to Lisbon by "
+    "Confirm the hotel and buy travel insurance by "
     f"{WEEK_DEADLINE:%A} {WEEK_DEADLINE.day} {WEEK_DEADLINE:%B}."
 )
+"""New work under the wedding goal, and nothing the graph already holds.
 
-LEAVE_SLOT = datetime.combine(TODAY, datetime.min.time()).replace(hour=12)
-FLIGHTS_SLOT = LEAVE_SLOT + timedelta(days=1)
+The answer used to be "Send the leave request today, and book the flights", which created two new
+tasks beside t-leave and t-flights, with a flights deadline that disagreed with the existing one.
+The hotel is what the sister's email names, and neither errand has a task yet."""
+
+HOTEL_SLOT = datetime.combine(TODAY, time(12, 0))
+INSURANCE_SLOT = HOTEL_SLOT + timedelta(days=1)
+WEEK_SLOTS = (HOTEL_SLOT, INSURANCE_SLOT)
+"""Naive, because the Living Graph holds wall-clock time. Every placement and calendar call made
+from them is passed through the demo clock first, so the fixture carries zone-aware starts."""
+
+
+def aware(slot: datetime) -> str:
+    return fixed_clock().local(slot).isoformat()
 
 
 def lisbon_week_goal(*, placed: bool) -> dict[str, Any]:
@@ -690,40 +741,40 @@ def lisbon_week_goal(*, placed: bool) -> dict[str, Any]:
     Written twice, as a real run writes it: by the Route Planner without slots, then by the
     Scheduler with the slots it chose. ``placed`` says which of the two this is.
     """
+    deadline = WEEK_DEADLINE.isoformat()
     return {
         "id": "g-lisbon-week",
-        "title": "Send the leave request and book the Lisbon flights",
+        "title": "Confirm the hotel and buy travel insurance",
         "horizon": "week",
         "contributes_to": "g-lisbon",
-        "deadline": WEEK_DEADLINE.isoformat(),
+        "deadline": deadline,
         "status": "active",
         "extraction_confidence": 0.95,
         "routes": [
             {
                 "id": "r-lisbon-week",
                 "goal_id": "g-lisbon-week",
-                "title": "Leave request first, then the flights",
-                "cadence": "One-off, this week",
+                "title": "Two errands before the wedding trip",
+                "cadence": f"One-off, by {WEEK_DEADLINE:%A} {WEEK_DEADLINE.day} {WEEK_DEADLINE:%B}",
                 "rationale": (
-                    "Booking the flights has slipped twice because leave was not confirmed, so the "
-                    "request goes first. Both sit at midday because nothing goes before 09:00 for you."
+                    "Two errands with the same deadline, and neither waits on the other, so they are "
+                    "two tasks with no dependency between them."
                 ),
                 "status": "proposed",
                 "tasks": [
                     {
-                        "id": "t-lisbon-leave",
+                        "id": "t-lisbon-hotel",
                         "route_id": "r-lisbon-week",
-                        "title": "Send the leave request",
-                        "deadline": TODAY.isoformat(),
-                        "scheduled_slots": [LEAVE_SLOT.isoformat()] if placed else [],
+                        "title": "Confirm the hotel for the wedding",
+                        "deadline": deadline,
+                        "scheduled_slots": [HOTEL_SLOT.isoformat()] if placed else [],
                     },
                     {
-                        "id": "t-lisbon-flights",
+                        "id": "t-lisbon-insurance",
                         "route_id": "r-lisbon-week",
-                        "title": "Book the flights to Lisbon",
-                        "depends_on": ["t-lisbon-leave"],
-                        "deadline": WEEK_DEADLINE.isoformat(),
-                        "scheduled_slots": [FLIGHTS_SLOT.isoformat()] if placed else [],
+                        "title": "Buy travel insurance for the Lisbon trip",
+                        "deadline": deadline,
+                        "scheduled_slots": [INSURANCE_SLOT.isoformat()] if placed else [],
                     },
                 ],
             }
@@ -731,40 +782,80 @@ def lisbon_week_goal(*, placed: bool) -> dict[str, Any]:
     }
 
 
-def assert_the_week_slots_are_free() -> None:
+def assert_the_week_slots_are_honest(graph: LivingGraph) -> None:
     """Stop the generator rather than script a placement into a slot that is not free.
 
-    Each slot must be one the fake calendar offers, at or after 09:00 (the person's own rule), still
-    ahead on the demo clock, inside the deadline, and clear of every block already placed that day.
+    Checked against the graph the answer is generated against. Each slot must be one the fake
+    calendar offers, not before 09:00 and not on a Sunday (the person's own rules, which must still
+    be exactly these two, so a new rule cannot be ignored here), still ahead on the demo clock,
+    inside the deadline, and clear of every block already placed that day and of each other.
     """
-    graph = demo_scenario.living_graph()
+    assert graph.person.constraints == ["No meetings before 09:00", "Sundays are family"], (
+        f"the person's rules changed to {graph.person.constraints}; check the week slots against them"
+    )
     clock = fixed_clock()
     offered = {slot["start"] for slot in demo_scenario.free_slots(60)}
-    for slot in (LEAVE_SLOT, FLIGHTS_SLOT):
+    taken: list[tuple[datetime, datetime]] = []
+    for slot in WEEK_SLOTS:
         begins = clock.local(slot)
+        ends = begins + timedelta(hours=1)
         assert slot.isoformat() in offered, f"{slot} is not a free slot in the fake calendar"
-        assert slot.hour >= 9, f"{slot} breaks the rule 'No meetings before 09:00'"
+        assert slot.time() >= time(9, 0), f"{slot} breaks the rule 'No meetings before 09:00'"
+        assert slot.weekday() != 6, f"{slot} breaks the rule 'Sundays are family'"
         assert begins > clock.now, f"{slot} is already in the past"
         assert slot.date() <= WEEK_DEADLINE, f"{slot} is after the deadline"
         for block in blocks_on(graph, clock, slot.date()):
-            ends = block.start + timedelta(minutes=block.duration_min)
-            assert not (block.start < begins + timedelta(hours=1) and begins < ends), (
+            block_ends = block.start + timedelta(minutes=block.duration_min)
+            assert not (block.start < ends and begins < block_ends), (
                 f"{slot} overlaps {block.title} at {block.start:%H:%M}"
             )
+        for other_begins, other_ends in taken:
+            assert not (other_begins < ends and begins < other_ends), f"{slot} overlaps another week slot"
+        taken.append((begins, ends))
+
+
+_TITLE_FILLER = frozenset({"a", "an", "the", "to", "for", "of", "my", "your", "and", "in", "on", "at"})
+
+
+def _title_words(title: str) -> frozenset[str]:
+    return frozenset(re.findall(r"[a-z0-9]+", title.casefold())) - _TITLE_FILLER
+
+
+def assert_no_duplicate_tasks(before: LivingGraph, after: LivingGraph) -> None:
+    """Stop the generator if the answer added a task the graph already had under another id.
+
+    The previous answer added "Book the flights to Lisbon" beside "Book flights to Lisbon". Titles
+    are compared on their words with articles and prepositions dropped, and one title whose words
+    all appear in another counts, so that pair is caught. It is a guard on scripted fixture data,
+    where stopping on a near miss costs a rerun, not a check a user's plan goes through.
+    """
+    existing = {task.id: task.title for goal in before.goals for route in goal.routes for task in route.tasks}
+    for goal in after.goals:
+        for route in goal.routes:
+            for task in route.tasks:
+                if task.id in existing:
+                    continue
+                words = _title_words(task.title)
+                for other_id, other_title in existing.items():
+                    theirs = _title_words(other_title)
+                    assert not (words and theirs and (words <= theirs or theirs <= words)), (
+                        f"new task {task.id} {task.title!r} duplicates {other_id} {other_title!r}"
+                    )
 
 
 def answer_specs() -> dict[str, AgentSpec]:
     shallow = {key: value for key, value in lisbon_week_goal(placed=False).items() if key != "routes"}
     decision = {
         "placed": [
-            {"task_id": "t-lisbon-leave", "start": LEAVE_SLOT.isoformat(), "duration_min": 60},
-            {"task_id": "t-lisbon-flights", "start": FLIGHTS_SLOT.isoformat(), "duration_min": 60},
+            {"task_id": "t-lisbon-hotel", "start": aware(HOTEL_SLOT), "duration_min": 60},
+            {"task_id": "t-lisbon-insurance", "start": aware(INSURANCE_SLOT), "duration_min": 60},
         ],
         "deprioritised": [],
         "rationale": (
-            "12:00 today is the first free slot after 09:00, so the leave request goes there. The "
-            "flights wait on it, so they take 12:00 tomorrow, the next free slot after 09:00 and a "
-            "week before the deadline. Nothing already placed had to move."
+            "Neither task waits on the other, so they take the first two free slots that are not "
+            "before 09:00: 12:00 today for the hotel and 12:00 tomorrow for the insurance, both before "
+            f"{WEEK_DEADLINE:%A} {WEEK_DEADLINE.day} {WEEK_DEADLINE:%B}. Nothing already placed had to "
+            "move, because both middays were empty."
         ),
     }
     return {
@@ -782,7 +873,7 @@ def answer_specs() -> dict[str, AgentSpec]:
                     "write_graph",
                     {"user_id": USER, "layer": "goals", "patch": {"goals": [lisbon_week_goal(placed=False)]}},
                 ),
-                Text("One route: the leave request, then the flights."),
+                Text("One route: confirm the hotel, and buy the travel insurance."),
             ],
             tools=("read_graph", "write_graph"),
         ),
@@ -792,18 +883,22 @@ def answer_specs() -> dict[str, AgentSpec]:
                 ToolUse(
                     "find_free_slots",
                     {
-                        "start": f"{TODAY}T09:00:00",
-                        "end": f"{WEEK_DEADLINE + timedelta(days=1)}T00:00:00",
+                        "start": aware(datetime.combine(TODAY, time(9, 0))),
+                        "end": aware(datetime.combine(WEEK_DEADLINE + timedelta(days=1), time(0, 0))),
                         "duration_min": 60,
                     },
                 ),
                 ToolUse(
                     "create_event",
-                    {"title": "Send the leave request", "start": LEAVE_SLOT.isoformat(), "duration_min": 60},
+                    {"title": "Confirm the hotel for the wedding", "start": aware(HOTEL_SLOT), "duration_min": 60},
                 ),
                 ToolUse(
                     "create_event",
-                    {"title": "Book the flights to Lisbon", "start": FLIGHTS_SLOT.isoformat(), "duration_min": 60},
+                    {
+                        "title": "Buy travel insurance for the Lisbon trip",
+                        "start": aware(INSURANCE_SLOT),
+                        "duration_min": 60,
+                    },
                 ),
                 ToolUse(
                     "write_graph",
@@ -818,11 +913,11 @@ def answer_specs() -> dict[str, AgentSpec]:
 
 
 async def make_question_fixtures() -> None:
-    """The week question, answered through the real intake path, and skipped."""
-    assert_the_week_slots_are_free()
-
+    """The week question, answered through the real intake path, and skipped, after the morning run."""
     with mock_aws():
-        fresh_store(None)
+        store = await prepared_world()
+        before = store.load(USER)
+        assert_the_week_slots_are_honest(before)
         with pinned_zone():
             result = await service.answer_question(
                 USER,
@@ -834,11 +929,16 @@ async def make_question_fixtures() -> None:
                 include_resource_finder=False,
                 specs=answer_specs(),
             )
+        assert not result.clarifying_questions and result.schedule is not None, "the week answer did not plan"
+        assert all(placement.start.tzinfo is not None for placement in result.schedule.placed), (
+            "a week placement has a naive start"
+        )
+        assert_no_duplicate_tasks(before, result.graph)
         write("question-answer-week.json", result.model_dump(mode="json"))
         service.set_store(None)
 
     with mock_aws():
-        fresh_store(None)
+        await prepared_world()
         with pinned_zone():
             skipped = service.skip_question(USER, "week", today=TODAY)
         write("question-skip-week.json", skipped.model_dump(mode="json"))
@@ -945,7 +1045,7 @@ def _camel_to_snake(name: str) -> str:
 def main() -> None:
     print(f"Generating fixtures into {OUT}")
     print(f"  user={USER} today={TODAY} zone={TIMEZONE}")
-    make_goal_fixtures()
+    asyncio.run(make_goal_fixtures())
     asyncio.run(make_daily_fixtures())
     asyncio.run(make_intake_fixtures())
     asyncio.run(make_question_fixtures())

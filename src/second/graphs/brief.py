@@ -35,7 +35,7 @@ from second.core.models import (
     ScheduledBlock,
     Task,
 )
-from second.graphs.wording import plural
+from second.graphs.wording import plural, what_is_prepared
 
 RISK_WINDOW_DAYS = 14
 """How far ahead a deadline has to be before it stops being today's problem."""
@@ -147,7 +147,13 @@ def build_check_in(
 _INFERRED = {"honoured": "likely_done", "missed": "likely_missed", "unknown": "unknown"}
 
 
-def deadline_risks(graph: LivingGraph, clock: Clock, *, window_days: int = RISK_WINDOW_DAYS) -> list[Risk]:
+def deadline_risks(
+    graph: LivingGraph,
+    clock: Clock,
+    *,
+    window_days: int = RISK_WINDOW_DAYS,
+    prepared: list[PreparedAction] | None = None,
+) -> list[Risk]:
     """Work with a deadline close enough to matter and no plan that reaches it.
 
     Three ways a task earns a place here, all structural:
@@ -158,9 +164,18 @@ def deadline_risks(graph: LivingGraph, clock: Clock, *, window_days: int = RISK_
 
     Nothing here is a judgement about the person. Every item cites the reason it
     qualified.
+
+    Args:
+        prepared: Work on the same brief. One that is waiting on the user and names a task by id
+            changes that task's reason: "nothing booked before then" beside a draft for it read as
+            though nothing had been done. Matched on the id alone, as Memory's fold is.
     """
     today = clock.today
     risks: list[Risk] = []
+    waiting: dict[str, PreparedAction] = {}
+    for action in prepared or []:
+        if action.is_real and action.awaiting.strip() and action.task_id:
+            waiting.setdefault(action.task_id, action)
 
     for goal in graph.active_goals():
         for route in goal.routes:
@@ -178,7 +193,7 @@ def deadline_risks(graph: LivingGraph, clock: Clock, *, window_days: int = RISK_
                     if today <= clock.local(slot).date() <= task.deadline
                 ]
 
-                reason = _risk_reason(task, booked_in_time, days_left, graph)
+                reason = _risk_reason(task, booked_in_time, days_left, graph, waiting.get(task.id))
                 if reason is None:
                     continue
 
@@ -197,9 +212,19 @@ def deadline_risks(graph: LivingGraph, clock: Clock, *, window_days: int = RISK_
 
 
 def _risk_reason(
-    task: Task, booked_in_time: list[datetime], days_left: int, graph: LivingGraph
+    task: Task,
+    booked_in_time: list[datetime],
+    days_left: int,
+    graph: LivingGraph,
+    waiting: PreparedAction | None = None,
 ) -> str | None:
-    """Why this task is at risk, or None if it is fine."""
+    """Why this task is at risk, or None if it is fine.
+
+    ``waiting`` is prepared work for this exact task that the user has yet to finish. The deadline
+    is still at risk until they do, so the task stays listed, but the reason says what is ready.
+    """
+    prepared = f" {what_is_prepared(waiting)}" if waiting is not None else ""
+
     if task.status == "blocked":
         blockers = [
             blocker
@@ -210,14 +235,18 @@ def _risk_reason(
             names = ", ".join(
                 dep.title for blocker in blockers if (dep := graph.task_by_id(blocker))
             )
-            return f"Blocked on {names}, and {_due_in(days_left)}."
-        return f"Marked blocked, and {_due_in(days_left)}."
+            return f"Blocked on {names}, and {_due_in(days_left)}.{prepared}"
+        return f"Marked blocked, and {_due_in(days_left)}.{prepared}"
 
     if not booked_in_time:
+        if waiting is not None:
+            # Still no slot, but "nothing booked before then" beside a finished draft reads as
+            # nothing done, which is false. The due date and the waiting work are both true.
+            return f"{_due_in(days_left).capitalize()}.{prepared}"
         return f"{_due_in(days_left).capitalize()} with nothing booked before then."
 
     if task.slip_count > 2:
-        return f"Slipped {task.slip_count} times and still {_due_in(days_left)}."
+        return f"Slipped {task.slip_count} times and still {_due_in(days_left)}.{prepared}"
 
     return None
 
@@ -308,7 +337,7 @@ def assemble(
     # count as prepared work, or every autonomous day forces a notification.
     prepared = [item for item in (prepared or []) if item.is_real]
     blocks = todays_blocks(graph, clock)
-    risks = deadline_risks(graph, clock)
+    risks = deadline_risks(graph, clock, prepared=prepared)
     check_in = build_check_in(graph, clock, observations)
 
     if judgement is None:

@@ -39,10 +39,15 @@ import graphAfterRunFixture from '../fixtures/living-graph-after-run.json'
 import graphFixture from '../fixtures/living-graph.json'
 import intakePlannedFixture from '../fixtures/intake-planned.json'
 import intakeQuestionsFixture from '../fixtures/intake-questions.json'
+import memoryCheckinFixture from '../fixtures/memory-checkin.json'
+import memoryDecisionFixture from '../fixtures/memory-decision.json'
 import memoryQuietFixture from '../fixtures/memory-quiet.json'
 import memoryFixture from '../fixtures/memory.json'
 import questionAnswerWeekFixture from '../fixtures/question-answer-week.json'
 import questionSkipWeekFixture from '../fixtures/question-skip-week.json'
+import scheduleCheckinFixture from '../fixtures/schedule-checkin.json'
+import scheduleDecisionFixture from '../fixtures/schedule-decision.json'
+import scheduleQuietFixture from '../fixtures/schedule-quiet.json'
 import scheduleFixture from '../fixtures/schedule.json'
 
 export const USING_FIXTURES = import.meta.env.VITE_SOURCE === 'fixtures'
@@ -155,17 +160,39 @@ export function isFixtureAcknowledgement(reply: object): reply is FixtureAcknowl
   return 'fixture' in reply && reply.fixture === true
 }
 
+/** The four morning runs make_fixtures.py generates. Fixture mode only. */
+export type FixtureState = 'quiet' | 'prepared' | 'decision' | 'checkIn'
+
 /**
- * The answer `question-answer-week.json` was generated from.
+ * Fixture mode only: each morning run's brief, and the memory and schedule written from the same store.
  *
- * Restated from `WEEK_ANSWER` in web/scripts/make_fixtures.py, because the
- * payload carries the plan and not the words. Fixture mode shows that plan for
- * whatever is typed, so the Memory screen puts this sentence in the box and says
- * so when the words sent differ from it: a plan shown under a sentence it was
- * not made from is a plan for a different sentence. Change the two together.
+ * make_fixtures.py writes all three straight after each run. One schedule for every brief put the
+ * gym at 07:00 on Schedule while the decision brief, whose Adapter never ran, put it at 18:00 on
+ * Today. The store names the state it is showing and the files are picked by that name, never by
+ * looking at the brief, so the three screens cannot show two different mornings.
  */
-export const FIXTURE_WEEK_ANSWER =
-  'Send the leave request today, and book the flights to Lisbon by Friday 18 September.'
+const FIXTURE_WORLDS: Record<FixtureState, { brief: DailyBrief; memory: Memory; schedule: Schedule }> = {
+  quiet: {
+    brief: briefQuietFixture as DailyBrief,
+    memory: memoryQuietFixture as Memory,
+    schedule: scheduleQuietFixture as Schedule,
+  },
+  prepared: {
+    brief: briefPreparedFixture as DailyBrief,
+    memory: memoryFixture as Memory,
+    schedule: scheduleFixture as Schedule,
+  },
+  decision: {
+    brief: briefDecisionFixture as DailyBrief,
+    memory: memoryDecisionFixture as Memory,
+    schedule: scheduleDecisionFixture as Schedule,
+  },
+  checkIn: {
+    brief: briefCheckinFixture as DailyBrief,
+    memory: memoryCheckinFixture as Memory,
+    schedule: scheduleCheckinFixture as Schedule,
+  },
+}
 
 /** The cadence the generated memory fixture carries for a horizon, quoted
  * rather than restated, so the fixture-mode line cannot drift from settings.py. */
@@ -180,25 +207,29 @@ export const api = {
     return call<{ graph: LivingGraph }>('/api/graph').then((body) => body.graph)
   },
 
+  /** Fixture mode answers with the quiet run's brief; the store records that as the state. */
   today(): Promise<DailyBrief> {
-    if (USING_FIXTURES) return fixture(briefQuietFixture)
+    if (USING_FIXTURES) return fixture(FIXTURE_WORLDS.quiet.brief)
     return call<DailyBrief>('/api/today')
   },
 
-  /** Runs the whole Daily graph. Tens of seconds when it is real. */
+  /** Runs the whole Daily graph. Tens of seconds when it is real. Fixture mode
+   * answers with the prepared run's brief; the store records that as the state. */
   runDaily(): Promise<DailyBrief> {
-    if (USING_FIXTURES) return fixture(briefPreparedFixture, 1400)
+    if (USING_FIXTURES) return fixture(FIXTURE_WORLDS.prepared.brief, 1400)
     return call<DailyBrief>('/api/daily/run', { method: 'POST' })
   },
 
   /** Today and the days after it, placed and proposed. A read: no model, no write.
-   * With no `days`, the server's own default window applies. */
-  schedule(days?: number): Promise<Schedule> {
+   * With no `days`, the server's own default window applies.
+   *
+   * `state` matters only in fixture mode, for the reason `memory` gives. */
+  schedule(days?: number, state: FixtureState = 'quiet'): Promise<Schedule> {
     if (USING_FIXTURES) {
       // The fixture holds the seven days the generator produced. A shorter
       // window is the start of it; a longer one gets those seven, because a day
       // the generator did not compute is not one this file can make up.
-      const generated = scheduleFixture as Schedule
+      const generated = FIXTURE_WORLDS[state].schedule
       return fixture({ ...generated, days: generated.days.slice(0, days ?? generated.days.length) })
     }
     return call<Schedule>(days === undefined ? '/api/schedule' : `/api/schedule?days=${days}`)
@@ -206,17 +237,13 @@ export const api = {
 
   /** Today's items from every source, each source's status, and any due question. A read.
    *
-   * `briefOnScreen` matters only in fixture mode, and the store passes it. The
-   * two memory fixtures were generated after two different morning runs:
-   * memory.json after the run that prepared a draft and read a reminder from
-   * email, memory-quiet.json after the quiet one. Only the store knows which
-   * brief Today is showing, so it says, and Memory cannot contradict Today by
-   * listing a draft the brief on screen never prepared. Live, the server reads
-   * its own store and the argument is not sent. */
-  memory(briefOnScreen: DailyBrief | null = null): Promise<Memory> {
-    if (USING_FIXTURES) {
-      return fixture(briefOnScreen === briefPreparedFixture ? memoryFixture : memoryQuietFixture)
-    }
+   * `state` matters only in fixture mode, and the store passes the one Today is
+   * showing. Each memory fixture was generated straight after one of the four
+   * morning runs, so it lists only what that run left behind, and Memory cannot
+   * contradict Today by listing a draft the brief on screen never prepared.
+   * Live, the server reads its own store and the argument is not sent. */
+  memory(state: FixtureState = 'quiet'): Promise<Memory> {
+    if (USING_FIXTURES) return fixture(FIXTURE_WORLDS[state].memory)
     return call<Memory>('/api/memory')
   },
 
@@ -328,11 +355,8 @@ export const api = {
  * screen simply refetches `/api/graph`, which is the point of the demo beat. */
 export const fixtureGraphAfterRun = graphAfterRunFixture as LivingGraph
 
-/** The other two briefs, so the demo can show every state Today has without
+/** Every brief by state, so the demo can show each state Today has without
  * waiting for a live run to happen to produce one. */
-export const fixtureBriefs = {
-  quiet: briefQuietFixture as DailyBrief,
-  prepared: briefPreparedFixture as DailyBrief,
-  decision: briefDecisionFixture as DailyBrief,
-  checkIn: briefCheckinFixture as DailyBrief,
+export function fixtureBrief(state: FixtureState): DailyBrief {
+  return FIXTURE_WORLDS[state].brief
 }

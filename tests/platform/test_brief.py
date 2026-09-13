@@ -542,3 +542,66 @@ def test_a_pinned_gemini_model_is_reported_as_itself(monkeypatch):
     monkeypatch.setenv("SECOND_GEMINI_MODEL", "gemini-3.6-flash")
 
     assert service.runtime_status()["model"] == "gemini-3.6-flash"
+
+
+# -- a deadline with work already waiting on the user ------------------------
+
+LEAVE_DRAFT = PreparedAction(
+    kind="email_draft",
+    summary="Leave request for the wedding week, drafted and waiting in Gmail.",
+    external_ref="draft-0001",
+    awaiting="Read it and press send.",
+    task_id="t-leave",
+)
+
+
+def test_a_deadline_whose_draft_is_waiting_says_so_instead_of_nothing_booked(graph, clock):
+    """Today said the leave request had "nothing booked before then" while a draft for it sat in
+    Gmail, which reads as though nothing had been done.
+
+    Mutation-tested: dropping ``prepared=prepared`` from the ``deadline_risks`` call in ``assemble``
+    puts "nothing booked" back beside the draft and this fails.
+    """
+    brief = assemble(graph=graph, clock=clock, judgement=BriefJudgement(notify=True), prepared=[LEAVE_DRAFT])
+    risks = {risk.task_id: risk for risk in brief.at_risk}
+
+    assert risks["t-leave"].evidence == (
+        "Due in 5 days. A draft is waiting in Gmail (draft-0001): read it and press send."
+    )
+    assert risks["t-leave"].days_left == 5, "still at risk until the user sends it"
+    assert risks["t-flights"].evidence == "Due in 14 days with nothing booked before then."
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [
+        LEAVE_DRAFT.model_copy(update={"task_id": None}),
+        LEAVE_DRAFT.model_copy(update={"task_id": "t-flights"}),
+        LEAVE_DRAFT.model_copy(update={"task_id": "t-leave-request"}),
+        LEAVE_DRAFT.model_copy(update={"awaiting": "   "}),
+        LEAVE_DRAFT.model_copy(update={"kind": "nothing"}),
+    ],
+)
+def test_only_waiting_work_that_names_the_task_changes_its_reason(graph, clock, draft):
+    """Matched on the task id alone: a similar id, no id, or nothing waiting leaves the reason as it was."""
+    brief = assemble(graph=graph, clock=clock, judgement=BriefJudgement(notify=True), prepared=[draft])
+
+    leave = next(risk for risk in brief.at_risk if risk.task_id == "t-leave")
+    assert leave.evidence == "Due in 5 days with nothing booked before then."
+
+
+def test_a_blocked_task_with_work_waiting_keeps_its_blocker_and_adds_the_work(graph, clock):
+    graph.task_by_id("t-flights").status = "blocked"
+    options = PreparedAction(
+        kind="options",
+        summary="Three flights to Lisbon compared.",
+        awaiting="Pick one once leave is approved.",
+        task_id="t-flights",
+    )
+
+    risks = {risk.task_id: risk for risk in deadline_risks(graph, clock, prepared=[options])}
+
+    assert risks["t-flights"].evidence == (
+        "Blocked on Request leave for the wedding week, and due in 14 days. "
+        "The options are gathered: pick one once leave is approved."
+    )

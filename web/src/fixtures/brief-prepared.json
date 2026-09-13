@@ -66,7 +66,7 @@
       "what": "Request leave for the wedding week",
       "deadline": "2026-09-15",
       "days_left": 5,
-      "evidence": "Due in 5 days with nothing booked before then."
+      "evidence": "Due in 5 days. A draft is waiting in Gmail (draft-0001): read it and press send."
     },
     {
       "task_id": "t-flights",

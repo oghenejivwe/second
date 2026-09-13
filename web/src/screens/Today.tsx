@@ -5,7 +5,7 @@ import { BlockRow } from '../components/BlockRow'
 import { CheckInList } from '../components/CheckInList'
 import { Problem } from '../components/Problem'
 import { Section } from '../components/Section'
-import { USING_FIXTURES, api, errorLine, fixtureBriefs } from '../api/client'
+import { USING_FIXTURES, api, errorLine, type FixtureState } from '../api/client'
 import { duration, longDate } from '../lib/datetime'
 import { useSecond } from '../store/useSecond'
 import type { DailyBrief } from '../types/contract'
@@ -42,6 +42,7 @@ export function Today() {
   const loadBrief = useSecond((state) => state.loadBrief)
   const runDaily = useSecond((state) => state.runDaily)
   const showBrief = useSecond((state) => state.showBrief)
+  const fixtureState = useSecond((state) => state.fixtureState)
 
   const [auditOpen, setAuditOpen] = useState(false)
 
@@ -190,7 +191,7 @@ export function Today() {
           <CheckInList checkIn={brief.check_in} />
         )}
 
-        {USING_FIXTURES && <BriefSwitcher onPick={showBrief} current={brief} />}
+        {USING_FIXTURES && <BriefSwitcher onPick={showBrief} current={fixtureState} />}
       </div>
 
       {auditOpen && <AuditPanel onClose={() => setAuditOpen(false)} />}
@@ -275,26 +276,28 @@ function BriefSwitcher({
   onPick,
   current,
 }: {
-  onPick: (brief: DailyBrief) => void
-  current: DailyBrief
+  onPick: (state: FixtureState) => void
+  current: FixtureState
 }) {
-  const options: [string, DailyBrief][] = [
-    ['quiet', fixtureBriefs.quiet],
-    ['prepared', fixtureBriefs.prepared],
-    ['decision', fixtureBriefs.decision],
-    ['check-in', fixtureBriefs.checkIn],
+  // Picking a state switches Schedule and Memory with Today: the store holds the
+  // state, and those two screens read the files generated in it.
+  const options: [string, FixtureState][] = [
+    ['quiet', 'quiet'],
+    ['prepared', 'prepared'],
+    ['decision', 'decision'],
+    ['check-in', 'checkIn'],
   ]
 
   return (
     <div className={styles.switcher}>
       <span className="label">fixture states</span>
-      {options.map(([label, brief]) => (
+      {options.map(([label, state]) => (
         <button
           key={label}
           type="button"
           className={styles.switch}
-          aria-pressed={brief === current}
-          onClick={() => onPick(brief)}
+          aria-pressed={state === current}
+          onClick={() => onPick(state)}
         >
           {label}
         </button>

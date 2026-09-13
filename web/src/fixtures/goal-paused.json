@@ -182,8 +182,8 @@
             "id": "r-gym",
             "goal_id": "g-fitness",
             "title": "Gym after work",
-            "cadence": "Mon/Wed/Fri 18:00",
-            "rationale": "They said evenings were free. The calendar disagrees.",
+            "cadence": "Mon/Wed/Fri 07:00",
+            "rationale": "18:00 is recorded as abandoned on Mon, Wed and Fri; 07:00 is uncontested and matches a stated early day shape.",
             "status": "approved",
             "tasks": [
               {
@@ -199,7 +199,10 @@
                   "2026-08-27T18:00:00",
                   "2026-08-29T18:00:00",
                   "2026-09-09T18:00:00",
-                  "2026-09-10T18:00:00"
+                  "2026-09-10T07:00:00",
+                  "2026-09-11T07:00:00",
+                  "2026-09-14T07:00:00",
+                  "2026-09-16T07:00:00"
                 ],
                 "slip_count": 4,
                 "slips": [
@@ -345,8 +348,8 @@
         "note": "Recording and listening back suits someone who learns by video."
       }
     ],
-    "version": 2,
-    "updated_at": "2026-09-13T07:15:25.858648Z",
+    "version": 4,
+    "updated_at": "2026-09-13T14:11:26.870048Z",
     "stalled_ambition_ids": [],
     "broken_link_ids": []
   },

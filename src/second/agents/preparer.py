@@ -58,8 +58,10 @@ prepared here: external_ref must be null unless a tool you already called return
 where one did, copy that id exactly rather than reconstructing a plausible-looking one. Put
 the real artefact in detail -- the draft body exactly as you passed it to draft_email, the
 options exactly as you compared them, the value exactly as you read it -- and never describe a
-draft as having been sent. If you prepared nothing, say that plainly in summary, leave detail
-empty and external_ref null, and make awaiting the single thing the user still has to do."""
+draft as having been sent. Set task_id to the id of the task the work serves, copied exactly
+from read_graph or the Adapter's message, or null if it serves no single task. If you prepared
+nothing, say that plainly in summary, leave detail empty and external_ref null, and make
+awaiting the single thing the user still has to do."""
 
 
 def build(deps: AgentDeps) -> Agent:

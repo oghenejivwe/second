@@ -1,0 +1,205 @@
+{
+  "start": "2026-09-11",
+  "days": [
+    {
+      "on": "2026-09-11",
+      "blocks": [
+        {
+          "task_id": "t-gym",
+          "goal_id": "g-fitness",
+          "goal_title": "Train three times a week",
+          "horizon": "year",
+          "serves": [
+            "Still be climbing at sixty"
+          ],
+          "title": "Gym session",
+          "start": "2026-09-11T07:00:00+01:00",
+          "duration_min": 60,
+          "resource_url": null,
+          "status": "placed",
+          "why": ""
+        },
+        {
+          "task_id": "t-club",
+          "goal_id": "g-speaking",
+          "goal_title": "Get comfortable speaking to a room",
+          "horizon": "year",
+          "serves": [
+            "Raise a Series A",
+            "Build a company that outlives me"
+          ],
+          "title": "Attend speaking club",
+          "start": "2026-09-11T19:00:00+01:00",
+          "duration_min": 60,
+          "resource_url": null,
+          "status": "placed",
+          "why": ""
+        }
+      ],
+      "skipped": [
+        {
+          "route_id": "r-daily",
+          "route_title": "Five-minute daily recording",
+          "task_id": "t-recording",
+          "on": "2026-09-11",
+          "wanted": "Fri 08:00",
+          "reason": "Fri 08:00 today has already passed."
+        }
+      ]
+    },
+    {
+      "on": "2026-09-12",
+      "blocks": [],
+      "skipped": []
+    },
+    {
+      "on": "2026-09-13",
+      "blocks": [],
+      "skipped": []
+    },
+    {
+      "on": "2026-09-14",
+      "blocks": [
+        {
+          "task_id": "t-gym",
+          "goal_id": "g-fitness",
+          "goal_title": "Train three times a week",
+          "horizon": "year",
+          "serves": [
+            "Still be climbing at sixty"
+          ],
+          "title": "Gym session",
+          "start": "2026-09-14T07:00:00+01:00",
+          "duration_min": 60,
+          "resource_url": null,
+          "status": "placed",
+          "why": ""
+        },
+        {
+          "task_id": "t-recording",
+          "goal_id": "g-speaking",
+          "goal_title": "Get comfortable speaking to a room",
+          "horizon": "year",
+          "serves": [
+            "Raise a Series A",
+            "Build a company that outlives me"
+          ],
+          "title": "Record five minutes and listen back",
+          "start": "2026-09-14T08:00:00+01:00",
+          "duration_min": 60,
+          "resource_url": null,
+          "status": "proposed",
+          "why": "Five-minute daily recording runs “Weekday mornings 08:00”, and nothing is placed for it on Mon 14 Sep. Short enough to survive a bad morning."
+        }
+      ],
+      "skipped": []
+    },
+    {
+      "on": "2026-09-15",
+      "blocks": [
+        {
+          "task_id": "t-recording",
+          "goal_id": "g-speaking",
+          "goal_title": "Get comfortable speaking to a room",
+          "horizon": "year",
+          "serves": [
+            "Raise a Series A",
+            "Build a company that outlives me"
+          ],
+          "title": "Record five minutes and listen back",
+          "start": "2026-09-15T08:00:00+01:00",
+          "duration_min": 60,
+          "resource_url": null,
+          "status": "proposed",
+          "why": "Five-minute daily recording runs “Weekday mornings 08:00”, and nothing is placed for it on Tue 15 Sep. Short enough to survive a bad morning."
+        },
+        {
+          "task_id": "t-club",
+          "goal_id": "g-speaking",
+          "goal_title": "Get comfortable speaking to a room",
+          "horizon": "year",
+          "serves": [
+            "Raise a Series A",
+            "Build a company that outlives me"
+          ],
+          "title": "Attend speaking club",
+          "start": "2026-09-15T19:00:00+01:00",
+          "duration_min": 60,
+          "resource_url": null,
+          "status": "proposed",
+          "why": "Weekly speaking club runs “Tuesdays 19:00”, and nothing is placed for it on Tue 15 Sep. Tue 19:00 is a slot you keep. Tuesday evenings are the slot they actually keep."
+        }
+      ],
+      "skipped": []
+    },
+    {
+      "on": "2026-09-16",
+      "blocks": [
+        {
+          "task_id": "t-gym",
+          "goal_id": "g-fitness",
+          "goal_title": "Train three times a week",
+          "horizon": "year",
+          "serves": [
+            "Still be climbing at sixty"
+          ],
+          "title": "Gym session",
+          "start": "2026-09-16T07:00:00+01:00",
+          "duration_min": 60,
+          "resource_url": null,
+          "status": "placed",
+          "why": ""
+        },
+        {
+          "task_id": "t-recording",
+          "goal_id": "g-speaking",
+          "goal_title": "Get comfortable speaking to a room",
+          "horizon": "year",
+          "serves": [
+            "Raise a Series A",
+            "Build a company that outlives me"
+          ],
+          "title": "Record five minutes and listen back",
+          "start": "2026-09-16T08:00:00+01:00",
+          "duration_min": 60,
+          "resource_url": null,
+          "status": "proposed",
+          "why": "Five-minute daily recording runs “Weekday mornings 08:00”, and nothing is placed for it on Wed 16 Sep. Short enough to survive a bad morning."
+        }
+      ],
+      "skipped": []
+    },
+    {
+      "on": "2026-09-17",
+      "blocks": [
+        {
+          "task_id": "t-recording",
+          "goal_id": "g-speaking",
+          "goal_title": "Get comfortable speaking to a room",
+          "horizon": "year",
+          "serves": [
+            "Raise a Series A",
+            "Build a company that outlives me"
+          ],
+          "title": "Record five minutes and listen back",
+          "start": "2026-09-17T08:00:00+01:00",
+          "duration_min": 60,
+          "resource_url": null,
+          "status": "proposed",
+          "why": "Five-minute daily recording runs “Weekday mornings 08:00”, and nothing is placed for it on Thu 17 Sep. Short enough to survive a bad morning."
+        }
+      ],
+      "skipped": []
+    }
+  ],
+  "skipped": [
+    {
+      "route_id": "r-travel",
+      "route_title": "Book the trip",
+      "task_id": "t-leave",
+      "on": null,
+      "wanted": "One-off, before the end of the month",
+      "reason": "“One-off, before the end of the month” is a one-off, not a rhythm, so there is no day to project it onto."
+    }
+  ]
+}

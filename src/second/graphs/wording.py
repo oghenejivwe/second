@@ -8,6 +8,10 @@ the title happened to contain an apostrophe. Python's repr is for developers; th
 from __future__ import annotations
 
 from datetime import date
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from second.core.models import PreparedAction
 
 OPEN_QUOTE = "“"
 CLOSE_QUOTE = "”"
@@ -30,3 +34,27 @@ def plural(count: int, noun: str) -> str:
 def day_label(day: date) -> str:
     """"Tue 15 Sep". No ``%-d``, which is glibc-only and this is developed on Windows."""
     return f"{day:%a} {day.day} {day:%b}"
+
+
+PREPARED_KINDS = {
+    "email_draft": "A draft is waiting in Gmail",
+    "options": "The options are gathered",
+    "retrieved_fact": "Second has looked it up",
+    "calendar_change": "A calendar change is ready",
+}
+"""What each kind of prepared work is, said to a person. ``email_draft`` is the contract's word."""
+
+
+def what_is_prepared(action: PreparedAction) -> str:
+    """"A draft is waiting in Gmail (draft-0001): read it and press send."
+
+    Shared by Today's at-risk line and Memory's folded item, which describe the same draft and sit
+    one tab apart.
+    """
+    reference = f" ({action.external_ref})" if action.external_ref else ""
+    step = action.awaiting.strip()
+    # Lower-cased to sit after the colon, unless the first word is an acronym or an id ("AB-4471").
+    first = step.split(" ", 1)[0]
+    if first[:1].isupper() and first[1:] == first[1:].lower():
+        step = step[0].lower() + step[1:]
+    return f"{PREPARED_KINDS.get(action.kind, 'Prepared')}{reference}: {step}"

@@ -2,16 +2,6 @@
   "on": "2026-09-10",
   "items": [
     {
-      "what": "Gym session",
-      "evidence": "In today's plan from 07:00 to 08:00: “Gym session”, towards “Train three times a week”.",
-      "source": "graph",
-      "kind": "event",
-      "at": "2026-09-10T07:00:00+01:00",
-      "due": null,
-      "goal_id": "g-fitness",
-      "task_id": "t-gym"
-    },
-    {
       "what": "Record five minutes and listen back",
       "evidence": "In today's plan from 08:00 to 09:00: “Record five minutes and listen back”, towards “Get comfortable speaking to a room”.",
       "source": "graph",
@@ -30,6 +20,16 @@
       "due": null,
       "goal_id": "g-speaking",
       "task_id": "t-pitch"
+    },
+    {
+      "what": "Gym session",
+      "evidence": "In today's plan from 18:00 to 19:00: “Gym session”, towards “Train three times a week”.",
+      "source": "graph",
+      "kind": "event",
+      "at": "2026-09-10T18:00:00+01:00",
+      "due": null,
+      "goal_id": "g-fitness",
+      "task_id": "t-gym"
     },
     {
       "what": "Request leave for the wedding week, due Tue 15 Sep",
@@ -70,6 +70,16 @@
       "due": null,
       "goal_id": null,
       "task_id": null
+    },
+    {
+      "what": "Your sister asked whether the flights are booked. You have not replied.",
+      "evidence": "m-wedding, “Wedding week - are you booked yet?”, received 9 days ago.",
+      "source": "email",
+      "kind": "reminder",
+      "at": null,
+      "due": null,
+      "goal_id": null,
+      "task_id": null
     }
   ],
   "sources": [
@@ -88,8 +98,8 @@
     {
       "name": "email",
       "connected": true,
-      "reason": "The morning run read your email today and found nothing to remind you of.",
-      "items": 0
+      "reason": "From the morning run's read of your email today.",
+      "items": 1
     }
   ],
   "questions": [

@@ -756,6 +756,14 @@ export interface MemoryItem {
    * When it is due. Set for a deadline.
    */
   due: string | null
+  /**
+   * The goal this belongs to, read from the Living Graph. Null for anything no goal owns, such as a calendar event or a standing rule.
+   */
+  goal_id: string | null
+  /**
+   * The task this is about, read from the Living Graph. Null when there is none.
+   */
+  task_id: string | null
 }
 /**
  * Whether one source could be read today, and what it said about itself.

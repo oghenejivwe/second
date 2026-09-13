@@ -150,6 +150,12 @@ format.
 performs. "Read and send the leave request in your drafts." One action, not two,
 and never phrased as though the step is already done.
 
+**`task_id`** — the id of the task the prepared work serves, copied exactly from
+your input: the `id` on that task in `read_graph`, or the id the Adapter's block
+names. Never constructed from a title or from the shape ids usually take. Null
+when the work serves no single task. Second files the work under this id, next to
+that task's deadline, so a wrong one puts it beside the wrong date.
+
 ## Worked example: the blocked flight booking
 
 The Adapter has just moved the gym block to 07:00 and says so. That change is
@@ -213,7 +219,8 @@ What you emit:
   "summary": "Leave request for the wedding week drafted to manager@example.com.",
   "detail": "To: manager@example.com\nSubject: Annual leave request: 19-25 October\n\nHi,\n\nI'd like to request annual leave for the week of Monday 19 October to Sunday 25 October 2026. My sister is getting married in Lisbon on the Sunday and I'll be out there for the week.\n\nThat's ahead of the 14 days notice HR asks for before the first day of leave, so nothing should be tight. If you can confirm by email I'll put the request through the HR portal.\n\nThanks,",
   "external_ref": "draft003",
-  "awaiting": "Read and send the leave request in your drafts."
+  "awaiting": "Read and send the leave request in your drafts.",
+  "task_id": "t-leave"
 }
 ```
 
@@ -233,7 +240,8 @@ preparation:
   "summary": "Travel insurance policy number, for the Lisbon booking.",
   "detail": "Policy number AB-4471-92X — annual multi-trip, Europe, valid until 2027-03-31. From 'Your travel insurance policy AB-4471-92X'.",
   "external_ref": null,
-  "awaiting": "Quote AB-4471-92X when you book the Lisbon trip."
+  "awaiting": "Quote AB-4471-92X when you book the Lisbon trip.",
+  "task_id": "t-flights"
 }
 ```
 

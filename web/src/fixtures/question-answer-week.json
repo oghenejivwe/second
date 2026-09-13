@@ -179,8 +179,8 @@
             "id": "r-gym",
             "goal_id": "g-fitness",
             "title": "Gym after work",
-            "cadence": "Mon/Wed/Fri 18:00",
-            "rationale": "They said evenings were free. The calendar disagrees.",
+            "cadence": "Mon/Wed/Fri 07:00",
+            "rationale": "18:00 is recorded as abandoned on Mon, Wed and Fri; 07:00 is uncontested and matches a stated early day shape.",
             "status": "approved",
             "tasks": [
               {
@@ -196,7 +196,10 @@
                   "2026-08-27T18:00:00",
                   "2026-08-29T18:00:00",
                   "2026-09-09T18:00:00",
-                  "2026-09-10T18:00:00"
+                  "2026-09-10T07:00:00",
+                  "2026-09-11T07:00:00",
+                  "2026-09-14T07:00:00",
+                  "2026-09-16T07:00:00"
                 ],
                 "slip_count": 4,
                 "slips": [
@@ -301,26 +304,26 @@
       },
       {
         "id": "g-lisbon-week",
-        "title": "Send the leave request and book the Lisbon flights",
+        "title": "Confirm the hotel and buy travel insurance",
         "horizon": "week",
         "contributes_to": "g-lisbon",
-        "deadline": "2026-09-18",
+        "deadline": "2026-09-19",
         "status": "active",
         "routes": [
           {
             "id": "r-lisbon-week",
             "goal_id": "g-lisbon-week",
-            "title": "Leave request first, then the flights",
-            "cadence": "One-off, this week",
-            "rationale": "Booking the flights has slipped twice because leave was not confirmed, so the request goes first. Both sit at midday because nothing goes before 09:00 for you.",
+            "title": "Two errands before the wedding trip",
+            "cadence": "One-off, by Saturday 19 September",
+            "rationale": "Two errands with the same deadline, and neither waits on the other, so they are two tasks with no dependency between them.",
             "status": "proposed",
             "tasks": [
               {
-                "id": "t-lisbon-leave",
+                "id": "t-lisbon-hotel",
                 "route_id": "r-lisbon-week",
-                "title": "Send the leave request",
+                "title": "Confirm the hotel for the wedding",
                 "depends_on": [],
-                "deadline": "2026-09-10",
+                "deadline": "2026-09-19",
                 "scheduled_slots": [
                   "2026-09-10T12:00:00"
                 ],
@@ -331,13 +334,11 @@
                 "resource_url": null
               },
               {
-                "id": "t-lisbon-flights",
+                "id": "t-lisbon-insurance",
                 "route_id": "r-lisbon-week",
-                "title": "Book the flights to Lisbon",
-                "depends_on": [
-                  "t-lisbon-leave"
-                ],
-                "deadline": "2026-09-18",
+                "title": "Buy travel insurance for the Lisbon trip",
+                "depends_on": [],
+                "deadline": "2026-09-19",
                 "scheduled_slots": [
                   "2026-09-11T12:00:00"
                 ],
@@ -397,8 +398,8 @@
         "note": "Recording and listening back suits someone who learns by video."
       }
     ],
-    "version": 4,
-    "updated_at": "2026-09-13T07:15:29.578062Z",
+    "version": 6,
+    "updated_at": "2026-09-13T14:11:33.975291Z",
     "stalled_ambition_ids": [],
     "broken_link_ids": []
   },
@@ -406,19 +407,19 @@
   "schedule": {
     "placed": [
       {
-        "task_id": "t-lisbon-leave",
-        "start": "2026-09-10T12:00:00",
+        "task_id": "t-lisbon-hotel",
+        "start": "2026-09-10T12:00:00+01:00",
         "duration_min": 60,
         "calendar_event_id": null
       },
       {
-        "task_id": "t-lisbon-flights",
-        "start": "2026-09-11T12:00:00",
+        "task_id": "t-lisbon-insurance",
+        "start": "2026-09-11T12:00:00+01:00",
         "duration_min": 60,
         "calendar_event_id": null
       }
     ],
     "deprioritised": [],
-    "rationale": "12:00 today is the first free slot after 09:00, so the leave request goes there. The flights wait on it, so they take 12:00 tomorrow, the next free slot after 09:00 and a week before the deadline. Nothing already placed had to move."
+    "rationale": "Neither task waits on the other, so they take the first two free slots that are not before 09:00: 12:00 today for the hotel and 12:00 tomorrow for the insurance, both before Saturday 19 September. Nothing already placed had to move, because both middays were empty."
   }
 }

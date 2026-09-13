@@ -719,6 +719,18 @@ class MemoryItem(BaseModel):
     kind: MemoryKind
     at: datetime | None = Field(default=None, description="When it happens, timezone-aware. Set for an event.")
     due: date | None = Field(default=None, description="When it is due. Set for a deadline.")
+    goal_id: str | None = Field(
+        default=None,
+        description=(
+            "The goal this belongs to, read from the Living Graph. Null for anything no goal owns, "
+            "such as a calendar event or a standing rule."
+        ),
+    )
+    """So a screen can take an item off when its goal is paused or retired, by id, never by title."""
+    task_id: str | None = Field(
+        default=None,
+        description="The task this is about, read from the Living Graph. Null when there is none.",
+    )
 
     @model_validator(mode="after")
     def _no_evidence_no_item(self) -> "MemoryItem":

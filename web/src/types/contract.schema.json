@@ -972,6 +972,32 @@
           "default": null,
           "description": "When it is due. Set for a deadline.",
           "title": "Due"
+        },
+        "goal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The goal this belongs to, read from the Living Graph. Null for anything no goal owns, such as a calendar event or a standing rule.",
+          "title": "Goal Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The task this is about, read from the Living Graph. Null when there is none.",
+          "title": "Task Id"
         }
       },
       "required": [

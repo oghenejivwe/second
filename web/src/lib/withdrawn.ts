@@ -18,7 +18,7 @@
  * can say why its list is shorter instead of shortening it silently.
  */
 
-import type { Goal, HorizonQuestion, LivingGraph, Schedule } from '../types/contract'
+import type { Goal, HorizonQuestion, LivingGraph, MemoryItem, Schedule } from '../types/contract'
 
 /** Goals in the graph whose status is not active, by id. Empty with no graph. */
 function inactiveGoals(graph: LivingGraph | null): Map<string, Goal> {
@@ -80,6 +80,49 @@ export function withdrawFromSchedule(schedule: Schedule, graph: LivingGraph | nu
     refused,
     unlaid: schedule.skipped.length - skipped.length,
     emptied,
+  }
+}
+
+/** Task id to the id of the goal that owns it, for an item that names a task and no goal. */
+function taskOwners(graph: LivingGraph | null): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const goal of graph?.goals ?? []) {
+    for (const route of goal.routes) for (const task of route.tasks) out.set(task.id, goal.id)
+  }
+  return out
+}
+
+export interface MemoryWithdrawal {
+  items: MemoryItem[]
+  removed: MemoryItem[]
+  /** The inactive goals those items belonged to, in graph order. */
+  goals: Goal[]
+}
+
+/**
+ * The graph source stamps `goal_id` and `task_id` on what it owns. An item is
+ * out when its goal is inactive, or, with no goal id, when the task it names
+ * sits under an inactive goal. A constraint or an email reminder carries
+ * neither, belongs to no goal, and stays.
+ */
+export function withdrawFromMemory(items: MemoryItem[], graph: LivingGraph | null): MemoryWithdrawal {
+  const inactive = inactiveGoals(graph)
+  const owners = taskOwners(graph)
+
+  const ownerOf = (item: MemoryItem): string | undefined =>
+    item.goal_id ?? (item.task_id ? owners.get(item.task_id) : undefined)
+  const isOut = (item: MemoryItem) => {
+    const goalId = ownerOf(item)
+    return goalId !== undefined && inactive.has(goalId)
+  }
+
+  const removed = items.filter(isOut)
+  const hit = new Set(removed.map(ownerOf))
+
+  return {
+    items: items.filter((item) => !isOut(item)),
+    removed,
+    goals: (graph?.goals ?? []).filter((goal) => hit.has(goal.id)),
   }
 }
 

@@ -317,3 +317,19 @@ def test_a_guessed_timezone_is_declared_to_the_agent():
     if guessed.is_trustworthy:  # pragma: no cover - depends on the host
         pytest.skip("this machine resolved a trustworthy zone")
     assert "GUESSED" in _base.timezone_note(AgentDeps(model=object(), clock=guessed))
+
+
+def test_the_preparer_is_asked_to_copy_the_task_id_from_its_input(registry):
+    """Today's at-risk line and Memory's fold both match prepared work to a deadline on
+    ``PreparedAction.task_id`` alone. A live Preparer never asked for it leaves the field null, and
+    both only ever worked on the generated fixture.
+
+    Both prompts carry it: the system prompt, and the forced-output pass that runs with no tools.
+    """
+    module = importlib.import_module("second.agents.preparer")
+    prompt = module.build(deps_for(module, registry)).system_prompt
+
+    assert "**`task_id`**" in prompt
+    assert "copied exactly" in prompt and "Never constructed" in prompt
+    assert '"task_id": "t-leave"' in prompt, "the worked example shows the field filled"
+    assert "Set task_id to the id of the task the work serves" in module.FORCED_OUTPUT_PROMPT

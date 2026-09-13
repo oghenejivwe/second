@@ -37,15 +37,17 @@ import { useEffect, useState } from 'react'
 
 import { Problem } from '../components/Problem'
 import { Section } from '../components/Section'
-import {
-  errorLine,
-  FIXTURE_WEEK_ANSWER,
-  isFixtureAcknowledgement,
-  USING_FIXTURES,
-  type QuestionHorizon,
-} from '../api/client'
+import { errorLine, isFixtureAcknowledgement, USING_FIXTURES, type QuestionHorizon } from '../api/client'
+import { FIXTURE_WEEK_ANSWER } from '../api/weekAnswer'
 import { bySlot, clockTime, longDate, shortDate } from '../lib/datetime'
-import { andList, whyWithdrawn, withdrawQuestions } from '../lib/withdrawn'
+import {
+  andList,
+  whyWithdrawn,
+  withdrawFromMemory,
+  withdrawQuestions,
+  type MemoryWithdrawal,
+  type QuestionWithdrawal,
+} from '../lib/withdrawn'
 import { questionKey, useSecond, type SettledQuestion } from '../store/useSecond'
 import type {
   Goal,
@@ -111,6 +113,11 @@ export function MemoryScreen() {
   const shown = shownQuestions(memory.questions, settled)
   const withdrawn = USING_FIXTURES ? withdrawQuestions(shown, graph) : null
   const questions = withdrawn?.questions ?? shown
+  // The same rule Schedule uses for blocks, by goal and task id. Live, the
+  // server's next read already leaves an inactive goal's items out.
+  const withdrawnItems = USING_FIXTURES ? withdrawFromMemory(memory.items, graph) : null
+  const items = withdrawnItems?.items ?? memory.items
+  const withdrawnSentence = withdrawnLine(withdrawn, withdrawnItems)
 
   return (
     <div className={styles.screen}>
@@ -139,9 +146,7 @@ export function MemoryScreen() {
       )}
 
       <div className={styles.body}>
-        {withdrawn && withdrawn.removed.length > 0 && (
-          <p className={styles.withdrawn}>{withdrawnLine(withdrawn.removed, withdrawn.goals)}</p>
-        )}
+        {withdrawnSentence && <p className={styles.withdrawn}>{withdrawnSentence}</p>}
 
         {questions.length > 0 && (
           <Section
@@ -161,22 +166,36 @@ export function MemoryScreen() {
         )}
 
         {GROUPS.map((group) => {
-          const items = memory.items
+          const grouped = items
             .filter((item) => GROUP[item.kind] === group.id)
             .sort(order(group.id))
 
           // "On today" is always shown, because an empty one is the question a
           // person opens this screen to answer. The others only when they hold
-          // something; a source that could not feed them is named above.
-          if (items.length === 0 && group.id !== 'today') return null
+          // something; a source that could not feed them is named above, and
+          // one emptied by a paused or retired goal is named in the sentence.
+          if (grouped.length === 0 && group.id !== 'today') return null
+
+          // Fixture mode only: every item on today was for a goal now paused or
+          // retired, so the calendar's own sentence would not explain the gap.
+          const emptied =
+            grouped.length === 0 &&
+            (withdrawnItems?.removed.some((item) => GROUP[item.kind] === group.id) ?? false)
 
           return (
-            <Section key={group.id} label={group.label} count={items.length}>
-              {items.length === 0 ? (
-                <EmptyToday calendar={calendar} />
+            <Section key={group.id} label={group.label} count={grouped.length}>
+              {grouped.length === 0 ? (
+                emptied ? (
+                  <p className={styles.nothing}>
+                    Nothing is left on today: every item here was for a goal that is now paused or
+                    retired.
+                  </p>
+                ) : (
+                  <EmptyToday calendar={calendar} />
+                )
               ) : (
                 <ul className={styles.items}>
-                  {items.map((item, index) => (
+                  {grouped.map((item, index) => (
                     <Item key={`${item.source}:${item.kind}:${index}`} item={item} />
                   ))}
                 </ul>
@@ -268,11 +287,36 @@ function shownQuestions(
   return [...due, ...gone].sort((a, b) => HORIZON_ORDER[a.horizon] - HORIZON_ORDER[b.horizon])
 }
 
-/** `The week question was taken off because “X” is paused.` */
-function withdrawnLine(removed: HorizonQuestion[], goals: Goal[]): string {
-  const horizons = andList(removed.map((question) => question.horizon))
-  const noun = removed.length === 1 ? 'question was' : 'questions were'
-  return `The ${horizons} ${noun} taken off because ${whyWithdrawn(goals)}.`
+/**
+ * `3 items and the week question were taken off Memory because “X” is retired.`
+ * Null when nothing came off. One sentence for both, in Schedule's words.
+ */
+function withdrawnLine(
+  questions: QuestionWithdrawal | null,
+  items: MemoryWithdrawal | null,
+): string | null {
+  const removedQuestions = questions?.removed ?? []
+  const removedItems = items?.removed.length ?? 0
+  if (removedQuestions.length === 0 && removedItems === 0) return null
+
+  const horizons = andList(removedQuestions.map((question) => question.horizon))
+  const parts = [
+    removedItems > 0 ? `${removedItems} ${removedItems === 1 ? 'item' : 'items'}` : null,
+    removedQuestions.length > 0
+      ? `the ${horizons} ${removedQuestions.length === 1 ? 'question' : 'questions'}`
+      : null,
+  ].filter((part): part is string => part !== null)
+  const total = removedItems + removedQuestions.length
+  const first = parts.join(' and ')
+
+  return `${first.charAt(0).toUpperCase()}${first.slice(1)} ${total === 1 ? 'was' : 'were'} taken off Memory because ${whyWithdrawn(goalsOf(questions, items))}.`
+}
+
+/** The goals either withdrawal named, once each, in the order the first list gave them. */
+function goalsOf(questions: QuestionWithdrawal | null, items: MemoryWithdrawal | null): Goal[] {
+  const seen = new Map<string, Goal>()
+  for (const goal of [...(items?.goals ?? []), ...(questions?.goals ?? [])]) seen.set(goal.id, goal)
+  return [...seen.values()]
 }
 
 /**

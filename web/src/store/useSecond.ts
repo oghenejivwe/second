@@ -17,10 +17,12 @@ import { create } from 'zustand'
 import {
   api,
   errorLine,
+  fixtureBrief,
   fixtureGraphAfterRun,
   isFixtureAcknowledgement,
   USING_FIXTURES,
   type FixtureAcknowledgement,
+  type FixtureState,
 } from '../api/client'
 import { diffGraphs, type GraphDiff } from '../lib/diff'
 import type {
@@ -101,6 +103,14 @@ interface State {
 
   graph: LivingGraph | null
   brief: DailyBrief | null
+  /**
+   * Fixture mode only: which morning run Today, Schedule and Memory are all showing.
+   *
+   * Set by whatever put the brief on screen: the first read (quiet), Run the day
+   * (prepared), or Today's state buttons. Schedule and Memory pick their files
+   * by this name, never by looking at the brief. Unused live.
+   */
+  fixtureState: FixtureState
   audit: AuditEntry[]
   schedule: Schedule | null
   memory: Memory | null
@@ -143,8 +153,8 @@ interface State {
   skipQuestion: (question: HorizonQuestion) => Promise<void>
   clearDiff: () => void
   clearStatusChange: () => void
-  /** Fixture mode only: step Today through its states without a live run. */
-  showBrief: (brief: DailyBrief) => void
+  /** Fixture mode only: step Today, Schedule and Memory through the four states together. */
+  showBrief: (state: FixtureState) => void
 }
 
 export const useSecond = create<State>((set, get) => ({
@@ -153,6 +163,7 @@ export const useSecond = create<State>((set, get) => ({
 
   graph: null,
   brief: null,
+  fixtureState: 'quiet',
   audit: [],
   schedule: null,
   memory: null,
@@ -194,6 +205,11 @@ export const useSecond = create<State>((set, get) => ({
       const brief = await api.today()
       set((state) => ({
         brief,
+        // Fixture mode answers this read with the quiet run's brief. If Today had
+        // moved to another state meanwhile, the reads made for it are dropped too.
+        ...(USING_FIXTURES && state.fixtureState !== 'quiet'
+          ? { fixtureState: 'quiet' as const, schedule: null, memory: null }
+          : {}),
         loading: { ...state.loading, brief: false },
         errors: { ...state.errors, brief: null },
       }))
@@ -226,9 +242,19 @@ export const useSecond = create<State>((set, get) => ({
     // The screen asks whenever `schedule` is null, which can happen more than
     // once before the first answer lands. One request is enough.
     if (get().loading.schedule) return
+    // Fixture mode picks the schedule generated in the same state as the brief, as memory does.
+    const shownState = get().fixtureState
     set((state) => ({ loading: { ...state.loading, schedule: true } }))
     try {
-      const schedule = await api.schedule()
+      const schedule = await api.schedule(undefined, shownState)
+
+      // Today changed state while this was read: the answer belongs to the state that left.
+      if (USING_FIXTURES && get().fixtureState !== shownState) {
+        set((state) => ({ loading: { ...state.loading, schedule: false } }))
+        void get().loadSchedule()
+        return
+      }
+
       set((state) => ({
         schedule,
         loading: { ...state.loading, schedule: false },
@@ -244,18 +270,18 @@ export const useSecond = create<State>((set, get) => ({
 
   loadMemory: async () => {
     if (get().loading.memory) return
-    // Fixture mode picks which generated memory to show by the brief Today is
-    // showing, so the brief is read here and passed along. Live, the server
-    // reads its own store and the argument is not sent.
-    const briefOnScreen = get().brief
+    // Fixture mode picks which generated memory to show by the state Today is
+    // in, so the state is read here and passed along. Live, the server reads
+    // its own store and the argument is not sent.
+    const shownState = get().fixtureState
     set((state) => ({ loading: { ...state.loading, memory: true } }))
     try {
-      const memory = await api.memory(briefOnScreen)
+      const memory = await api.memory(shownState)
 
-      // Today switched briefs while this was being read, so the memory in hand
-      // belongs to the brief that left. It is thrown away and read again for
+      // Today changed state while this was being read, so the memory in hand
+      // belongs to the state that left. It is thrown away and read again for
       // the one on screen now.
-      if (USING_FIXTURES && get().brief !== briefOnScreen) {
+      if (USING_FIXTURES && get().fixtureState !== shownState) {
         set((state) => ({ loading: { ...state.loading, memory: false } }))
         void get().loadMemory()
         return
@@ -290,6 +316,8 @@ export const useSecond = create<State>((set, get) => ({
 
       set((state) => ({
         brief,
+        // Fixture mode answers a run with the prepared run's brief.
+        ...(USING_FIXTURES ? { fixtureState: 'prepared' as const } : {}),
         graph: after,
         diff: diffGraphs(before, after),
         // The run moved slots and cached the brief the email source reads, so
@@ -380,8 +408,9 @@ export const useSecond = create<State>((set, get) => ({
   // from minutes ago.
   clearStatusChange: () => set({ lastStatusChange: null }),
 
-  // Memory in fixture mode is chosen by the brief on screen, so switching the
-  // brief drops the memory read for the old one. Memory is not on screen while
-  // the switcher is, and reads again on arrival.
-  showBrief: (brief) => set({ brief, memory: null }),
+  // Memory and Schedule in fixture mode are chosen by the state, so switching it
+  // drops both reads for the old one. Neither is on screen while the switcher
+  // is, and each reads again on arrival.
+  showBrief: (state) =>
+    set({ brief: fixtureBrief(state), fixtureState: state, memory: null, schedule: null }),
 }))

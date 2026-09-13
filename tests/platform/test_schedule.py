@@ -119,16 +119,235 @@ def test_am_and_pm_are_read_on_a_24_hour_clock(cadence, at):
         ("Sat/Sun", {5, 6}),
         ("on Sun", {6}),
         ("Sat mornings 09:00", {5}),
-        ("Weekdays 06:00 at sun up", {0, 1, 2, 3, 4}),
+        # An abbreviation followed by a time counts even when it does not stand alone. The time used
+        # to be blanked before this was checked, so "Weekly, Fri 07:00" named no day at all.
+        ("Weekly, Fri 07:00", {4}),
+        ("Weekdays and Sat 9am", {0, 1, 2, 3, 4, 5}),
+        ("Mornings, Sat at 09:00", {5}),
     ],
 )
 def test_an_abbreviated_day_counts_only_where_it_is_plainly_a_day(cadence, weekdays):
-    """"sun" in "at sun up" is the sun, not Sunday.
-
-    Mutation-tested: making ``_counts_as_day`` return True for every abbreviation puts Sunday into
-    the weekday cadence and this fails.
-    """
+    """Mutation-tested: dropping the time mark from ``_counts_as_day`` leaves "Fri" in "Weekly, Fri
+    07:00" uncounted, it is refused as a word Second does not read, and this fails."""
     assert set(parse_cadence(cadence).weekdays) == weekdays
+
+
+def test_sun_in_a_phrase_is_refused_by_name_not_read_as_sunday():
+    """"sun" in "at sun up" is the sun, not Sunday, so it is a word the parser does not read.
+
+    Mutation-tested: making ``_counts_as_day`` return True for every abbreviation reads "sun" as
+    Sunday, the reason names only “up”, and this fails.
+    """
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence("Weekdays 06:00 at sun up")
+    assert "“sun”" in str(refused_with.value)
+
+
+# -- the cadence faults the review found --------------------------------------
+
+
+@pytest.mark.parametrize(
+    "cadence",
+    [
+        "Every other weekday 08:00",
+        "every other weekday",
+        "Every second weekday",
+        "every 2nd weekday, 20 minutes",
+        "Alternate weekdays at 7am",
+        "Every other weekend 09:00",
+    ],
+)
+def test_every_other_weekday_is_refused_not_read_as_every_weekday(cadence):
+    """(1a) "Every other weekday 08:00" was read as every weekday, twice the rhythm the user chose.
+
+    Mutation-tested: removing the ``_ALTERNATE_GROUP`` refusal lets the allowlist refuse it on the
+    word “other” instead, so this reason check fails. With the allowlist also removed it read as
+    five weekdays.
+    """
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence(cadence)
+    assert "alternates over a group of days" in str(refused_with.value)
+
+
+@pytest.mark.parametrize(
+    ("cadence", "words"),
+    [
+        ("Tuesdays 19:00 during term time", ["during", "term", "time"]),
+        ("Weekdays 07:00 if it is dry", ["if", "it", "is", "dry"]),
+        ("Mon/Wed/Fri 07:00 in winter", ["in", "winter"]),
+        ("Tuesdays 19:00, weather permitting", ["weather", "permitting"]),
+        ("Weekday mornings 08:00 while the kids are at school", ["while", "the", "kids", "are", "school"]),
+        ("Gym Mon/Wed/Fri 07:00", ["gym"]),
+        ("Weeknights 20:00", ["weeknights"]),
+        ("Weekdays at 07:00 until the wedding", ["until", "the", "wedding"]),
+        ("next Tuesday 19:00", ["next"]),
+        ("When I feel like it", ["when", "i", "feel", "like", "it"]),
+    ],
+)
+def test_a_word_the_parser_does_not_read_refuses_the_cadence_and_is_named(cadence, words):
+    """(1b) Only listed qualifiers used to be refused, so "during term time" was silently dropped
+    and the rhythm proposed all year.
+
+    Mutation-tested: removing the leftover-word refusal in ``parse_cadence`` reads "Tuesdays 19:00
+    during term time" as every Tuesday and this fails.
+    """
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence(cadence)
+    reason = str(refused_with.value)
+    for word in words:
+        assert f"“{word}”" in reason, f"{word!r} not named in {reason!r}"
+
+
+@pytest.mark.parametrize(
+    ("cadence", "weekdays", "at"),
+    [
+        ("Weekday mornings, 15 minutes", {0, 1, 2, 3, 4}, None),
+        ("Tuesdays 19:00 for 90 minutes", {1}, time(19, 0)),
+        ("Tuesdays 19:00, 1 hour", {1}, time(19, 0)),
+        ("Mon/Wed/Fri 07:00 for an hour", {0, 2, 4}, time(7, 0)),
+        ("Saturdays 09:00, half an hour", {5}, time(9, 0)),
+        ("Thursdays 18:00 for 2 hrs", {3}, time(18, 0)),
+        ("Weekdays 07:30, 20 mins", {0, 1, 2, 3, 4}, time(7, 30)),
+        ("Tuesdays at 7pm for 1 hour 30 minutes", {1}, time(19, 0)),
+        ("Fridays 17:00 (1h)", {4}, time(17, 0)),
+        ("Weekdays 08:00 for about 45 min", {0, 1, 2, 3, 4}, time(8, 0)),
+    ],
+)
+def test_a_session_length_is_set_aside_not_read_as_a_time(cadence, weekdays, at):
+    """(1c) "Weekday mornings, 15 minutes" is the Route Planner prompt's own example, and its 15 was
+    refused as a number that is not a time, so a route written as instructed got no proposals.
+
+    Mutation-tested: making ``_DURATION`` match nothing refuses all of these on the bare number and
+    this fails.
+    """
+    read = parse_cadence(cadence)
+    assert set(read.weekdays) == weekdays
+    assert read.at == at
+    assert read.fortnightly is False
+
+
+def test_the_route_planners_own_example_proposes_with_a_borrowed_time(graph, clock):
+    """End to end: a route written the way route_planner.md shows gets proposals, and the time it
+    borrows is said to be borrowed."""
+    graph.goal_by_id("g-speaking").routes[1].cadence = "Weekday mornings, 15 minutes"
+
+    schedule = build_schedule(graph, clock)
+
+    recordings = [block for block in proposed(schedule) if block.task_id == "t-recording"]
+    assert [block.start.isoformat() for block in recordings] == [
+        "2026-09-11T08:00:00+01:00",
+        "2026-09-14T08:00:00+01:00",
+        "2026-09-15T08:00:00+01:00",
+        "2026-09-16T08:00:00+01:00",
+    ]
+    assert all("names no time" in block.why for block in recordings)
+
+
+def test_a_borrowed_time_outside_the_named_part_of_the_day_is_not_used(graph, clock):
+    """"Weekday evenings" with a last slot at 08:00 would propose an evening session at breakfast."""
+    graph.goal_by_id("g-speaking").routes[1].cadence = "Weekday evenings, 15 minutes"
+
+    schedule = build_schedule(graph, clock)
+
+    assert not [block for block in proposed(schedule) if block.task_id == "t-recording"]
+    daily = next(skip for skip in schedule.skipped if skip.route_id == "r-daily")
+    assert "08:00, is not in the evening" in daily.reason
+
+
+@pytest.mark.parametrize(
+    "cadence", ["every 2 weeks on Tuesday", "every two weeks on Tuesday", "Every 2 weeks, Tuesdays 19:00"]
+)
+def test_every_2_weeks_and_every_two_weeks_are_both_fortnightly(cadence):
+    """(1e) "every 2 weeks on Tuesday" was refused as not repeating every other week, while "every
+    two weeks on Tuesday" read, because a bare number in the other-interval rule caught the 2.
+
+    Mutation-tested: putting ``\\d+`` back in the weeks branch of ``_OTHER_INTERVAL`` refuses the
+    numeric spellings and this fails.
+    """
+    read = parse_cadence(cadence)
+    assert read.weekdays == frozenset({1})
+    assert read.fortnightly is True
+
+
+def test_a_time_outside_the_named_part_of_the_day_is_refused():
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence("Tuesday mornings at 19:00")
+    assert "not in the morning" in str(refused_with.value)
+
+
+@pytest.mark.parametrize(
+    "cadence",
+    ["Weekday mornings 08:00", "Tuesdays 19:00", "Mon/Wed/Fri 07:00", "Mon/Wed/Fri 18:00", "Every other Thursday"],
+)
+def test_every_demo_cadence_still_reads(cadence):
+    parse_cadence(cadence)
+
+
+# A model writes cadences in many small variations. Each is pinned to what it reads as, or to a
+# refusal: never to "whatever the parser did".
+READ = [
+    ("Tuesdays 19:00", {1}, time(19, 0), False),
+    ("TUESDAYS 7PM", {1}, time(19, 0), False),
+    ("tuesdays, 7:30 p.m.", {1}, time(19, 30), False),
+    ("Mon, Wed & Fri at 6:30am", {0, 2, 4}, time(6, 30), False),
+    ("Mon–Fri 07:15, 20 mins", {0, 1, 2, 3, 4}, time(7, 15), False),
+    ("Monday to Thursday, 12:30", {0, 1, 2, 3}, time(12, 30), False),
+    ("from Mon to Fri at 07:00", {0, 1, 2, 3, 4}, time(7, 0), False),
+    ("Every weekday at 8.30am", {0, 1, 2, 3, 4}, time(8, 30), False),
+    ("Every weekday morning at 7:30 for 25 minutes", {0, 1, 2, 3, 4}, time(7, 30), False),
+    ("Daily, 10 minutes", set(range(7)), None, False),
+    ("Every day at 21:00 for half an hour", set(range(7)), time(21, 0), False),
+    ("Saturday mornings at 9am, about an hour", {5}, time(9, 0), False),
+    ("Thursday evenings 18:30, 1 hour", {3}, time(18, 30), False),
+    ("Mondays and Thursdays, 12:30 pm, 45 min", {0, 3}, time(12, 30), False),
+    ("Weekends at noon", {5, 6}, time(12, 0), False),
+    ("Tue/Thu 06:45", {1, 3}, time(6, 45), False),
+    ("Weekly on Sundays 10:00", {6}, time(10, 0), False),
+    ("Wednesdays, 1.5 hours", {2}, None, False),
+    ("Weekly, Tuesday evenings", {1}, None, False),
+    ("Every other Friday 17:00 (1h)", {4}, time(17, 0), True),
+    ("Fortnightly on Wednesdays, 2 hours", {2}, None, True),
+    ("every 2 weeks on Tuesday at 7pm", {1}, time(19, 0), True),
+    ("Sat & Sun 09:00", {5, 6}, time(9, 0), False),
+]
+
+REFUSED = [
+    "Every other weekday 08:00",
+    "3 times a week, 30 minutes",
+    "As often as possible",
+    "Sat & Sun, 10:00 - 11:30",
+    "Monday to Thursday, 07:00-ish",
+    "Tuesday mornings at 19:00",
+    "Mondays 7",
+    "Mon/Wed/Fri 7-8am",
+    "Every 3 weeks on Monday",
+    "Weekdays 07:00, except bank holidays",
+    "Most weekdays, 08:00",
+    "Tuesdays or Thursdays at 19:00",
+    "Mornings and evenings on weekdays",
+    "Once a week, 45 minutes",
+    "Weekday mornings 08:00 when not travelling",
+    # "19h" and "7h" are clock times in some countries. Read as lengths, the cadence had no time.
+    "Tuesdays 19h",
+    "Tuesdays at 7h",
+]
+
+
+@pytest.mark.parametrize(("cadence", "weekdays", "at", "fortnightly"), READ)
+def test_realistic_cadences_read_as_pinned(cadence, weekdays, at, fortnightly):
+    read = parse_cadence(cadence)
+    assert (set(read.weekdays), read.at, read.fortnightly) == (weekdays, at, fortnightly)
+
+
+@pytest.mark.parametrize("cadence", REFUSED)
+def test_realistic_cadences_refused_as_pinned(cadence):
+    with pytest.raises(CadenceUnreadable) as refused_with:
+        parse_cadence(cadence)
+    assert str(refused_with.value).strip()
+
+
+def test_the_realistic_list_is_big_enough_to_mean_something():
+    assert len(READ) + len(REFUSED) >= 25
 
 
 @pytest.mark.parametrize(

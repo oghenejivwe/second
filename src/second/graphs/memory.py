@@ -44,11 +44,10 @@ from second.core.models import (
     Memory,
     MemoryItem,
     MemorySourceStatus,
-    PreparedAction,
     ScheduledBlock,
 )
 from second.graphs.brief import NO_JUDGEMENT, blocks_on, deadline_risks
-from second.graphs.wording import day_label, plural, quoted
+from second.graphs.wording import day_label, plural, quoted, what_is_prepared
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +105,8 @@ class GraphSource:
 
     def collect(self, context: MemoryContext) -> Collected:
         graph, clock = context.graph, context.clock
+        # Every item the graph owns carries the goal and task ids it came from, so a screen can take
+        # it off when that goal is paused or retired without matching on a title.
         items: list[MemoryItem] = [
             MemoryItem(
                 what=block.title,
@@ -113,6 +114,8 @@ class GraphSource:
                 source="graph",
                 kind="event",
                 at=block.start,
+                goal_id=block.goal_id,
+                task_id=block.task_id,
             )
             for block in blocks_on(graph, clock, clock.today)
         ]
@@ -143,6 +146,8 @@ class GraphSource:
                         source="graph",
                         kind="deadline",
                         due=risk.deadline,
+                        goal_id=risk.goal_id,
+                        task_id=risk.task_id,
                     )
                 )
                 continue
@@ -150,22 +155,27 @@ class GraphSource:
             items.append(
                 MemoryItem(
                     what=f"{risk.what}, due {day_label(risk.deadline)}",
-                    evidence=f"Due {day_label(risk.deadline)}. {_what_is_prepared(action)}",
+                    evidence=f"Due {day_label(risk.deadline)}. {what_is_prepared(action)}",
                     source="graph",
                     kind="waiting_on_you",
                     due=risk.deadline,
+                    goal_id=risk.goal_id,
+                    task_id=risk.task_id,
                 )
             )
 
         for action in waiting:
             if id(action) in folded:
                 continue
+            task_id, goal_id = _owner_of(graph, action.task_id)
             items.append(
                 MemoryItem(
                     what=action.summary,
-                    evidence=f"On today's brief. {_what_is_prepared(action)}",
+                    evidence=f"On today's brief. {what_is_prepared(action)}",
                     source="graph",
                     kind="waiting_on_you",
+                    goal_id=goal_id,
+                    task_id=task_id,
                 )
             )
 
@@ -183,6 +193,8 @@ class GraphSource:
                             evidence=f"What you told Second about {quoted(task.title)}: {quoted(blocker)}",
                             source="graph",
                             kind="told_second",
+                            goal_id=goal.id,
+                            task_id=task.id,
                         )
                     )
 
@@ -388,24 +400,19 @@ def collect_memory(
 # ---------------------------------------------------------------------------
 
 
-_PREPARED = {
-    "email_draft": "A draft is waiting in Gmail",
-    "options": "The options are gathered",
-    "retrieved_fact": "Second has looked it up",
-    "calendar_change": "A calendar change is ready",
-}
-"""What each kind of prepared work is, said to a person. ``email_draft`` is the contract's word."""
+def _owner_of(graph: LivingGraph, task_id: str | None) -> tuple[str | None, str | None]:
+    """The task id and the id of the goal that owns it, or neither.
 
-
-def _what_is_prepared(action: PreparedAction) -> str:
-    """"A draft is waiting in Gmail (draft-0001): read it and press send." """
-    reference = f" ({action.external_ref})" if action.external_ref else ""
-    step = action.awaiting.strip()
-    # Lower-cased to sit after the colon, unless the first word is an acronym or an id ("AB-4471").
-    first = step.split(" ", 1)[0]
-    if first[:1].isupper() and first[1:] == first[1:].lower():
-        step = step[0].lower() + step[1:]
-    return f"{_PREPARED.get(action.kind, 'Prepared')}{reference}: {step}"
+    Prepared work names its task in a model's words. An id the graph does not hold is not passed on,
+    because a screen that withdraws by it would be acting on a made-up id.
+    """
+    if not task_id:
+        return None, None
+    for goal in graph.goals:
+        for route in goal.routes:
+            if any(task.id == task_id for task in route.tasks):
+                return task_id, route.goal_id
+    return None, None
 
 
 def _in_the_plan(block: ScheduledBlock) -> str:

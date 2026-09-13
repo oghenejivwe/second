@@ -392,3 +392,36 @@ def test_a_new_source_is_one_class(graph, clock):
         ("pinned", True, "One pinned note."),
     ]
     assert [item.what for item in memory.items] == ["Call the venue"]
+
+
+def test_items_from_the_graph_carry_the_goal_and_task_they_belong_to(graph, clock):
+    """So the frontend can take an item off by id when its goal is paused or retired.
+
+    Ids come only from the graph: prepared work naming a task the graph does not have gets none,
+    and a calendar event, a standing rule or an email reminder belongs to no goal.
+    """
+    graph.task_by_id("t-flights").known_blocker = "Waiting on my manager"
+    brief = a_brief(graph, clock)
+    brief.prepared = [
+        LEAVE_DRAFT_FOR_T_LEAVE,
+        PreparedAction(kind="options", summary="Two gym classes at 07:00 compared.", awaiting="Pick one.", task_id="t-gym"),
+        PreparedAction(kind="retrieved_fact", summary="A policy number.", awaiting="Quote it.", task_id="t-made-up"),
+    ]
+
+    memory = memory_for(graph, clock, brief=brief)
+    ids = [(item.kind, item.what, item.goal_id, item.task_id) for item in memory.items]
+
+    assert ids == [
+        ("event", "Record five minutes and listen back", "g-speaking", "t-recording"),
+        ("event", "Draft the talk pitch", "g-speaking", "t-pitch"),
+        ("event", "Gym session", "g-fitness", "t-gym"),
+        ("waiting_on_you", "Request leave for the wedding week, due Tue 15 Sep", "g-lisbon", "t-leave"),
+        ("deadline", "Book flights to Lisbon, due Thu 24 Sep", "g-lisbon", "t-flights"),
+        ("waiting_on_you", "Two gym classes at 07:00 compared.", "g-fitness", "t-gym"),
+        ("waiting_on_you", "A policy number.", None, None),
+        ("told_second", "Book flights to Lisbon: Waiting on my manager", "g-lisbon", "t-flights"),
+        ("constraint", "No meetings before 09:00", None, None),
+        ("constraint", "Sundays are family", None, None),
+        ("event", "Eng sync", None, None),
+        ("reminder", WEDDING.what, None, None),
+    ]
