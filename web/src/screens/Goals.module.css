@@ -409,3 +409,30 @@
   text-decoration: line-through;
   color: var(--text-ghost);
 }
+
+/* Horizon tabs: pills, the chosen one filled, the same as the rail. */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.tab {
+  padding: 8px 16px;
+  border: 1px solid var(--color-hairline, #bebecc);
+  border-radius: var(--radius-pill, 100px);
+  color: var(--text);
+  font-size: var(--size-14);
+  font-weight: 500;
+}
+
+.tab:hover {
+  background: var(--color-cloud, #f5f5f5);
+}
+
+.tab[aria-selected='true'] {
+  background: var(--color-obsidian, #070709);
+  border-color: var(--color-obsidian, #070709);
+  color: #fff;
+}

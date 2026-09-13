@@ -51,6 +51,19 @@ interface Ladder {
   unplaced: Goal[]
 }
 
+/** The tabs a person plans from: the week, the month, the year, then everything
+ * further out. Long term holds both the generic ambitions and the specific ones.
+ * The whole ladder stays one tab away, because that is where a goal's place in
+ * the chain is visible. */
+type GoalTab = 'week' | 'month' | 'year' | 'long' | 'all'
+const TABS: { id: GoalTab; label: string; horizons: Goal['horizon'][] }[] = [
+  { id: 'week', label: 'This week', horizons: ['week', 'day'] },
+  { id: 'month', label: 'This month', horizons: ['month', 'quarter'] },
+  { id: 'year', label: 'This year', horizons: ['year'] },
+  { id: 'long', label: 'Long term', horizons: ['three_year', 'decade', 'life'] },
+  { id: 'all', label: 'Whole ladder', horizons: [] },
+]
+
 export function Goals() {
   const graph = useSecond((state) => state.graph)
   const loading = useSecond((state) => state.loading)
@@ -58,6 +71,7 @@ export function Goals() {
   const loadGraph = useSecond((state) => state.loadGraph)
   const setGoalStatus = useSecond((state) => state.setGoalStatus)
   const lastStatusChange = useSecond((state) => state.lastStatusChange)
+  const [tab, setTab] = useState<GoalTab>('week')
 
   // Which goal's request is in flight. `loading.status` is one flag for the
   // whole store, so the id is what keeps a pause on one goal from greying out
@@ -144,6 +158,22 @@ export function Goals() {
         )
       ) : (
         <>
+          <div className={styles.tabs} role="tablist" aria-label="Goal horizons">
+            {TABS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === item.id}
+                className={styles.tab}
+                onClick={() => setTab(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'all' ? (
           <Section
             label="Ladder"
             count={graph.goals.length - ladder.unplaced.length}
@@ -165,6 +195,32 @@ export function Goals() {
               </ul>
             )}
           </Section>
+          ) : (
+            (() => {
+              const current = TABS.find((item) => item.id === tab) ?? TABS[0]
+              const picked = graph.goals.filter((goal) => current.horizons.includes(goal.horizon))
+              return (
+                <Section label={current.label} count={picked.length}>
+                  {picked.length === 0 ? (
+                    <p className={styles.absent}>
+                      Nothing set for {current.label.toLowerCase()} yet. Say it on Record, or answer
+                      the question on Memory, and it lands here.
+                    </p>
+                  ) : (
+                    <ul className={styles.ladder}>
+                      {picked.map((goal) => (
+                        <RungRow
+                          key={goal.id}
+                          rung={{ goal, children: [], stalled: false, brokenParent: null }}
+                          controls={controls}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </Section>
+              )
+            })()
+          )}
 
           {ladder.unplaced.length > 0 && (
             <Section label="Not in the ladder" count={ladder.unplaced.length}>

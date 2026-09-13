@@ -156,23 +156,6 @@ export function MemoryScreen() {
       <div className={styles.body}>
         {withdrawnSentence && <p className={styles.withdrawn}>{withdrawnSentence}</p>}
 
-        {questions.length > 0 && (
-          <Section
-            label={questions.length === 1 ? 'One question' : 'Questions'}
-            count={questions.length > 1 ? questions.length : undefined}
-          >
-            <ul className={styles.asks}>
-              {questions.map((question) => (
-                <Ask
-                  key={questionKey(question)}
-                  question={question}
-                  settled={settled[questionKey(question)]}
-                />
-              ))}
-            </ul>
-          </Section>
-        )}
-
         {GROUPS.map((group) => {
           const grouped = items
             .filter((item) => GROUP[item.kind] === group.id)
@@ -211,6 +194,23 @@ export function MemoryScreen() {
             </Section>
           )
         })}
+
+        {questions.length > 0 && (
+          <Section
+            label={questions.length === 1 ? 'One question' : 'Questions'}
+            count={questions.length > 1 ? questions.length : undefined}
+          >
+            <ul className={styles.asks}>
+              {questions.map((question) => (
+                <Ask
+                  key={questionKey(question)}
+                  question={question}
+                  settled={settled[questionKey(question)]}
+                />
+              ))}
+            </ul>
+          </Section>
+        )}
       </div>
     </div>
   )

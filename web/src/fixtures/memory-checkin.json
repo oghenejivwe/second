@@ -60,6 +60,46 @@
       "due": null,
       "goal_id": null,
       "task_id": null
+    },
+    {
+      "what": "Tolu's birthday",
+      "evidence": "In your calendar today, all day: “Tolu's birthday”.",
+      "source": "calendar",
+      "kind": "reminder",
+      "at": null,
+      "due": null,
+      "goal_id": null,
+      "task_id": null
+    },
+    {
+      "what": "Follow-up call with Dayo",
+      "evidence": "In your calendar from 16:00 to 16:30: “Follow-up call with Dayo”, sent by Dayo, 2 attendees.",
+      "source": "calendar",
+      "kind": "event",
+      "at": "2026-09-11T16:00:00+01:00",
+      "due": null,
+      "goal_id": null,
+      "task_id": null
+    },
+    {
+      "what": "Send Tolu a birthday message",
+      "evidence": "Second drafted it and left it in Gmail drafts, not sent: “Happy birthday, Tolu! Lunch on me this week?”",
+      "source": "email",
+      "kind": "reminder",
+      "at": null,
+      "due": null,
+      "goal_id": null,
+      "task_id": null
+    },
+    {
+      "what": "Pick a gift for Tolu from a local vendor",
+      "evidence": "Suggested: a cake or flowers from a bakery or florist near you, ordered before 13:00 so it arrives today. Nothing is ordered.",
+      "source": "email",
+      "kind": "reminder",
+      "at": null,
+      "due": null,
+      "goal_id": null,
+      "task_id": null
     }
   ],
   "sources": [
@@ -72,14 +112,14 @@
     {
       "name": "calendar",
       "connected": true,
-      "reason": "Read today's calendar: nothing in it.",
-      "items": 0
+      "reason": "Read today's calendar: a birthday and a follow-up call.",
+      "items": 2
     },
     {
       "name": "email",
       "connected": true,
-      "reason": "The morning run read your email today and found nothing to remind you of.",
-      "items": 0
+      "reason": "Read your email and calendar together: a birthday message drafted and a gift to pick.",
+      "items": 2
     }
   ],
   "questions": [
