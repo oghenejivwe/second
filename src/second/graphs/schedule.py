@@ -89,9 +89,15 @@ the same way until the slash was read as the "a" it stands for."""
 
 _RELATIVE_TIME = re.compile(
     r"\b(?:before|after|around|about|roughly|approximately|earliest|latest)\b"
+    r"|~(?=\s*(?:\d|(?:noon|midday|midnight)\b))"
 )
 """A time given relative to something: "before sun up", "after work", "around 7". Reading the
-number alone would put the block on the wrong side of the thing the user named."""
+number alone would put the block on the wrong side of the thing the user named.
+
+A tilde before a time is "around" written as a symbol, so "Tuesdays ~7pm" is refused like "around
+7pm". It was ignored as punctuation, and the block was put at exactly 19:00. Only a tilde before a
+time counts: one before a length goes with the length, and "Mon~Fri" is left to be refused for the
+word it leaves unread rather than told its time is relative."""
 
 _LONGER_PERIOD = re.compile(
     r"\b(?:monthly|quarterly|yearly|annually|(?:a|per|each|every)\s+(?:month|quarter|year)"
@@ -140,7 +146,7 @@ _HOURS = (
 "7h" are how some people write 19:00 and 07:00: read as lengths, they left "Tuesdays 19h" with no
 time at all. A digit too big to be a session is left for the bare-number rule, which refuses it."""
 _DURATION = re.compile(
-    r"\b(?:for\s+)?(?:(?:about|around|roughly|approximately)\s+)?"
+    r"(?:\bfor\s+)?(?:\b(?:about|around|roughly|approximately)\s+|~\s*)?\b"
     r"(?:half\s+an\s+hour"
     r"|(?:an|one)\s+hour\s+and\s+a\s+half"
     r"|(?:an|one)\s+and\s+a\s+half\s+hours"
@@ -155,8 +161,8 @@ _DURATION = re.compile(
 It says nothing about which day or when, so it is set aside before anything else is read. "Weekday
 mornings, 15 minutes" is the Route Planner prompt's own example, and its 15 was being refused as a
 number that is not a time, so every route written as instructed got no proposals. "about" goes with
-the length it qualifies, because a rough length does not move the block the way "about 7" does.
-Three digits at most for minutes, so "1900m" is not a length."""
+the length it qualifies, because a rough length does not move the block the way "about 7" does, and
+so does a tilde ("~90 minutes"). Three digits at most for minutes, so "1900m" is not a length."""
 
 _MERIDIEM_TIME = re.compile(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*([ap])\.?m\b\.?")
 _CLOCK_TIME = re.compile(r"\b([01]?\d|2[0-3])[:.]([0-5]\d)\b")
@@ -193,11 +199,23 @@ a part of the day; T is a time. "Tuesdays", "Weekday mornings, 15 minutes", "Tue
 "Weekday mornings 08:00", "Mornings, Sat at 09:00", "7:30 pm Tuesdays". With one group of days there
 is nothing else for the part of the day or the time to belong to."""
 
-_REPEATED_GROUPS = re.compile(r"(?:DP?T){2,}|(?:DP){2,}")
+_REPEATED_GROUPS = re.compile(r"(?:DP?T){2,}|(?:DP){2,}|D{2,}")
 """Groups of days that each carry their own time ("Wed 7pm and Sun 7pm", "Mon mornings 8am and Wed
-8am") or each the part of the day ("Tuesday evenings and Thursday evenings"). The order is checked
-after a second time or a second part of the day has already been refused, so every group here says
-the same thing and none of them borrows from another."""
+8am"), each the part of the day ("Tuesday evenings and Thursday evenings"), or neither ("Weekdays 15
+minutes, Saturdays 30 minutes"). The order is checked after a second time or a second part of the day
+has already been refused, so every group here says the same thing and none of them borrows from
+another."""
+
+_GROUP_JOIN = re.compile(r"(?:\s|,|;|/|&|\+|-|–|—|\b(?:and|to|through|thru|until|till)\b)*")
+"""What may stand between two day names that are one group: list and range joins, and spaces.
+
+Anything else between them, a length, a full stop or a bracket, closes the first group. The shape
+used to be built from the text after lengths and punctuation were blanked, so "Mondays 30 minutes,
+Wednesdays 19:00" had two day names side by side, was read as one group, and put Monday at 19:00, a
+time written only beside Wednesday.
+
+A semicolon on its own still joins, because "Mondays; Wednesdays 07:00" is pinned as one list read
+like a comma (``test_a_semicolon_separates_a_list_like_a_comma``)."""
 
 _SHAPE_WORDS = {"D": "days", "P": "a part of the day", "T": "a time", "W": "weekly", "F": "every other week"}
 
@@ -282,15 +300,24 @@ def parse_cadence(text: str) -> Cadence:
             f"{shown} does not repeat weekly or every other week, so it cannot be laid over a week."
         )
 
-    # Where each piece was written is kept beside what it says, because the order is checked below.
-    pieces = [(match.start(), "F") for match in _EVERY_OTHER_WEEKDAY.finditer(mask)]
-    mask = _blank(_EVERY_OTHER_WEEKDAY, mask)
-    pieces += [(match.start(), "F") for match in _FORTNIGHT.finditer(mask)]
-    mask = _blank(_FORTNIGHT, mask)
+    # Where each piece was written, start and end, is kept beside what it says, because the order is
+    # checked below and what lies between two pieces is read from the original text.
+    pieces: list[tuple[int, int, str]] = []
+    for pattern in (_EVERY_OTHER_WEEKDAY, _FORTNIGHT):
+        found = list(pattern.finditer(mask))
+        if any(match.group(0) != lowered[match.start() : match.end()] for match in found):
+            # A length was blanked inside the marker: "every other 15 minutes Mon" matched as "every
+            # other Mon" across the gap it left, and read as a fortnight nobody wrote.
+            raise CadenceUnreadable(
+                f"{shown} has a length in the middle of saying what alternates, so Second cannot tell "
+                "which day alternates and will not guess."
+            )
+        pieces += [(match.start(), match.end(), "F") for match in found]
+        mask = _blank(pattern, mask)
     fortnightly = bool(pieces)
     marks, mask = _read_time(mask, shown)
-    named, day_starts, mask = _read_days(lowered, mask, shown)
-    day_starts += [match.start() for pattern in (_EVERY_DAY, _WEEKDAYS, _WEEKENDS) for match in pattern.finditer(mask)]
+    named, day_spans, mask = _read_days(lowered, mask, shown)
+    day_spans += [match.span() for pattern in (_EVERY_DAY, _WEEKDAYS, _WEEKENDS) for match in pattern.finditer(mask)]
 
     grouped: frozenset[int] = frozenset()
     if _EVERY_DAY.search(mask):
@@ -302,8 +329,8 @@ def parse_cadence(text: str) -> Cadence:
     mask = _blank(_WEEKENDS, _blank(_WEEKDAYS, _blank(_EVERY_DAY, mask)))
 
     parts = list(dict.fromkeys(match.group("part") for match in _DAY_PART.finditer(mask)))
-    pieces += [(match.start(), "P") for match in _DAY_PART.finditer(mask)]
-    pieces += [(match.start(), "W") for match in _WEEKLY.finditer(mask)]
+    pieces += [(match.start(), match.end(), "P") for match in _DAY_PART.finditer(mask)]
+    pieces += [(match.start(), match.end(), "W") for match in _WEEKLY.finditer(mask)]
     mask = _blank(_FILLER, _blank(_WEEKLY, _blank(_DAY_PART, mask)))
 
     leftover = list(dict.fromkeys(_WORD.findall(mask)))
@@ -313,8 +340,8 @@ def parse_cadence(text: str) -> Cadence:
             "length. A word it skipped could be the one that limits the rhythm, so nothing is proposed."
         )
 
-    pieces += [(start, "D") for start in day_starts] + [(start, "T") for start, _ in marks]
-    shape = _shape(pieces)
+    pieces += [(start, end, "D") for start, end in day_spans] + [(start, end, "T") for start, end, _ in marks]
+    shape = _shape(pieces, lowered)
     at = _one_time(marks, shape, shown)
 
     if len(parts) > 1:
@@ -386,17 +413,17 @@ def _the_words(words: list[str]) -> str:
     return f"the words {', '.join(shown[:-1])} and {shown[-1]}"
 
 
-def _read_time(mask: str, shown: str) -> tuple[list[tuple[int, time]], str]:
-    """Every time a cadence names, where it was written, and the text with each replaced by a mark.
+def _read_time(mask: str, shown: str) -> tuple[list[tuple[int, int, time]], str]:
+    """Every time a cadence names, where it starts and ends, and the text with each replaced by a mark.
 
     am and pm are read before 24-hour times, because "7:30 pm" also contains "7:30", and reading
     that half alone is the block twelve hours early. Whether the times add up to one is decided in
     :func:`_one_time`, once the days are known, because where a time sits among the days matters.
     """
-    found: list[tuple[int, time]] = []
+    found: list[tuple[int, int, time]] = []
 
     def marked(match: re.Match[str], value: time) -> str:
-        found.append((match.start(), value))
+        found.append((match.start(), match.end(), value))
         return _TIME_MARK + " " * (len(match.group(0)) - 1)
 
     def meridiem(match: re.Match[str]) -> str:
@@ -421,7 +448,7 @@ def _read_time(mask: str, shown: str) -> tuple[list[tuple[int, time]], str]:
     return found, rest
 
 
-def _one_time(marks: list[tuple[int, time]], shape: str, shown: str) -> time | None:
+def _one_time(marks: list[tuple[int, int, time]], shape: str, shown: str) -> time | None:
     """The one time a cadence names, or refuse if it names two.
 
     Which days a time belongs to is the order check's question. This only chooses the reason: when
@@ -429,11 +456,11 @@ def _one_time(marks: list[tuple[int, time]], shape: str, shown: str) -> time | N
     ("Tue 07:00 and 19:00") the cadence offers a choice.
 
     Args:
-        marks: Where each time was written, and the time.
+        marks: Where each time starts and ends, and the time.
         shape: The order the cadence was written in, from :func:`_shape`.
         shown: The cadence as the reason quotes it.
     """
-    times = {value for _, value in marks}
+    times = {value for _, _, value in marks}
     if len(times) > 1:
         if re.fullmatch(r"(?:DT){2,}", re.sub(r"[^DT]", "", shape)):
             raise CadenceUnreadable(
@@ -444,16 +471,32 @@ def _one_time(marks: list[tuple[int, time]], shape: str, shown: str) -> time | N
     return times.pop() if times else None
 
 
-def _shape(pieces: list[tuple[int, str]]) -> str:
+def _shape(pieces: list[tuple[int, int, str]], lowered: str) -> str:
     """The order a cadence was written in, one letter per piece: "DPT" for "Weekday mornings 08:00".
 
     Days with only joins between them ("Mon, Wed & Fri", "Weekdays and Sat", "Monday to Friday") are
     one group and one D. A time, a part of the day or a "weekly" between two days keeps them apart,
     and seeing that is what the shape is for.
+
+    Whether two neighbouring days are joined is read from ``lowered``, the text as written, not from
+    the order of the pieces alone. A length or a full stop is never a piece, so between two days it
+    left no letter, and "Mondays 30 minutes, Wednesdays 19:00" became one group sharing Wednesday's
+    time.
+
+    Args:
+        pieces: The start, end and letter of every piece the cadence was read into.
+        lowered: The cadence lower-cased, at the positions the pieces were found in.
     """
-    letters = [letter for _, letter in sorted(pieces)]
+    ordered = sorted(pieces)
     return "".join(
-        letter for index, letter in enumerate(letters) if not (letter == "D" and index and letters[index - 1] == "D")
+        letter
+        for index, (start, _, letter) in enumerate(ordered)
+        if not (
+            letter == "D"
+            and index
+            and ordered[index - 1][2] == "D"
+            and _GROUP_JOIN.fullmatch(lowered[ordered[index - 1][1] : start])
+        )
     )
 
 
@@ -511,7 +554,10 @@ def _refuse_unread_order(shape: str, part: str | None, shown: str) -> None:
                 f"{shown} puts a time after only some of its days, and Second will not guess whether the "
                 "days after it share that time."
             )
-        if all("P" in group for group in groups):
+        # Only the last group has the time here. When no group before it names a part of the day
+        # ("Mondays 30 minutes, Wednesdays 19:00"), or every group does, the time is all that is
+        # missing from the others.
+        if all("P" in group for group in groups) or not any("P" in group for group in groups[:-1]):
             raise CadenceUnreadable(
                 f"{shown} puts a time beside only some of its days, and Second will not guess whether the "
                 "days before it share that time."
@@ -533,9 +579,9 @@ def _refuse_unread_order(shape: str, part: str | None, shown: str) -> None:
     )
 
 
-def _read_days(lowered: str, mask: str, shown: str) -> tuple[frozenset[int], list[int], str]:
-    """Every weekday a cadence names, with ranges filled in, where each counted day was written, and
-    the text with them blanked.
+def _read_days(lowered: str, mask: str, shown: str) -> tuple[frozenset[int], list[tuple[int, int]], str]:
+    """Every weekday a cadence names, with ranges filled in, where each counted day starts and ends,
+    and the text with them blanked.
 
     "Mon-Fri" is five days, not two. A range that does not run forwards through the week ("Fri-Mon")
     is refused rather than wrapped, because whether it means the weekend or the working week is
@@ -547,13 +593,13 @@ def _read_days(lowered: str, mask: str, shown: str) -> tuple[frozenset[int], lis
     _refuse_spaced_abbreviations(mask, tokens, joins, shown)
 
     days: set[int] = set()
-    starts: list[int] = []
+    spans: list[tuple[int, int]] = []
     read: list[tuple[int, int]] = []
     for index, token in enumerate(tokens):
         joined = (index > 0 and joins[index - 1] is not None) or (index < len(joins) and joins[index] is not None)
         if _counts_as_day(lowered, mask, token, joined):
             days.add(_DAY_INDEX[token.group(0)[:2]])
-            starts.append(token.start())
+            spans.append(token.span())
             read.append(token.span())
 
     for index, join in enumerate(joins):
@@ -580,7 +626,7 @@ def _read_days(lowered: str, mask: str, shown: str) -> tuple[frozenset[int], lis
 
     for begin, end in read:
         mask = mask[:begin] + " " * (end - begin) + mask[end:]
-    return frozenset(days), starts, mask
+    return frozenset(days), spans, mask
 
 
 def _refuse_spaced_abbreviations(

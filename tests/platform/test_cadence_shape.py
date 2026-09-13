@@ -149,6 +149,92 @@ def test_a_day_after_a_semicolon_is_refused_for_its_missing_time_not_as_a_word(c
     assert "a time after only some of its days" in refusal(cadence)
 
 
+# -- groups that a length or punctuation separates ----------------------------
+
+
+@pytest.mark.parametrize(
+    "cadence",
+    [
+        "Mondays 30 minutes, Wednesdays 19:00",
+        "Saturdays 1 hour, Sundays 10am",
+        "Weekdays 15 minutes and Saturdays 9am",
+        "Mondays for an hour and Wednesdays 7pm",
+        "Tuesday 20 mins; Thursday 7pm",
+        "Mon 30 minutes, Wed 7pm",
+        "Mondays 30 minutes, Wednesdays 30 minutes at 19:00",
+        "Mondays 30 minutes and Wednesday evenings 7pm",
+        "Weekdays 15 minutes, weekends 1 hour at 9am",
+        "Saturday 2 hours; Sunday at noon",
+        "Tuesdays, 1 hour. Thursdays 19:00, 1 hour",
+        "Mondays. Wednesdays 19:00",
+        "Mondays (Wednesdays 19:00)",
+    ],
+)
+def test_a_time_beside_only_the_group_after_a_length_or_a_stop_is_refused(cadence):
+    """"Mondays 30 minutes, Wednesdays 19:00" put Monday at 19:00. Lengths and punctuation were
+    blanked before the shape was built, so the two day names sat side by side and were read as one
+    group sharing the time written only beside Wednesday.
+
+    Mutation-tested: letting ``_shape`` join neighbouring days whatever lies between them reads
+    these again, Monday at 19:00, and this fails.
+    """
+    assert "puts a time beside only some of its days" in refusal(cadence)
+
+
+@pytest.mark.parametrize(
+    ("cadence", "weekdays", "at", "fortnightly"),
+    [
+        ("Weekday mornings 08:00", WEEKDAYS, time(8, 0), False),
+        ("Tuesdays 19:00", {1}, time(19, 0), False),
+        ("Mon/Wed/Fri 07:00", {0, 2, 4}, time(7, 0), False),
+        ("Mon/Wed/Fri 18:00", {0, 2, 4}, time(18, 0), False),
+        ("Every other Thursday", {3}, None, True),
+        ("Weekday mornings, 15 minutes", WEEKDAYS, None, False),
+        ("Tuesdays 19:00 for 90 minutes", {1}, time(19, 0), False),
+        ("Mon, Wed & Fri at 6:30am", {0, 2, 4}, time(6, 30), False),
+        ("Monday to Friday 07:00", WEEKDAYS, time(7, 0), False),
+        ("Mon – Fri 07:00", WEEKDAYS, time(7, 0), False),
+        ("Monday through Wednesday, and Friday 07:00", {0, 1, 2, 4}, time(7, 0), False),
+        ("Wed 7pm and Sun 7pm", {2, 6}, time(19, 0), False),
+        # Groups that each say nothing but their days borrow nothing from each other.
+        ("Weekdays 15 minutes, Saturdays 30 minutes", {0, 1, 2, 3, 4, 5}, None, False),
+        ("Mondays 30 minutes at 19:00, Wednesdays 19:00", {0, 2}, time(19, 0), False),
+    ],
+)
+def test_days_joined_only_by_list_or_range_words_are_still_one_group(cadence, weekdays, at, fortnightly):
+    read = parse_cadence(cadence)
+    assert (set(read.weekdays), read.at, read.fortnightly) == (weekdays, at, fortnightly)
+
+
+@pytest.mark.parametrize(
+    "cadence", ["every other 15 minutes Mon", "every other for 90 minutes Mon", "every other 30 minutes week on Mon"]
+)
+def test_every_other_does_not_reach_across_a_length(cadence):
+    """"every other 15 minutes Mon" read as every other Monday: the length was blanked first, and
+    "every other" matched across the gap it left.
+
+    Mutation-tested: removing the check for a length inside the marker reads every other Monday and
+    this fails.
+    """
+    assert "has a length in the middle of saying what alternates" in refusal(cadence)
+
+
+@pytest.mark.parametrize("cadence", ["Tuesdays ~7pm", "Tuesdays ~ 19:00", "Weekends ~noon"])
+def test_a_tilde_before_a_time_is_refused_like_around(cadence):
+    """"Tuesdays ~7pm" put the block at exactly 19:00. The tilde is "around" written as a symbol.
+
+    Mutation-tested: removing the tilde from ``_RELATIVE_TIME`` reads Tuesday at 19:00 and this
+    fails.
+    """
+    assert "gives a time relative to something else" in refusal(cadence)
+
+
+@pytest.mark.parametrize(("cadence", "at"), [("Tuesdays 19:00, ~90 minutes", time(19, 0)), ("Tuesdays ~90 minutes", None)])
+def test_a_tilde_before_a_length_goes_with_the_length(cadence, at):
+    read = parse_cadence(cadence)
+    assert (set(read.weekdays), read.at) == ({1}, at)
+
+
 # -- the allowlist, order by order ---------------------------------------------
 
 # D is days (one day, or days joined into a list or range), P a part of the day, T a time, W
@@ -177,6 +263,11 @@ SHAPES = [
     ("DPTDPT", "Tuesday evenings 19:00 and Thursday evenings 19:00", ({1, 3}, time(19, 0), False)),
     ("DPDP", "Tuesday evenings and Thursday evenings", ({1, 3}, None, False)),
     ("DTDTDT", "Weekdays 7am, Saturdays 7am and Sundays 7am", (set(range(7)), time(7, 0), False)),
+    ("DD", "Weekdays 15 minutes, Saturdays 30 minutes", ({0, 1, 2, 3, 4, 5}, None, False)),
+    ("DDT", "Mondays 30 minutes, Wednesdays 19:00", "puts a time beside only some of its days"),
+    ("DDT", "Mondays. Wednesdays 19:00", "puts a time beside only some of its days"),
+    ("DDPT", "Mondays 30 minutes and Wednesday evenings 7pm", "puts a time beside only some of its days"),
+    ("DDP", "Mondays 30 minutes, Wednesday evenings", "names the evening beside only some of its days"),
     ("TDT", "07:00 Mon and Wed 07:00", "opens with a time and writes a time again later"),
     ("TDTD", "7pm Mon, Wed 7pm and Fri", "opens with a time and writes a time again later"),
     ("DPDT", "Mon mornings and Wed 08:00", "names the morning beside some of its days and a time beside others"),
