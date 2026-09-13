@@ -32,7 +32,7 @@
       "task_id": "t-leave"
     },
     {
-      "what": "Book flights to Lisbon, due Thu 24 Sep",
+      "what": "Book flights to Lagos, due Thu 24 Sep",
       "evidence": "Due in 13 days with nothing booked before then.",
       "source": "graph",
       "kind": "deadline",
@@ -125,10 +125,10 @@
   "questions": [
     {
       "horizon": "week",
-      "question": "What do you want to do this week towards “Be at my sister's wedding in Lisbon”, and by when?",
-      "evidence": "Nothing is planned for this week under “Be at my sister's wedding in Lisbon”. Never asked before.",
+      "question": "What do you want to do this week towards “Be at my sister's wedding in Lagos”, and by when?",
+      "evidence": "Nothing is planned for this week under “Be at my sister's wedding in Lagos”. Never asked before.",
       "anchor_goal_id": "g-lisbon",
-      "anchor_goal_title": "Be at my sister's wedding in Lisbon",
+      "anchor_goal_title": "Be at my sister's wedding in Lagos",
       "last_asked": null,
       "every_days": 2
     },

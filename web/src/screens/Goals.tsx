@@ -10,7 +10,7 @@
  *
  * **Roots are whatever nothing sits above, at any horizon.** The seeded world
  * has two `life` roots and a `month` one -- "be at my sister's wedding in
- * Lisbon" needs no decade above it -- so the tree is built from the edges and
+ * Lagos" needs no decade above it -- so the tree is built from the edges and
  * then ordered by horizon, never assumed.
  *
  * **Freed means freed.** Retiring a goal releases the calendar slots its routes

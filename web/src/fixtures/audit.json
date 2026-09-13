@@ -62,7 +62,7 @@
     "actor": "preparer",
     "action": "PreparedAction",
     "payload": {
-      "input": "{'kind': 'email_draft', 'summary': 'Leave request for the wedding week, drafted and waiting in Gmail.', 'detail': \"To: manager@example.com\\nSubject: Annual leave request: wedding week\\n\\nHi,\\n\\nI'd like to request leave for the week of 28 September. My sister's wedding is in Lisbon that week and I …"
+      "input": "{'kind': 'email_draft', 'summary': 'Leave request for the wedding week, drafted and waiting in Gmail.', 'detail': \"To: manager@example.com\\nSubject: Annual leave request: wedding week\\n\\nHi,\\n\\nI'd like to request leave for the week of 28 September. My sister's wedding is in Lagos that week and I …"
     },
     "is_write": false,
     "failed": false

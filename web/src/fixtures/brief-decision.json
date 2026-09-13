@@ -62,7 +62,7 @@
     {
       "task_id": "t-flights",
       "goal_id": "g-lisbon",
-      "what": "Book flights to Lisbon",
+      "what": "Book flights to Lagos",
       "deadline": "2026-09-24",
       "days_left": 14,
       "evidence": "Due in 14 days with nothing booked before then."

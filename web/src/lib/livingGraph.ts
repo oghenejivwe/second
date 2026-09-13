@@ -8,7 +8,7 @@
  * * **Rows come from the horizon, not from graph depth.** A ladder can be four
  *   rungs deep ("speak to a room" under "raise a Series A" under "build a
  *   company that outlives me") or one rung ("be at my sister's wedding in
- *   Lisbon"), so depth alone would put a life-shaped ambition and a month-shaped
+ *   Lagos"), so depth alone would put a life-shaped ambition and a month-shaped
  *   one on different rows for no reason a reader could see. Banding by horizon
  *   makes the vertical axis mean something: how far out this is.
  *

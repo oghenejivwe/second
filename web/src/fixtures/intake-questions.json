@@ -236,7 +236,7 @@
       },
       {
         "id": "g-lisbon",
-        "title": "Be at my sister's wedding in Lisbon",
+        "title": "Be at my sister's wedding in Lagos",
         "horizon": "month",
         "contributes_to": null,
         "deadline": "2026-10-25",
@@ -266,7 +266,7 @@
               {
                 "id": "t-flights",
                 "route_id": "r-travel",
-                "title": "Book flights to Lisbon",
+                "title": "Book flights to Lagos",
                 "depends_on": [
                   "t-leave"
                 ],

@@ -9,6 +9,7 @@
  */
 import { USING_FIXTURES } from '../api/client'
 import type { IntakeResult } from '../types/contract'
+import { findReply } from './findReply'
 
 const DESTINATIONS: [RegExp, string][] = [
   [/\bcalendar\b/i, 'your calendar'],
@@ -43,6 +44,9 @@ export function requestTitle(transcript: string): string {
 }
 
 export function confirmation(transcript: string, result: IntakeResult): string {
+  const found = findReply(transcript)
+  if (found) return found
+
   if (result.clarifying_questions.length > 0) {
     return `I heard you, but I need one thing before I plan it: ${result.clarifying_questions[0]}`
   }

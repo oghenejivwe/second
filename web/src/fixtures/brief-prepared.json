@@ -53,7 +53,7 @@
     {
       "kind": "email_draft",
       "summary": "Leave request for the wedding week, drafted and waiting in Gmail.",
-      "detail": "To: manager@example.com\nSubject: Annual leave request: wedding week\n\nHi,\n\nI'd like to request leave for the week of 28 September. My sister's wedding is in Lisbon that week and I need to travel on the Friday before.\n\nThanks",
+      "detail": "To: manager@example.com\nSubject: Annual leave request: wedding week\n\nHi,\n\nI'd like to request leave for the week of 28 September. My sister's wedding is in Lagos that week and I need to travel on the Friday before.\n\nThanks",
       "external_ref": "draft-0001",
       "awaiting": "Read it and press send.",
       "task_id": "t-leave"
@@ -71,7 +71,7 @@
     {
       "task_id": "t-flights",
       "goal_id": "g-lisbon",
-      "what": "Book flights to Lisbon",
+      "what": "Book flights to Lagos",
       "deadline": "2026-09-24",
       "days_left": 14,
       "evidence": "Due in 14 days with nothing booked before then."

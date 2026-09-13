@@ -14,6 +14,7 @@
  * that looks live is the one kind of dishonesty this app must not commit.
  */
 
+import { findReply } from '../lib/findReply'
 import type {
   AuditEntry,
   DailyBrief,
@@ -406,6 +407,10 @@ export const api = {
     state: FixtureState = 'quiet',
   ): Promise<IntakeResult | FixtureAcknowledgement> {
     if (USING_FIXTURES) {
+      // A request to go and find something gets its own reply, whatever the state.
+      const found = findReply(text)
+      if (found) return fixture({ fixture: true, line: found } satisfies FixtureAcknowledgement, 1200)
+
       // The week answer was generated through the real intake graph, in one
       // world. The month answer never was. Either way, where nothing was
       // generated the reply is a line saying nothing happened rather than a
